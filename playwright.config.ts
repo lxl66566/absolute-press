@@ -1,7 +1,8 @@
 import { defineConfig, devices } from 'playwright/test';
 
-// Local preview must bypass any ambient HTTP(S)_PROXY: the webServer readiness
-// probe and page requests target localhost only.
+// Local preview must bypass any ambient HTTP(S)_PROXY, and every request
+// targets 127.0.0.1 explicitly: `localhost` can resolve to ::1 first, where
+// an unrelated process may hold the same port (vite preview binds IPv4).
 process.env.NO_PROXY = ['localhost', '127.0.0.1', process.env.NO_PROXY]
   .filter(Boolean)
   .join(',');
@@ -21,7 +22,7 @@ export default defineConfig({
   fullyParallel: true,
   reporter: process.env.CI ? 'line' : 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://127.0.0.1:4173',
     headless: true,
     trace: 'retain-on-failure',
   },

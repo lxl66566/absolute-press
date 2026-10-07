@@ -10,7 +10,7 @@ icon: code
 
 # Island 机制实现
 
-本文讲 island 从 markdown 标签到客户端激活的完整链路。涉及 `src/shared/islands.ts`（内置名单）、`src/node/markdown/islands.ts`（扫描与预渲染）、`src/client/runtime/`（注册表与激活）、`src/client/islands/`（内置组件）。用法层面的说明在[指南的 Islands 页](../guide/islands.md)，本文只讲实现。
+本文讲 island 从 markdown 标签到客户端激活的完整链路。涉及 `src/shared/islands.ts`（内置名单）、`src/node/markdown/islands.ts`（扫描与预渲染）、`src/client/runtime/`（注册表与激活）、`src/client/islands/`（内置组件）。用法层面的说明在[指南的 Islands 页](../islands.md)，本文只讲实现。
 
 ## 链路总览
 
@@ -99,4 +99,4 @@ isEntryListIsland(spec.name) || entryListIslands.has(spec.name);
 - 条目正文各自经 `renderFragment` 独立渲染；片段与页面共享 slugger 和链接收集，标题不进 TOC，脚注 id 加前缀隔离。
 - 静态产物是 `.ap-xlist` 表格骨架：preamble 块加一张表，每条目一行标题加 meta 单元格、后跟一行全宽展开正文。无 JS 时整张表全展开可读。
 
-客户端组件用 `childrenHtml` 接住这份骨架，按 `@@@` 标题作 key 解析回条目、把 TS 数据模块里的 meta 填进对应行，再调 `absolute-press/client` 导出的 `hydrateIslands` 重新激活正文里的嵌套 island。典型场景是「TS 数据 + md 插槽正文」的站点列表页：meta 列来自可校验的数据模块，markdown 只留正文。具体的配置写法与注意事项见[指南对应节](../guide/islands.md#站点-island-复用条目管线-entrylist)。
+客户端组件用 `childrenHtml` 接住这份骨架，按 `@@@` 标题作 key 解析回条目、把 TS 数据模块里的 meta 填进对应行，再调 `absolute-press/client` 导出的 `hydrateIslands` 重新激活正文里的嵌套 island。典型场景是「TS 数据 + md 插槽正文」的站点列表页：meta 列来自可校验的数据模块，markdown 只留正文。具体的配置写法与注意事项见[指南对应节](../islands.md#站点-island-复用条目管线-entrylist)。

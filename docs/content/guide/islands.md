@@ -405,7 +405,7 @@ export default Notice;
 
 站点 island 想复用 ExpandableList 同款「`@@@` 条目 + 静态表格骨架」行为时，把 island 名加进站点配置 `entryListIslands: ['MyList', …]`，构建期就按同一条管线拆分 `<MyList>` 的 children：`@@@`/`@@` 语法、围栏保护、静态骨架渲染完全一致（未加入名单的 island 保持字面量）。客户端组件从 `childrenHtml` 接住这份静态 HTML，按条目拆回并填入自己的数据（典型场景是「TS 数据模块管 meta 列、markdown 只留插槽正文」的列表组件）；条目里的嵌套 island 用 `absolute-press/client` 导出的 `hydrateIslands` 重新激活。
 
-管线拆分与激活时序的实现细节见[设计与实现：islands 运行时](../design/islands-runtime.md)。
+管线拆分与激活时序的实现细节见[设计与实现：islands 运行时](./design/islands-runtime.md)。
 
 ## 约束与注意
 

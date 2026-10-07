@@ -26,7 +26,7 @@ pnpm install && pnpm dev
 
 - Build your own site: start at [Getting started](./guide/getting-started.md), then continue with the [Guide](./guide/index.md)
 - Migrating from vuepress-theme-hope: [Migration guide](./guide/migration.md); content syntax is character-for-character compatible
-- Design trade-offs and implementation details for SSG developers: [Design and implementation](./design/index.md)
+- Design trade-offs and implementation details for SSG developers: [Design and implementation](./guide/design/index.md)
 
 ## License
 

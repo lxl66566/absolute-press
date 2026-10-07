@@ -123,6 +123,23 @@ The single entry point for navbar-related config: the nav tree is generated from
 
 The navbar also always renders an RSS button (linking `/rss.xml`, base-aware, title from i18n `nav.rss`); RSS is always generated, no config switch.
 
+## sidebar
+
+```ts
+sidebar: {
+  order: ['blog', 'guide'], // top-level groups ordered by content directory name
+  tweaks: {
+    guide: ['getting-started', 'writing', 'markdown'], // member order inside one directory
+    'guide/advanced': ['deep'], // nested directories are keyed by their content-root-relative path
+  },
+}
+```
+
+The sidebar is generated complete from the content directory tree; `sidebar.*` only reorders the generated result — entries can be rearranged, never dropped (hiding pages is `nav.exclude`).
+
+- `order: string[]`: top-level groups ordered by content directory name, same semantics as `nav.order`; loose pages join directories as orderable entries (a page takes its file stem). Listed entries come first (config order), unknown names are skipped, the rest keep their generated order
+- `tweaks: Record<string, string[]>`: member order inside one directory. The key is the directory's path from the content root — a top-level directory is its bare name, nested directories join segments with `/` (e.g. `guide/advanced`); the value is an ordered list of member names, extension-less and relative to that directory (a page takes its file stem, a subdirectory its name; the directory index page is not a member — the folder row already links there). Listed members come first (config order), unknown names are skipped, unlisted members keep their generated order — an order list reorders, it can never make an entry disappear
+
 ## seo
 
 ```ts

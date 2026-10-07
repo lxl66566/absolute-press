@@ -5,7 +5,7 @@ import type {
   SidebarItem,
 } from '../../shared/types.ts';
 import { navLinkOf } from '../../shared/types.ts';
-import type { NavbarDirTweak } from '../config.ts';
+import type { NavbarDirTweak, SidebarConfig } from '../config.ts';
 import { INDEX_STEMS, isLocaleHome, isNavExcluded, stemOf } from './pages.ts';
 import type { PageSource, RenderedPage } from './pages.ts';
 
@@ -285,21 +285,18 @@ function applyNavbarTweak(
 }
 
 /**
- * `order` (top level only): listed directories first in config order,
- * unknown names skipped, the rest appended in generated order — an entry
- * can never silently disappear.
+ * Entries listed in `order` first (config order), unknown keys skipped,
+ * the rest appended in generated order (Map insertion order) — an order
+ * list reorders, it can never make an entry silently disappear.
  */
-function orderedTopDirs(
-  dirs: Map<string, TreeDir>,
-  order: string[],
-): Iterable<TreeDir> {
-  const rest = new Map(dirs);
-  const listed: TreeDir[] = [];
-  for (const name of order) {
-    const dir = rest.get(name);
-    if (dir) {
-      listed.push(dir);
-      rest.delete(name);
+function orderedMembers<T>(members: Map<string, T>, order: string[]): T[] {
+  const rest = new Map(members);
+  const listed: T[] = [];
+  for (const key of order) {
+    const member = rest.get(key);
+    if (member) {
+      listed.push(member);
+      rest.delete(key);
     }
   }
   return [...listed, ...rest.values()];
@@ -316,7 +313,7 @@ function dirToNavItems(
   for (const page of dir.pages) items.push(dirToNavItem(page));
   const subs =
     depth === 0 && order?.length
-      ? orderedTopDirs(dir.dirs, order)
+      ? orderedMembers(dir.dirs, order)
       : dir.dirs.values();
   for (const sub of subs) items.push(dirNavItem(sub, tweaks, order, depth));
   return items;
@@ -325,35 +322,55 @@ function dirToNavItems(
 function dirToSidebarItems(
   dir: TreeDir,
   labels?: Record<string, string>,
+  sidebar?: SidebarConfig,
+  dirPath = '',
 ): SidebarItem[] {
-  const items: SidebarItem[] = [];
+  // The root takes the top-level order; deeper directories their tweaks
+  // entry keyed by the content-root-relative path.
+  const order = dirPath === '' ? sidebar?.order : sidebar?.tweaks?.[dirPath];
+  // Generated order pairs every entry with the member key the order config
+  // addresses it by (page stem or subdirectory name — extension-less and
+  // relative to this directory, the navbar tweak item key convention). The
+  // folder index page is not a member: the folder row already links there.
+  const members: [string, SidebarItem][] = [];
   for (const page of dir.pages) {
-    items.push({
-      kind: 'link',
-      text: linkText(page),
-      link: page.route,
-      ...(page.meta.frontmatter.icon
-        ? { icon: page.meta.frontmatter.icon }
-        : {}),
-    });
+    members.push([
+      stemOf(page.relPath),
+      {
+        kind: 'link',
+        text: linkText(page),
+        link: page.route,
+        ...(page.meta.frontmatter.icon
+          ? { icon: page.meta.frontmatter.icon }
+          : {}),
+      },
+    ]);
   }
-  for (const sub of dir.dirs.values()) {
-    items.push({
-      kind: 'group',
-      // Label follows the folder index's title, falling back to the dirname;
-      // site config labels win over both (display-name decoupling).
-      text: labels?.[sub.name] ?? dirLabel(sub),
-      collapsible: true,
-      children: dirToSidebarItems(sub, labels),
-      // The folder row navigates to the folder's index page; the index page
-      // does not repeat as a child. Index-less folders stay plain headers.
-      ...(sub.index ? { link: sub.index.route } : {}),
-      ...(sub.index?.meta.frontmatter.icon
-        ? { icon: sub.index.meta.frontmatter.icon }
-        : {}),
-    });
+  for (const [name, sub] of dir.dirs) {
+    members.push([
+      name,
+      {
+        kind: 'group',
+        // Label follows the folder index's title, falling back to the dirname;
+        // site config labels win over both (display-name decoupling).
+        text: labels?.[name] ?? dirLabel(sub),
+        collapsible: true,
+        children: dirToSidebarItems(
+          sub,
+          labels,
+          sidebar,
+          dirPath === '' ? name : `${dirPath}/${name}`,
+        ),
+        // The folder row navigates to the folder's index page; the index page
+        // does not repeat as a child. Index-less folders stay plain headers.
+        ...(sub.index ? { link: sub.index.route } : {}),
+        ...(sub.index?.meta.frontmatter.icon
+          ? { icon: sub.index.meta.frontmatter.icon }
+          : {}),
+      },
+    ]);
   }
-  return items;
+  return orderedMembers(new Map(members), order ?? []);
 }
 
 /** Navbar + sidebar built from one shared directory tree. */
@@ -370,6 +387,8 @@ export interface ChromeOptions {
   order?: string[];
   /** Sidebar display-name overrides keyed by top-level dir name. */
   labels?: Record<string, string>;
+  /** Sidebar order controls (top-level order + per-directory member order). */
+  sidebar?: SidebarConfig;
 }
 
 /**
@@ -385,7 +404,7 @@ export function buildChrome(
   const tree = buildTree(pages, exclude);
   return {
     navbar: dirToNavItems(tree, options.tweaks, options.order),
-    sidebar: dirToSidebarItems(tree, options.labels),
+    sidebar: dirToSidebarItems(tree, options.labels, options.sidebar),
   };
 }
 
@@ -393,9 +412,9 @@ export function buildChrome(
 export function buildSidebar(
   pages: RenderedPage[],
   exclude: string[],
-  labels?: Record<string, string>,
+  options: Pick<ChromeOptions, 'labels' | 'sidebar'> = {},
 ): SidebarItem[] {
-  return buildChrome(pages, exclude, { labels }).sidebar;
+  return buildChrome(pages, exclude, options).sidebar;
 }
 
 /** Navbar only; use buildChrome() when both views are needed. */

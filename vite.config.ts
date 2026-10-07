@@ -94,7 +94,32 @@ const config: UserConfig = defineConfig({
             },
           ],
           align: 'center',
-          order: ['guide', 'design'], // top-level navbar entries by directory name
+        },
+        sidebar: {
+          // Reading order of the guide's members (pages and subfolders by
+          // extension-less name; the folder index page is the group row
+          // itself and is not orderable). Unlisted members keep their
+          // generated (alphabetical) order after the listed ones.
+          tweaks: {
+            guide: [
+              'getting-started',
+              'writing',
+              'markdown',
+              'islands',
+              'theme',
+              'configuration',
+              'seo',
+              'search-comments',
+              'i18n',
+              'encrypt',
+              'secret',
+              'deploy',
+              'migration',
+              'faq',
+              'advanced',
+              'design',
+            ],
+          },
         },
         encrypt: [
           {

@@ -1,6 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { MarkdownRenderer, NavItem } from '../../../shared/types.ts';
+import type {
+  MarkdownRenderer,
+  NavItem,
+  SidebarItem,
+} from '../../../shared/types.ts';
 import { makeRenderer } from '../../markdown/__tests__/helpers.ts';
 import { buildChrome, buildNavbar, buildSidebar } from '../nav-tree.ts';
 import type { RenderedPage } from '../pages.ts';
@@ -354,7 +358,7 @@ describe('buildNavbar display tweaks', () => {
     expect(navbar.find(item => item.text === 'misc')).toBeUndefined();
     // The relabeled folder row still navigates to the directory index.
     expect(relabeled.link).toBe('/misc/index.html');
-    const sidebar = buildSidebar(pages, [], { misc: '杂项' });
+    const sidebar = buildSidebar(pages, [], { labels: { misc: '杂项' } });
     const group = sidebar.find(item => item.kind === 'group');
     if (group?.kind !== 'group') throw new Error('group missing');
     expect(group.text).toBe('杂项');
@@ -646,6 +650,87 @@ describe('buildNavbar top-level order', () => {
   });
 });
 
+describe('buildSidebar order', () => {
+  // Array order mirrors the alphabetical production scan.
+  const pages = [
+    page('about.md', '关于'),
+    page('blog/2023.md', '旧文'),
+    page('blog/2024.md', '新文'),
+    page('coding/index.md', '编码总览'),
+    page('coding/git.md', 'Git'),
+  ];
+  const texts = (items: SidebarItem[]): string[] => items.map(i => i.text);
+
+  it('lists order entries first (pages and dirs alike) and appends the rest', () => {
+    const sidebar = buildSidebar(pages, [], {
+      sidebar: { order: ['coding', 'about'] },
+    });
+    // The top level mixes links (loose pages) and groups (directories);
+    // 'blog' is unlisted and keeps its generated slot after them.
+    expect(texts(sidebar)).toEqual(['编码总览', '关于', 'blog']);
+  });
+
+  it('reorders members inside one directory, unlisted appended', () => {
+    const sidebar = buildSidebar(pages, [], {
+      sidebar: { tweaks: { blog: ['2024'] } },
+    });
+    const blog = sidebar.find(
+      item => item.kind === 'group' && item.text === 'blog',
+    );
+    if (blog?.kind !== 'group') throw new Error('blog group missing');
+    expect(blog.children.map(child => child.text)).toEqual(['新文', '旧文']);
+  });
+
+  it('keys nested directories by their slash path', () => {
+    const nested = [
+      page('guide/index.md', '指南'),
+      page('guide/intro.md', '入门'),
+      page('guide/advanced/alpha.md', 'A'),
+      page('guide/advanced/zeta.md', 'Z'),
+    ];
+    const sidebar = buildSidebar(nested, [], {
+      sidebar: {
+        tweaks: { guide: ['advanced'], 'guide/advanced': ['zeta'] },
+      },
+    });
+    const guide = sidebar.find(item => item.kind === 'group');
+    if (guide?.kind !== 'group') throw new Error('guide group missing');
+    // 'advanced' is a subdirectory member of guide; 'intro' is unlisted.
+    expect(guide.children.map(child => child.text)).toEqual([
+      'advanced',
+      '入门',
+    ]);
+    const advanced = guide.children.find(child => child.kind === 'group');
+    if (advanced?.kind !== 'group') throw new Error('advanced group missing');
+    expect(advanced.children.map(child => child.text)).toEqual(['Z', 'A']);
+  });
+
+  it('skips unknown keys instead of dropping entries', () => {
+    const sidebar = buildSidebar(pages, [], {
+      sidebar: { order: ['ghost', 'coding'], tweaks: { blog: ['ghost'] } },
+    });
+    expect(texts(sidebar)).toEqual(['编码总览', '关于', 'blog']);
+    const blog = sidebar.find(
+      item => item.kind === 'group' && item.text === 'blog',
+    );
+    if (blog?.kind !== 'group') throw new Error('blog group missing');
+    expect(blog.children.map(child => child.text)).toEqual(['旧文', '新文']);
+  });
+
+  it('never surfaces a directory index page as an orderable member', () => {
+    // The folder row links to the index; naming its stem in an order list
+    // must not resurrect it as a child row.
+    const sidebar = buildSidebar(pages, [], {
+      sidebar: { tweaks: { coding: ['index', 'git'] } },
+    });
+    const coding = sidebar.find(
+      item => item.kind === 'group' && item.text === '编码总览',
+    );
+    if (coding?.kind !== 'group') throw new Error('coding group missing');
+    expect(coding.children.map(child => child.text)).toEqual(['Git']);
+  });
+});
+
 describe('buildChrome shared tree', () => {
   const pages = [
     page('index.md', 'Home'),
@@ -668,5 +753,12 @@ describe('buildChrome shared tree', () => {
     const group = chrome.sidebar.find(item => item.kind === 'group');
     if (group?.kind !== 'group') throw new Error('group missing');
     expect(group.text).toBe('杂项');
+  });
+
+  it('applies sidebar order without touching the navbar', () => {
+    const sidebar = { order: ['coding'], tweaks: { misc: ['reciter'] } };
+    const chrome = buildChrome(pages, [], { sidebar });
+    expect(chrome.sidebar).toEqual(buildSidebar(pages, [], { sidebar }));
+    expect(chrome.navbar).toEqual(buildNavbar(pages, []));
   });
 });

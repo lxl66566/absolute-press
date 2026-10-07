@@ -167,6 +167,32 @@ describe('resolveConfig nav', () => {
   });
 });
 
+describe('resolveConfig sidebar', () => {
+  it('keeps the configured order lists verbatim', () => {
+    const { sidebar } = resolveConfig(
+      {
+        ...baseConfig(),
+        sidebar: {
+          order: ['blog'],
+          tweaks: { guide: ['intro', 'advanced'], 'guide/advanced': ['deep'] },
+        },
+      },
+      '/root',
+    );
+    expect(sidebar).toEqual({
+      order: ['blog'],
+      tweaks: { guide: ['intro', 'advanced'], 'guide/advanced': ['deep'] },
+    });
+  });
+
+  it('applies the documented defaults', () => {
+    expect(resolveConfig(baseConfig(), '/root').sidebar).toEqual({
+      order: [],
+      tweaks: {},
+    });
+  });
+});
+
 describe('resolveConfig pagination and feed sizes', () => {
   it('applies the documented defaults', () => {
     const config = resolveConfig(baseConfig(), '/root');

@@ -405,7 +405,7 @@ export default Notice;
 
 When a site island wants ExpandableList's "`@@@` entries + static table skeleton" behavior, add the island name to the site config `entryListIslands: ['MyList', …]`, and the build splits `<MyList>` children through the same pipeline: identical `@@@`/`@@` syntax, fence protection, and static skeleton rendering (islands not in the list stay literal). The client component receives this static HTML via `childrenHtml`, splits it back into entries, and fills in its own data (the typical case is a list component where "a TS data module owns the meta columns and markdown keeps only the slot bodies"); nested islands inside entries are re-activated with `hydrateIslands` exported from `absolute-press/client`.
 
-Implementation details of pipeline splitting and activation timing are in [Design and implementation: the islands runtime](../design/islands-runtime.md).
+Implementation details of pipeline splitting and activation timing are in [Design and implementation: the islands runtime](./design/islands-runtime.md).
 
 ## Constraints and notes
 

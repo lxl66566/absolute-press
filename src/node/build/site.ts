@@ -429,6 +429,7 @@ export class SiteStore {
         tweaks: nav.tweaks,
         order: nav.order,
         labels,
+        sidebar: this.config.sidebar,
       });
       chrome = {
         articles: buildArticles(siblings),

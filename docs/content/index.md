@@ -26,7 +26,7 @@ pnpm install && pnpm dev
 
 - 搭建自己的站点：从[快速开始](./guide/getting-started.md)进入[指南](./guide/index.md)
 - 从 vuepress-theme-hope 迁移：[迁移指南](./guide/migration.md)，正文语法逐字兼容
-- 面向 SSG 开发者的设计取舍与实现细节：[设计与实现](./design/index.md)
+- 面向 SSG 开发者的设计取舍与实现细节：[设计与实现](./guide/design/index.md)
 
 ## License
 

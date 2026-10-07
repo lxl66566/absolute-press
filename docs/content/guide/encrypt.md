@@ -44,4 +44,4 @@ encrypt: [
 
 本站配置了真实规则，[加密演示页](./secret.md)被 `match: '/guide/secret.html'` 命中，演示密码就是上面配置里的 `docs-demo`；`match` 也接受 RegExp 形式，写法见站点的 `vite.config.ts`。
 
-密码门的 island 激活与实现细节见[islands 运行时](../design/islands-runtime.md)。
+密码门的 island 激活与实现细节见[islands 运行时](./design/islands-runtime.md)。

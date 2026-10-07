@@ -10,7 +10,7 @@ icon: code
 
 # Island Runtime Implementation
 
-This page covers the full path of an island from a markdown tag to client-side hydration. It touches `src/shared/islands.ts` (the built-in list), `src/node/markdown/islands.ts` (scanning and pre-rendering), `src/client/runtime/` (registry and hydration), and `src/client/islands/` (built-in components). Usage-level documentation lives in the [Islands page of the guide](../guide/islands.md); this page only covers the implementation.
+This page covers the full path of an island from a markdown tag to client-side hydration. It touches `src/shared/islands.ts` (the built-in list), `src/node/markdown/islands.ts` (scanning and pre-rendering), `src/client/runtime/` (registry and hydration), and `src/client/islands/` (built-in components). Usage-level documentation lives in the [Islands page of the guide](../islands.md); this page only covers the implementation.
 
 ## Pipeline overview
 
@@ -99,4 +99,4 @@ A matched island's children skip normal recursive rendering and go to `renderEnt
 - Each entry body renders independently through `renderFragment`; fragments share the slugger and link collection with the page, headings do not enter the TOC, and footnote ids are prefixed for isolation.
 - The static output is an `.ap-xlist` table skeleton: a preamble block plus a table where each entry is a title row with meta cells followed by a full-width expandable body row. Without JS the whole table reads fully expanded.
 
-The client component receives this skeleton through `childrenHtml`, parses it back into entries keyed by the `@@@` titles, fills meta from a TS data module into the matching rows, then re-hydrates nested islands in the body with the `hydrateIslands` exported from `absolute-press/client`. The typical scenario is a "TS data + md slot body" list page: meta columns come from a validatable data module, and markdown only holds body text. For the concrete config syntax and caveats, see the [corresponding guide section](../guide/islands.md#reusing-the-entry-pipeline-for-site-islands-entrylist).
+The client component receives this skeleton through `childrenHtml`, parses it back into entries keyed by the `@@@` titles, fills meta from a TS data module into the matching rows, then re-hydrates nested islands in the body with the `hydrateIslands` exported from `absolute-press/client`. The typical scenario is a "TS data + md slot body" list page: meta columns come from a validatable data module, and markdown only holds body text. For the concrete config syntax and caveats, see the [corresponding guide section](../islands.md#reusing-the-entry-pipeline-for-site-islands-entrylist).

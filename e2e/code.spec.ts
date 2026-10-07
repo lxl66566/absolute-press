@@ -7,7 +7,7 @@ import { expect, test, type Page } from 'playwright/test';
  * Targets the docs site, which exercises every variant on /guide/markdown.
  */
 
-const DOCS = 'http://localhost:4173';
+const DOCS = 'http://127.0.0.1:4173';
 const PAGE = '/guide/markdown.html';
 
 async function gotoMarkdown(page: Page): Promise<void> {

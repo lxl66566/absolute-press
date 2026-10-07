@@ -101,6 +101,8 @@ export interface AbsolutePressConfig extends SiteConfig {
    * tweaks, top-level order, lane alignment and social buttons.
    */
   nav?: NavConfig;
+  /** Sidebar order options over the generated tree. */
+  sidebar?: SidebarConfig;
   /** Extra islands: PascalCase tag -> module path relative to project root. */
   islands?: Record<string, string>;
   /**
@@ -218,6 +220,30 @@ export interface NavbarDirTweak {
 /** Horizontal alignment of the top-level navbar lane. */
 export type NavAlign = 'left' | 'center';
 
+/**
+ * Sidebar order options. The sidebar tree is generated complete from the
+ * content directories; these knobs only reorder the generated result —
+ * entries can be rearranged, never dropped (hiding pages is `nav.exclude`).
+ */
+export interface SidebarConfig {
+  /**
+   * Top-level sidebar order by content directory name (same semantics as
+   * `nav.order`): listed directories first in config order, unknown names
+   * skipped, the rest appended in generated order.
+   */
+  order?: string[];
+  /**
+   * Member order inside one directory, keyed by the directory's path from
+   * the content root (a top-level directory is its bare name, nested
+   * directories join segments with '/', e.g. 'guide/advanced'). Member
+   * names are extension-less and relative to that directory: the page stem
+   * or the subdirectory name. Listed members first in config order,
+   * unknown names skipped, the rest keep their generated order — an order
+   * list reorders, it can never make an entry disappear.
+   */
+  tweaks?: Record<string, string[]>;
+}
+
 /** Normalized navbar options consumed by the build layer. */
 export interface ResolvedNav {
   /** Match-normalized route prefixes: decoded, leading '/', no trailing '/'. */
@@ -248,6 +274,13 @@ export interface ResolvedConfig {
   locales: LocaleInfo[];
   /** Normalized navbar options. */
   nav: ResolvedNav;
+  /** Normalized sidebar order options. */
+  sidebar: {
+    /** Top-level sidebar directory order, config order preserved. */
+    order: string[];
+    /** Per-directory member order keyed by content-root-relative dir path. */
+    tweaks: Record<string, string[]>;
+  };
   /** Island tag -> absolute module path. */
   islands: Record<string, string>;
   /** Site islands opted into the `@@@` entry-list children pipeline. */
@@ -335,6 +368,10 @@ export function resolveConfig(
     ...(config.nav?.tweaks ? { tweaks: config.nav.tweaks } : {}),
     ...(config.nav?.social?.length ? { social: config.nav.social } : {}),
   };
+  const sidebar = {
+    order: config.sidebar?.order ?? [],
+    tweaks: config.sidebar?.tweaks ?? {},
+  };
   return {
     root,
     contentDir: path.resolve(root, config.contentDir),
@@ -343,6 +380,7 @@ export function resolveConfig(
     hostname: resolveHostname(config.hostname),
     locales,
     nav,
+    sidebar,
     islands: Object.fromEntries(
       Object.entries(config.islands ?? {}).map(([tag, mod]) => [
         tag,

@@ -123,6 +123,23 @@ navbar 相关配置的归拢入口：导航树由内容目录自动生成，`nav
 
 导航栏还固定渲染一个 RSS 按钮（链接 `/rss.xml`，base 自适应，title 走 i18n `nav.rss`）；RSS 始终生成，无需配置开关。
 
+## sidebar
+
+```ts
+sidebar: {
+  order: ['blog', 'guide'], // 顶层分组按内容目录名排序
+  tweaks: {
+    guide: ['getting-started', 'writing', 'markdown'], // 目录内成员顺序
+    'guide/advanced': ['deep'], // 嵌套目录用相对内容根的路径做 key
+  },
+}
+```
+
+sidebar 由内容目录树完整生成，`sidebar.*` 只调整生成结果的顺序——条目可以重排，不能增删（隐藏页面走 `nav.exclude`）。
+
+- `order: string[]`：顶层分组按内容目录名排序，语义与 `nav.order` 相同；散页与目录都在可排之列（散页取文件名 stem）。列出的排前（按配置顺序），未知名字忽略，未列出的保持生成顺序追加在后
+- `tweaks: Record<string, string[]>`：单个目录内的成员顺序。key 是目录相对内容根的路径——顶层目录就是目录名，嵌套目录用 `/` 连接（如 `guide/advanced`）；value 是成员名的有序数组，成员名不带扩展名、相对该目录（页面取文件名 stem，子目录取目录名；目录 index 页不是成员——文件夹行本身链到它）。列出的成员排前（按配置顺序），未知名字忽略，未列出的成员保持生成顺序追加在后——顺序表只重排，不会让任何条目消失
+
 ## seo
 
 ```ts

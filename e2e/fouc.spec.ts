@@ -29,7 +29,7 @@ import { expect, type Page, test } from 'playwright/test';
  * async-CSS regressions deterministically.
  */
 
-const SITE = 'http://localhost:4173';
+const SITE = 'http://127.0.0.1:4173';
 
 /** CSS of lazy-loaded features; head links must never match these. */
 const LAZY_CSS = /docsearch|photoswipe/;

@@ -9,7 +9,7 @@ import { expect, test, type Page } from 'playwright/test';
  * rule (/guide/secret.html with `docs-demo`, see vite.config.ts).
  */
 
-const ORIGIN = 'http://localhost:4173';
+const ORIGIN = 'http://127.0.0.1:4173';
 const DOCS = `${ORIGIN}`;
 
 /** Every built docs page: content pages plus generated tag/category archives. */
@@ -31,11 +31,11 @@ const ALL_PAGES = [
   '/guide/seo.html',
   '/guide/faq.html',
   '/guide/advanced/deep.html',
-  '/design/index.html',
-  '/design/why.html',
-  '/design/architecture.html',
-  '/design/build-pipeline.html',
-  '/design/islands-runtime.html',
+  '/guide/design/index.html',
+  '/guide/design/why.html',
+  '/guide/design/architecture.html',
+  '/guide/design/build-pipeline.html',
+  '/guide/design/islands-runtime.html',
   '/en/index.html',
   '/en/guide/index.html',
   '/en/guide/getting-started.html',
@@ -53,11 +53,11 @@ const ALL_PAGES = [
   '/en/guide/seo.html',
   '/en/guide/faq.html',
   '/en/guide/advanced/deep.html',
-  '/en/design/index.html',
-  '/en/design/why.html',
-  '/en/design/architecture.html',
-  '/en/design/build-pipeline.html',
-  '/en/design/islands-runtime.html',
+  '/en/guide/design/index.html',
+  '/en/guide/design/why.html',
+  '/en/guide/design/architecture.html',
+  '/en/guide/design/build-pipeline.html',
+  '/en/guide/design/islands-runtime.html',
   '/en/category/guide.html',
   '/en/category/design.html',
   '/en/tag/getting-started.html',
@@ -101,12 +101,12 @@ const SETTLE_PAGES: Record<string, (page: Page) => Promise<void>> = {
   },
   // Architecture pages carry one mermaid fence each; wait for the SVG so
   // the lazy chunk load cannot race the no-error assertions below.
-  '/design/architecture.html': async page => {
+  '/guide/design/architecture.html': async page => {
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
   },
-  '/en/design/architecture.html': async page => {
+  '/en/guide/design/architecture.html': async page => {
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });

@@ -8,7 +8,7 @@ import { expect, type Page, test } from 'playwright/test';
  *   reaches the rendered chart (exposed via the container's __apPlot hook).
  */
 
-const ORIGIN = 'http://localhost:4173';
+const ORIGIN = 'http://127.0.0.1:4173';
 const DIAGRAMS = `${ORIGIN}/guide/islands.html`;
 
 /** Open /guide/islands.html and wait for the first mermaid render. */

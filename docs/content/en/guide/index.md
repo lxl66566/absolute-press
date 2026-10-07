@@ -23,4 +23,4 @@ All guide pages listed in reading order, for people building sites and writing w
 
 Directory-style links also work: [back to this directory's index](./) is equivalent to [the guide index](./index.md).
 
-Developers interested in framework internals (design motivation, build pipeline, island runtime) should head to the [Design and implementation](../design/index.md) section.
+Developers interested in framework internals (design motivation, build pipeline, island runtime) should head to the [Design and implementation](./design/index.md) subsection.

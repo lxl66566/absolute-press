@@ -16,7 +16,11 @@ export {
   type InlineMarkdownRenderer,
   type InlineMarkdownRendererOptions,
 } from './markdown/index.ts';
-export type { AbsolutePressConfig, NavConfig } from './config.ts';
+export type {
+  AbsolutePressConfig,
+  NavConfig,
+  SidebarConfig,
+} from './config.ts';
 // `defineSiteConfig` is the canonical name in vite.config.ts; `defineConfig`
 // stays as the original alias (it shadows vitest's helper of the same name,
 // so prefer the explicit one when both imports live in one file).

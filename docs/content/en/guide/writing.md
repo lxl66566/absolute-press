@@ -22,7 +22,7 @@ content/
 └── notes/index.md        # /notes/index.html; the directory row links here
 ```
 
-Directories are categories: the sidebar is generated from directories, a folder row links directly to that directory's `index.md`, and the row label takes the first h1 of `index.md` (falling back to the directory name when no index page exists); the index page does not repeat among its own children. So "moving a file" is "moving a page" — navigation, archives, and the related graph all follow automatically.
+Directories are categories: the sidebar is generated from directories, a folder row links directly to that directory's `index.md`, and the row label takes the first h1 of `index.md` (falling back to the directory name when no index page exists); the index page does not repeat among its own children. So "moving a file" is "moving a page" — navigation, archives, and the related graph all follow automatically. The generated order is alphabetical; adjust it with `sidebar.order` / `sidebar.tweaks` (see the [configuration reference](./configuration.md#sidebar)).
 
 ## Titles and page names
 

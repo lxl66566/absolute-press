@@ -6,7 +6,7 @@ import { expect, test } from 'playwright/test';
  * see playwright.config.ts for the preview webServers.
  */
 
-const ORIGIN = 'http://localhost:4173';
+const ORIGIN = 'http://127.0.0.1:4173';
 // Graph fixture page: guide/deploy.html has exactly two neighbors (faq and
 // the site home) that also reference each other, so the payload carries the
 // star edges plus one induced edge. Counts below are pinned to the docs'

@@ -44,4 +44,4 @@ Also: give protected pages frontmatter `feed: false` to leave RSS, so titles and
 
 This site has a real rule configured: the [encryption demo page](./secret.md) is hit by `match: '/en/guide/secret.html'`, and the demo password is the `docs-demo` in the config above; `match` also accepts a RegExp form — see the site's `vite.config.ts` for the syntax.
 
-For the password gate's island activation and implementation details, see [islands runtime](../design/islands-runtime.md).
+For the password gate's island activation and implementation details, see [islands runtime](./design/islands-runtime.md).
