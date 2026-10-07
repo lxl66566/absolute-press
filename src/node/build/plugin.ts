@@ -272,8 +272,10 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
   };
 }
 
+// Unconditional, not path.sep-based: chokidar and unit fixtures may carry
+// either separator style on any platform.
 function toPosix(p: string): string {
-  return p.split(path.sep).join('/');
+  return p.replaceAll('\\', '/');
 }
 
 /** Build fail hook shape (vite's `this.error`), narrowed for testing. */

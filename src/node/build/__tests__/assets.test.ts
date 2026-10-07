@@ -47,6 +47,14 @@ const ENV_A = { filePath: file('a.md') };
 const ENV_GALGAME = { filePath: file('hobbies/galgame.md') };
 const ENV_LOG = { filePath: file('blog/log.md') };
 
+// Any readable file works as an image source; use this test file via a
+// page-relative src — a posix-absolute src would read as root-relative and
+// pass through resolveImage untouched.
+const TEST_FILE_SRC = path.relative(
+  path.dirname(ENV_A.filePath),
+  fileURLToPath(import.meta.url),
+);
+
 let resolver: LinkResolver;
 beforeEach(() => {
   resolver = new LinkResolver('build');
@@ -239,9 +247,7 @@ describe('LinkResolver.resolveImage', () => {
   });
 
   it('emits a hashed asset token and registers the file content', () => {
-    // Any readable file works as an image source; use this test file.
-    const src = fileURLToPath(import.meta.url);
-    const token = resolver.resolveImage(src, ENV_A);
+    const token = resolver.resolveImage(TEST_FILE_SRC, ENV_A);
     expect(token.startsWith(ASSET_TOKEN)).toBe(true);
     const fileName = token.slice(ASSET_TOKEN.length);
     // Base name dots collapse to dashes; only hash + extension keep theirs.
@@ -305,9 +311,7 @@ describe('LinkResolver state across sync rounds', () => {
   });
 
   it('drops images recorded in a previous round', () => {
-    // Any readable file works as an image source; use this test file.
-    const src = fileURLToPath(import.meta.url);
-    const token = resolver.resolveImage(src, ENV_A);
+    const token = resolver.resolveImage(TEST_FILE_SRC, ENV_A);
     expect(token).toMatch(/^absasset:/);
     expect(resolver.images.size).toBe(1);
     resolver.setPages(PAGES);
