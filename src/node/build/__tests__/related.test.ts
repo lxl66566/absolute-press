@@ -400,20 +400,12 @@ describe('buildRelatedMap depth', () => {
   });
 
   it('caps induced edges at a custom maxEdges', () => {
+    // Every pair of neighbors is interconnected: 15 induced pairs total.
+    const links = Array.from({ length: 6 }, (_, j) => link(`b${j}.html`));
     const pages: RelatedPageInput[] = [
-      page(
-        '/a.html',
-        Array.from({ length: 6 }, (_, i) => link(`b${i}.html`)),
-        'A',
-      ),
-      // Every pair of neighbors is interconnected: 15 induced pairs total.
+      page('/a.html', links, 'A'),
       ...Array.from({ length: 6 }, (_, i) =>
-        page(
-          `/b${i}.html`,
-          Array.from({ length: 6 }, (_, j) => link(`b${j}.html`)).filter(
-            (_, j) => j !== i,
-          ),
-        ),
+        page(`/b${i}.html`, links.toSpliced(i, 1)),
       ),
     ];
     const list = buildRelatedMap(pages, { depth: 1, maxEdges: 4 }).get(

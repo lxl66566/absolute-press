@@ -38,6 +38,10 @@ function page(
   };
 }
 
+/** Real markdown source: frontmatter block + the h1 the nav title reads. */
+const indexSrc = (front: string[], title: string): string =>
+  ['---', ...front, '---', '', `# ${title}`].join('\n');
+
 describe('buildSidebar folder semantics', () => {
   const pages = [
     page('index.md', 'Home'),
@@ -279,10 +283,6 @@ describe('overview opt-out through the real parse pipeline', () => {
       },
     };
   };
-
-  /** Real markdown source: frontmatter block + the h1 the nav title reads. */
-  const indexSrc = (front: string[], title: string): string =>
-    ['---', ...front, '---', '', `# ${title}`].join('\n');
 
   it('drops the overview row when the parsed index frontmatter says false', () => {
     const nav = buildNavbar(

@@ -38,13 +38,13 @@ describe('isContentFile', () => {
   });
 });
 
+/** fail hook that mirrors vite's this.error (throws). */
+const fail = (message: string): never => {
+  throw new Error(message);
+};
+
 describe('reportBareLinks', () => {
   const links = [{ file: 'content/a.md', raw: 'guide/x.md', line: 3 }];
-
-  /** fail hook that mirrors vite's this.error (throws). */
-  const fail = (message: string): never => {
-    throw new Error(message);
-  };
 
   it('fails the build under the error policy', () => {
     expect(() => reportBareLinks(links, 'error', fail)).toThrowError(

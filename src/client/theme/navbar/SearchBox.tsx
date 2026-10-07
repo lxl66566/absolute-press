@@ -81,15 +81,15 @@ export function SearchBox(props: {
   // (the kbd hint is always visible), so this opens — and lazy-loads — it.
   // After that the button exists and the lib's own window hotkey toggles
   // open/close; firing open() here too would double-handle one keypress.
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key.toLowerCase() !== 'k' || (!e.ctrlKey && !e.metaKey)) return;
+    e.preventDefault();
+    if (containerRef?.querySelector('.DocSearch-Button')) return;
+    open();
+  };
   createEffect(
     () => 0,
     () => {
-      const onKeyDown = (e: KeyboardEvent): void => {
-        if (e.key.toLowerCase() !== 'k' || (!e.ctrlKey && !e.metaKey)) return;
-        e.preventDefault();
-        if (containerRef?.querySelector('.DocSearch-Button')) return;
-        open();
-      };
       document.addEventListener('keydown', onKeyDown);
       return () => document.removeEventListener('keydown', onKeyDown);
     },

@@ -35,6 +35,7 @@ interface StubShikiOptions {
  * renderer-internal logic.
  */
 vi.mock('@shikijs/markdown-it', async () => {
+  // oxlint-disable-next-line unicorn/consistent-function-scoping -- vi.mock factories are hoisted; they cannot reference outer declarations
   async function markdownItShikiStub(options: StubShikiOptions) {
     const {
       trimEndingNewline = true,

@@ -39,6 +39,23 @@ function currentLocale(payload: PagePayload): LocaleInfo | undefined {
   return payload.site.locales.find(l => l.key === payload.site.locale);
 }
 
+/** Release the pinned menu when a press lands outside any navbar menu entry. */
+const dismissOnPointerDown = (e: PointerEvent): void => {
+  const target = e.target;
+  if (target instanceof Element && !target.closest('li.ap-nav-item'))
+    setPinnedKey(null);
+};
+
+/** Release the pinned menu on Escape; a focused row would hold its panel open via focusin. */
+const dismissOnKeyDown = (e: KeyboardEvent): void => {
+  if (e.key === 'Escape') {
+    setPinnedKey(null);
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest('li.ap-nav-item'))
+      active.blur();
+  }
+};
+
 export function NavBar(props: { payload: PagePayload }): SolidElement {
   const t = useMessages(() => props.payload.site);
   const base = clientBase;
@@ -51,30 +68,14 @@ export function NavBar(props: { payload: PagePayload }): SolidElement {
       setMenuEpoch(e => e + 1);
     },
   );
-  // Release the pinned menu when a press lands outside any navbar menu
-  // entry, or when Escape is pressed anywhere.
   createEffect(
     () => 0,
     () => {
-      const onPointerDown = (e: PointerEvent): void => {
-        const target = e.target;
-        if (target instanceof Element && !target.closest('li.ap-nav-item'))
-          setPinnedKey(null);
-      };
-      const onKeyDown = (e: KeyboardEvent): void => {
-        if (e.key === 'Escape') {
-          setPinnedKey(null);
-          // A focused menu row would hold its panel open via focusin.
-          const active = document.activeElement;
-          if (active instanceof HTMLElement && active.closest('li.ap-nav-item'))
-            active.blur();
-        }
-      };
-      document.addEventListener('pointerdown', onPointerDown, true);
-      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('pointerdown', dismissOnPointerDown, true);
+      document.addEventListener('keydown', dismissOnKeyDown);
       return () => {
-        document.removeEventListener('pointerdown', onPointerDown, true);
-        document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('pointerdown', dismissOnPointerDown, true);
+        document.removeEventListener('keydown', dismissOnKeyDown);
       };
     },
   );

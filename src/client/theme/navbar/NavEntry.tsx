@@ -77,6 +77,12 @@ export function itemHref(base: string, link: string): string {
   return isExternalHref(link) ? link : withBase(base, link);
 }
 
+/** Row click navigates: menus must not outlive the visit. */
+const closeMenus = (): void => {
+  setPinnedKey(null);
+  setMenuEpoch(e => e + 1);
+};
+
 /**
  * One navbar entry; nests recursively for `children` (flyout on sublevels).
  * Nested flyouts place themselves with JS (fixed positioning) on open so the
@@ -157,12 +163,6 @@ export function NavEntry(props: {
     // owns the open state instead.
     (e.currentTarget as HTMLElement).blur();
     setPinnedKey(current => (current === menuKey ? null : menuKey));
-  };
-
-  /** Row click navigates: menus must not outlive the visit. */
-  const closeMenus = (): void => {
-    setPinnedKey(null);
-    setMenuEpoch(e => e + 1);
   };
 
   const enter = (): void => {

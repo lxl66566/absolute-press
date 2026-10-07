@@ -59,8 +59,8 @@ test('sort reorders rows by title', async ({ page }) => {
   await list.locator('.ap-xlist__sort').selectOption('title-desc');
   const descending = await titles();
   // Locale-independent invariants: same rows, exact reverse order.
-  expect(ascending).toEqual([...descending].reverse());
-  expect([...ascending].sort()).toEqual([
+  expect(ascending).toEqual(descending.toReversed());
+  expect(ascending.toSorted()).toEqual([
     '代码块',
     '嵌套 island',
     '嵌套容器',

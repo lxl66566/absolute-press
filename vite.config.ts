@@ -91,6 +91,9 @@ const config: UserConfig = defineConfig({
   },
   test: {
     environment: 'node',
+    // Cache module transforms on disk between runs; transform time
+    // otherwise dominates the unit suite.
+    fsModuleCache: true,
     // Shared test doubles for every test file: the shiki markdown-it stub
     // (vitest.setup.ts) keeps renderer init off the unit suite's critical
     // path; code-meta.test.ts opts back into real shiki via doUnmock.
