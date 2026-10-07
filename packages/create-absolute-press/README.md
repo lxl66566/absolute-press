@@ -1,6 +1,6 @@
 # create-absolute-press
 
-[absolute-press](https://github.com/OWNER/absolute-press) 的站点脚手架。
+[absolute-press](https://github.com/lxl66566/absolute-press) 的站点脚手架。
 
 ```bash
 pnpm create absolute-press my-blog

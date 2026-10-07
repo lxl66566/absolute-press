@@ -12,7 +12,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/absolute-press.git",
+    "url": "git+https://github.com/lxl66566/absolute-press.git",
     "directory": "packages/create-absolute-press"
   },
   "bin": {

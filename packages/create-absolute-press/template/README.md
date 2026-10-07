@@ -1,6 +1,6 @@
 # my-blog
 
-由 [absolute-press](https://github.com/OWNER/absolute-press) 脚手架创建的博客。
+由 [absolute-press](https://github.com/lxl66566/absolute-press) 脚手架创建的博客。
 
 ```bash
 pnpm dev      # 本地开发
