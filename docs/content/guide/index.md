@@ -1,11 +1,11 @@
 ---
 date: 2026-10-01
-icon: rocket
+icon: book
 ---
 
 # 指南
 
-这里是 Absolute Press 文档的指南目录。目录索引页 `index.md` 会成为 navbar/sidebar 里本目录的入口，标题取自首个 h1。
+这里按阅读顺序列出全部指南页，面向用 Absolute Press 搭站与写作的使用者。目录索引页 `index.md` 会成为 navbar/sidebar 里本目录的入口，标题取自首个 h1。
 
 - [快速开始](./getting-started.md)：安装、最小配置、目录结构与构建流程
 - [配置参考](./configuration.md)：站点配置的每一项
@@ -22,3 +22,5 @@ icon: rocket
 - [迁移指南](./migration.md)：从 vuepress-theme-hope 迁移
 
 目录式链接也是被支持的：[返回本目录索引](./) 等价于 [指南索引](./index.md)。
+
+想了解框架内部机制（设计动机、构建管线、island 运行时）的开发者，移步[设计与实现](../design/index.md)板块。

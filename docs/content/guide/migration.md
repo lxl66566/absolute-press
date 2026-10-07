@@ -5,7 +5,7 @@ category:
 tag:
   - 迁移
   - vuepress
-icon: rocket
+icon: migrate
 ---
 
 # 迁移指南
@@ -35,7 +35,7 @@ Absolute Press 的设计目标就是替代 vuepress-theme-hope：markdown 正文
 ## 已知不兼容项
 
 - **`<template #xxx>` 与 vue 组件语法**：按未知 HTML 原样透传（框架不兼容），迁移时需逐页改造——改成 island 或重写为 markdown 语法
-- **frontmatter 只认五个键**：`date` / `category` / `tag` / `icon` / `feed`；theme-hope 的其他键（如 `order`、`sticky`）被忽略，导航排序等能力以站点配置为准（如 `nav.exclude`）
+- **frontmatter 只认六个键**：`date` / `category` / `tag` / `icon` / `feed` / `overview`；theme-hope 的其他键（如 `order`、`sticky`）被忽略，导航排序等能力以站点配置为准（如 `nav.exclude`）
 - **icon 必须注册**：frontmatter `icon` 必须是站点配置 `icons` map 的 key，构建期校验；theme-hope 的 iconfont class 写法需要换成注册的 svg
 - **加密语义**：theme-hope 的密码加密是构建期真加密；Absolute Press 是客户端密码门（sha256 比对 + sessionStorage，内容仍随 HTML 下发），见[加密](./encrypt.md)
 - **关联文章图**只含一度邻居；ArticleCard 的 icon 仍是文本 chip
@@ -50,13 +50,13 @@ Absolute Press 的设计目标就是替代 vuepress-theme-hope：markdown 正文
 
 ## 能力对照速查
 
-| theme-hope                   | Absolute Press                     |
-| ---------------------------- | ---------------------------------- |
-| `.html` 路由 + 中文锚点      | 逐字兼容                           |
-| markdown 正文语法            | 逐字兼容（见上文清单）             |
-| `<template #xxx>` / vue 组件 | 透传，需逐页改造                   |
-| frontmatter 全量键           | 只认 `date/category/tag/icon/feed` |
-| 构建期密码加密               | 客户端密码门（非真加密）           |
-| 主题插槽/组件覆写            | CSS 变量 + 挂载点 DOM              |
+| theme-hope                   | Absolute Press                              |
+| ---------------------------- | ------------------------------------------- |
+| `.html` 路由 + 中文锚点      | 逐字兼容                                    |
+| markdown 正文语法            | 逐字兼容（见上文清单）                      |
+| `<template #xxx>` / vue 组件 | 透传，需逐页改造                            |
+| frontmatter 全量键           | 只认 `date/category/tag/icon/feed/overview` |
+| 构建期密码加密               | 客户端密码门（非真加密）                    |
+| 主题插槽/组件覆写            | CSS 变量 + 挂载点 DOM                       |
 
 迁移完成后，[Markdown 扩展](./markdown.md)页可以作为正文的回归自测清单。

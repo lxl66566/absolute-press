@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 写作
-icon: star
+icon: pen
 ---
 
 # 写作指南
@@ -60,17 +60,11 @@ overview: true # 默认 true；仅对目录的 index.md 生效
 
 ## 站内链接与死链检查
 
-`./` `../` 开头的相对链接在构建期按 `./x` → `./x.md` → `./x/index.md` → `./x/README.md` 的顺序 resolve，失败即构建报错。写法约定：
-
-- 文章互链一律带 `.md` 后缀写相对路径（`./related.md`），移动文件时编辑器/工具链最友好，且受死链检查保护
-- 纯锚点（`#小节`）不参与 resolve；跨页锚点写 `./related.md#小节`
-- 带其他扩展名的相对链接（图片、`../rss.xml`）按资源 URL 原样透传
+`./` `../` 开头的相对链接在构建期 resolve，失败即构建报错，坏链接不可能被发布。文章互链一律带 `.md` 后缀写相对路径（`./related.md`、跨页锚点 `./related.md#小节`），受死链检查保护，移动文件时编辑器也友好。resolve 顺序、资源透传与裸链接策略见[Markdown 扩展](./markdown.md#站内链接与死链检查)。
 
 ## 图片
 
-- 相对路径图片在构建期复制到 `assets/img/` 并以内容 hash 命名，src 按页面深度重写，部署到任意子路径都不会断
-- 独占一段的图片升级为 `<figure>`，alt 文本成为 figcaption；尺寸语法 `![alt](src =宽x高)` 或 `![alt =宽x高](src)` 两种写法均可
-- 需要点击放大的截图用 `ZoomedImg` island，见[Islands](./islands.md#zoomedimg)
+相对路径图片在构建期复制为内容 hash 命名，src 按页面深度重写，部署到任意子路径都不会断。独占一段的图片升级为 `<figure>`（alt 变 figcaption），支持 `![alt](src =宽x高)` 尺寸语法；全部写法与规则见[Markdown 扩展](./markdown.md#图片)。需要点击放大的截图用 ZoomedImg island，见[Islands](./islands.md#zoomedimg)。
 
 ## 推荐的写作流
 

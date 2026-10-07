@@ -5,7 +5,7 @@ category:
 tag:
   - islands
   - solid
-icon: rocket
+icon: puzzle
 ---
 
 # Islands
@@ -372,16 +372,16 @@ export default Counter;
 
 `absolute-press/client` 还导出一组内置 island 同款的公共工具，站点 island 直接 import 即可，不必重复造轮子或深 import 内部路径：
 
-| 导出                              | 用途                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------- |
-| `pagePayload()`                   | 读当前页 payload（locale、base、标题、navbar/sidebar 等），软导航自动跟随     |
-| `hydrateIslands(root?)`           | 激活 `root` 下 `[data-ap-island]` 占位；island 重建 DOM 后重新激活嵌套 island |
-| `islandRegistry()`                | 当前完整 island 注册表（内置 + 站点）                                         |
-| `mountComponent(comp, el, props)` | 把 Solid 组件挂到已有 DOM 节点（MPA 非 hydrate），事件委托开箱即用            |
-| `cx(...cls)`                      | 条件 className 拼接（静态字符串，UnoCSS 可扫描）                              |
-| `flagOn(value, fallback?)`        | 解析布尔 prop：JSON 布尔、`"false"`/`"0"`、裸属性统一处理                     |
-| `pageMessages()`                  | 按 `<html lang>` 取 UI 文案表（未知语言回退中文）                             |
-| `formatMessage(tpl, params)`      | 填充文案模板里的 `{key}` 占位符                                               |
+| 导出                              | 用途                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| `pagePayload()`                   | 读当前页 payload（locale、base、标题、navbar/sidebar 等），软导航自动跟随      |
+| `hydrateIslands(root?)`           | 激活 `root` 下 `[data-ap-island]` 占位；island 重建 DOM 后重新激活嵌套 island  |
+| `islandRegistry()`                | 当前完整 island 注册表（内置 + 站点）                                          |
+| `mountComponent(comp, el, props)` | 把 Solid 组件挂到已有 DOM 节点（MPA 下直接挂载，非整页激活），事件委托开箱即用 |
+| `cx(...cls)`                      | 条件 className 拼接（静态字符串，UnoCSS 可扫描）                               |
+| `flagOn(value, fallback?)`        | 解析布尔 prop：JSON 布尔、`"false"`/`"0"`、裸属性统一处理                      |
+| `pageMessages()`                  | 按 `<html lang>` 取 UI 文案表（未知语言回退中文）                              |
+| `formatMessage(tpl, params)`      | 填充文案模板里的 `{key}` 占位符                                                |
 
 这些就是内置 island 用的同一批积木——例如 ExpandableList 的搜索框开关用 `flagOn`、表格类名用 `cx`、工具栏文案用 `pageMessages()` + `formatMessage`。一个组合使用的最小示例：
 
@@ -403,9 +403,9 @@ export default Notice;
 
 ### 站点 island 复用条目管线（entryList）
 
-站点 island 想要 ExpandableList 同款「`@@@` 条目 + 静态表格骨架 + 搜索/排序/展开」行为时，不必基于它重写解析：把 island 名加进站点配置 `entryListIslands: ['MyList', …]`，构建期就会把 `<MyList>` 的 children 按同一条管线拆分——`@@@`/`@@` 语法、围栏保护、静态骨架渲染完全一致（未加入名单的 island 保持字面量）。客户端组件用 `childrenHtml` 接住这份静态 HTML，按 `@@@` key 解析回条目并填入 TS 数据的 meta，再经 `absolute-press/client` 导出的 `hydrateIslands` 重新激活正文里的嵌套 island。
+站点 island 想复用 ExpandableList 同款「`@@@` 条目 + 静态表格骨架」行为时，把 island 名加进站点配置 `entryListIslands: ['MyList', …]`，构建期就按同一条管线拆分 `<MyList>` 的 children：`@@@`/`@@` 语法、围栏保护、静态骨架渲染完全一致（未加入名单的 island 保持字面量）。客户端组件从 `childrenHtml` 接住这份静态 HTML，按条目拆回并填入自己的数据（典型场景是「TS 数据模块管 meta 列、markdown 只留插槽正文」的列表组件）；条目里的嵌套 island 用 `absolute-press/client` 导出的 `hydrateIslands` 重新激活。
 
-典型场景是站点自建的「TS 数据 + md slot 正文」列表组件：meta 列从数据模块取（活数据、可校验），markdown 只保留插槽正文。完整站点实参考 lxl66566.github.io 的 `islands/xlist/`（`utils/xlist-sync.mjs` 校验两侧同步）。
+管线拆分与激活时序的实现细节见[设计与实现：islands 运行时](../design/islands-runtime.md)。
 
 ## 约束与注意
 

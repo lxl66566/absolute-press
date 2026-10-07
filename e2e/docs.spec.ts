@@ -31,14 +31,39 @@ const ALL_PAGES = [
   '/guide/seo.html',
   '/guide/faq.html',
   '/guide/advanced/deep.html',
+  '/design/index.html',
+  '/design/why.html',
+  '/design/architecture.html',
+  '/design/build-pipeline.html',
+  '/design/islands-runtime.html',
   '/en/index.html',
-  '/en/getting-started.html',
-  '/en/configuration.html',
-  '/en/markdown.html',
-  '/en/tag/english.html',
-  '/en/tag/markdown.html',
+  '/en/guide/index.html',
+  '/en/guide/getting-started.html',
+  '/en/guide/configuration.html',
+  '/en/guide/markdown.html',
+  '/en/guide/islands.html',
+  '/en/guide/theme.html',
+  '/en/guide/i18n.html',
+  '/en/guide/encrypt.html',
+  '/en/guide/secret.html',
+  '/en/guide/migration.html',
+  '/en/guide/deploy.html',
+  '/en/guide/writing.html',
+  '/en/guide/search-comments.html',
+  '/en/guide/seo.html',
+  '/en/guide/faq.html',
+  '/en/guide/advanced/deep.html',
+  '/en/design/index.html',
+  '/en/design/why.html',
+  '/en/design/architecture.html',
+  '/en/design/build-pipeline.html',
+  '/en/design/islands-runtime.html',
   '/en/category/guide.html',
+  '/en/category/design.html',
+  '/en/tag/getting-started.html',
+  '/en/tag/markdown.html',
   '/category/指南.html',
+  '/category/设计.html',
   '/tag/css.html',
   '/tag/faq.html',
   '/tag/i18n.html',
@@ -47,6 +72,7 @@ const ALL_PAGES = [
   '/tag/rss.html',
   '/tag/seo.html',
   '/tag/solid.html',
+  '/tag/ssg.html',
   '/tag/vuepress.html',
   '/tag/主题.html',
   '/tag/入门.html',
@@ -54,6 +80,8 @@ const ALL_PAGES = [
   '/tag/加密.html',
   '/tag/安装.html',
   '/tag/搜索.html',
+  '/tag/构建.html',
+  '/tag/架构.html',
   '/tag/自测.html',
   '/tag/评论.html',
   '/tag/迁移.html',
@@ -68,6 +96,18 @@ const SETTLE_PAGES: Record<string, (page: Page) => Promise<void>> = {
       timeout: 20000,
     });
     await expect(page.locator('.ap-g2plot canvas').first()).toBeVisible({
+      timeout: 20000,
+    });
+  },
+  // Architecture pages carry one mermaid fence each; wait for the SVG so
+  // the lazy chunk load cannot race the no-error assertions below.
+  '/design/architecture.html': async page => {
+    await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
+      timeout: 20000,
+    });
+  },
+  '/en/design/architecture.html': async page => {
+    await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
   },
@@ -357,41 +397,44 @@ test.describe('docs: i18n', () => {
   });
 
   test('cross-locale link reaches the default locale', async ({ page }) => {
-    await page.goto(`${DOCS}/en/index.html`);
+    // The en markdown showcase keeps one deliberate cross-locale demo link.
+    await page.goto(`${DOCS}/en/guide/markdown.html`);
     await page
-      .locator('#ap-content a', { hasText: 'Chinese home' })
+      .locator('#ap-content a', { hasText: 'Chinese page' })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/index\.html$/);
-    await expect(page.locator('#ap-content h1')).toContainText(
-      'absolute-press',
-    );
+    await expect(page).toHaveURL(/\/guide\/getting-started\.html$/);
+    await expect(page.locator('#ap-content h1')).toContainText('快速开始');
   });
 
   test('en meta chips link to the en archive pages', async ({ page }) => {
-    // Archives are grouped per locale: the 'english' tag exists only under
-    // /en, so a chip without the locale prefix would 404 (no /tag/english).
-    await page.goto(`${DOCS}/en/getting-started.html`);
+    // Archives are grouped per locale: the 'getting-started' tag exists only
+    // under /en, so a chip without the locale prefix would 404.
+    await page.goto(`${DOCS}/en/guide/getting-started.html`);
     const meta = page.locator('#ap-content .ap-article-meta');
-    // href is page-relative ('../en/tag/english.html' two levels deep).
+    // href is page-relative ('../en/tag/...' resolved against the page).
     await expect(meta.locator('a', { hasText: 'guide' })).toHaveAttribute(
       'href',
       /en\/category\/guide\.html$/,
     );
-    const chip = meta.locator('a', { hasText: 'english' });
-    await expect(chip).toHaveAttribute('href', /en\/tag\/english\.html$/);
+    const chip = meta.locator('a', { hasText: 'getting-started' });
+    await expect(chip).toHaveAttribute(
+      'href',
+      /en\/tag\/getting-started\.html$/,
+    );
     await chip.click();
-    await expect(page).toHaveURL(/\/en\/tag\/english\.html$/);
-    await expect(page.locator('#ap-content h1')).toContainText('english');
+    await expect(page).toHaveURL(/\/en\/tag\/getting-started\.html$/);
+    await expect(page.locator('#ap-content h1')).toContainText(
+      'getting-started',
+    );
     await expect(page.locator('#ap-content ul li').first()).toBeVisible();
   });
 
   test('locale switcher soft-navigates and remounts nav + sidebar', async ({
     page,
   }) => {
-    // The en tree is a flat subset of the zh one, so the switcher's
-    // prefix-swap href only resolves for mirrored routes: run on the home
-    // pages, whose counterparts exist on both sides.
+    // The switcher's prefix-swap href only resolves for mirrored routes:
+    // run on the home pages, whose counterparts exist on both sides.
     await page.goto(`${DOCS}/index.html`);
     // Pin the client-side path: a full reload would silently rebuild the
     // chrome and mask the regression this guards (persistent chrome keeping
@@ -413,10 +456,8 @@ test.describe('docs: i18n', () => {
     ).toBe(42);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     // Both persistent chrome roots must show the en trees and copy.
-    await expect(page.locator('#ap-nav')).toContainText('Getting Started (EN)');
-    await expect(page.locator('#ap-sidebar')).toContainText(
-      'Getting Started (EN)',
-    );
+    await expect(page.locator('#ap-nav')).toContainText('Getting started');
+    await expect(page.locator('#ap-sidebar')).toContainText('Getting started');
     await expect(page.locator('#ap-nav')).not.toContainText('指南');
     await expect(
       page.locator('#ap-nav button[aria-label="Change language"]'),
@@ -434,9 +475,7 @@ test.describe('docs: i18n', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect(page.locator('#ap-nav')).toContainText('指南');
     await expect(page.locator('#ap-sidebar')).toContainText('指南');
-    await expect(page.locator('#ap-nav')).not.toContainText(
-      'Getting Started (EN)',
-    );
+    await expect(page.locator('#ap-nav')).not.toContainText('Getting started');
   });
 });
 

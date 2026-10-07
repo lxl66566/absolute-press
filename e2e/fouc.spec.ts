@@ -96,7 +96,7 @@ test.describe('fouc: head delivery contract', () => {
     { path: '/index.html', base: 'assets/' },
     { path: '/guide/getting-started.html', base: '../assets/' },
     { path: '/guide/markdown.html', base: '../assets/' },
-    { path: '/en/getting-started.html', base: '../assets/' },
+    { path: '/en/guide/getting-started.html', base: '../../assets/' },
     { path: '/en/index.html', base: '../assets/' },
     { path: '/category/%E6%8C%87%E5%8D%97.html', base: '../assets/' },
   ];

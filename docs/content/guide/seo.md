@@ -5,7 +5,7 @@ category:
 tag:
   - seo
   - rss
-icon: rocket
+icon: search
 ---
 
 # SEO 与订阅

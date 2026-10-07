@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - faq
-icon: star
+icon: faq
 ---
 
 # FAQ
@@ -15,20 +15,15 @@ icon: star
 
 ### 从 vuepress-theme-hope 迁移，正文真的零改动吗
 
-正文语法（容器、tabs、代码组、KaTeX、脚注、黑幕、行高亮等）逐字兼容，URL 与中文锚点也保持一致。需要动手的只有两类：
-
-- `<template #xxx>` 与 vue 组件语法按未知 HTML 原样透传（框架不兼容 vue），要逐页改写成 island 或 markdown 语法
-- 主题层面的自定义（自定义组件、样式覆写）改用 CSS 变量与挂载点 DOM 实现，见[主题定制](./theme.md)
-
-完整清单与迁移步骤见[迁移指南](./migration.md)。
+正文语法、URL 与中文锚点逐字兼容；要动手的只有 `<template #xxx>`/vue 组件（逐页改造）与主题层自定义（改用 CSS 变量与挂载点 DOM）。完整清单与步骤见[迁移指南](./migration.md)。
 
 ### frontmatter 里的 `order`、`sticky` 等键怎么不生效
 
-frontmatter 只认 `date` / `category` / `tag` / `icon` / `feed` 五个键，其余被忽略。导航排序、置顶等能力以站点配置与目录结构表达（如 `nav.exclude` 控制「存在但不进导航」）。
+frontmatter 只认 `date` / `category` / `tag` / `icon` / `feed` / `overview` 六个键，其余被忽略。导航排序、置顶等能力以站点配置与目录结构表达（如 `nav.exclude` 控制「存在但不进导航」）。
 
 ### 旧文章里的密码保护还能用吗
 
-语义变了：theme-hope 是构建期真加密，Absolute Press 是**客户端密码门**——正文完整随 HTML 下发，只是被 CSS 隐藏，输入密码（sha256 比对）后展开。适合防误入，不适合真正的机密内容，详见[加密](./encrypt.md#边界重要)。
+语义变了：theme-hope 是构建期真加密，Absolute Press 是客户端密码门，正文仍随 HTML 下发。详见[加密](./encrypt.md#边界重要)。
 
 ## 已知边界
 
@@ -42,7 +37,7 @@ markdown 管线开着 `html: true`，未知 HTML 一律透传。`<MyComp />` 不
 
 ### 加密页面为什么能在源码里看到内容
 
-同上，客户端密码门不是真加密，设计如此。真机密内容请在构建前拆分，不要放进 contentDir。
+客户端密码门只隐藏不加密，正文完整随 HTML 下发，设计如此，见[加密](./encrypt.md#边界重要)。
 
 ### 关联文章图为什么只有几篇文章
 

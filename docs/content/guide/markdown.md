@@ -5,7 +5,7 @@ category:
 tag:
   - markdown
   - 自测
-icon: star
+icon: markdown
 ---
 
 # Markdown 扩展
@@ -524,7 +524,7 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 - 无后缀（命中 `./configuration.md`）：[配置参考](./configuration)
 - 目录式（命中目录索引）：[指南目录](./) 与 [组件岛](./islands)
 - 跨目录向上：[站点首页](../index.md)
-- 跨 locale：[英文快速开始](../en/getting-started.md)
+- 跨 locale：[英文版快速开始](../en/guide/getting-started.md)
 - 带锚点：[配置参考的基础字段](./configuration.md#基础字段)
 - 本页锚点：[数学公式](#数学公式)
 - 外链（不参与 resolve）：[Solid.js](https://www.solidjs.com/)
@@ -536,7 +536,7 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 - 无后缀（命中 `./configuration.md`）：[配置参考](./configuration)
 - 目录式（命中目录索引）：[指南目录](./) 与 [组件岛](./islands)
 - 跨目录向上：[站点首页](../index.md)
-- 跨 locale：[英文快速开始](../en/getting-started.md)
+- 跨 locale：[英文版快速开始](../en/guide/getting-started.md)
 - 带锚点：[配置参考的基础字段](./configuration.md#基础字段)
 - 本页锚点：[数学公式](#数学公式)
 - 外链（不参与 resolve）：[Solid.js](https://www.solidjs.com/)

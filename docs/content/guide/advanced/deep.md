@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 入门
-icon: star
+icon: sitemap
 ---
 
 # 深层页面

@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 配置
-icon: star
+icon: gear
 ---
 
 # 配置参考
@@ -240,4 +240,4 @@ readingTime: true, // 默认 true
 
 ## 页面级配置（frontmatter）
 
-frontmatter 只认五个键：`date` / `category` / `tag` / `icon` / `feed`，语义见[写作指南](./writing.md#frontmatter-五个键)。`feed: false` 的页面退出 RSS（文章流仍收录）。
+frontmatter 只认六个键：`date` / `category` / `tag` / `icon` / `feed` / `overview`，语义见[写作指南](./writing.md#frontmatter-六个键)。`feed: false` 的页面退出 RSS（文章流仍收录）。

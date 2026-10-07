@@ -118,11 +118,16 @@ test.describe('dev fouc: first paint waits for stylesheets under delayed css', (
   test('dev content-link navigation', async ({ page }) => {
     delayCss(page);
     await page.goto(`${DEV}/index.html`, { waitUntil: 'load' });
-    await page.locator('#ap-content a[href$=".html"]').first().click();
+    const firstLink = page.locator('#ap-content a[href$=".html"]').first();
+    // The landing's link set changes with the docs; follow wherever the
+    // first content link points instead of hardcoding a target.
+    const target = await firstLink.getAttribute('href');
+    expect(target).toBeTruthy();
+    await firstLink.click();
     // Pin the new document before reading its paint timing: the cold dev
     // server compiles the target graph on demand, so the old document can
     // linger a while before the navigation commits.
-    await page.waitForURL('**/guide/configuration.html');
+    await page.waitForURL(`**/${target}`);
     await page.waitForLoadState('load');
     await paintWaitsForCss(page);
   });

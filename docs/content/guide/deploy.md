@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 部署
-icon: rocket
+icon: deploy
 ---
 
 # 部署指南

@@ -5,7 +5,7 @@ category:
 tag:
   - 主题
   - css
-icon: star
+icon: palette
 ---
 
 # 主题定制
@@ -14,18 +14,45 @@ icon: star
 
 ## 设计令牌 --c-*
 
-`src/client/styles/theme.css` 定义亮暗双套令牌，亮色在 `:root`，暗色在 `html[data-theme='dark']`：
+`src/client/styles/theme.css` 定义亮暗双套令牌，亮色在 `:root`，暗色在 `html[data-theme='dark']`。自定义 island、站点级组件与注入样式只读这些变量，渲染在页面任意位置都能自动获得亮暗两套值：
 
-| 变量                                     | 用途                   |
-| ---------------------------------------- | ---------------------- |
-| `--c-accent`                             | 强调色（链接、激活态） |
-| `--c-bg` / `--c-bg-soft` / `--c-bg-mute` | 三级背景               |
-| `--c-text` / `--c-text-2`                | 主/次文本              |
-| `--c-border`                             | 边框                   |
-| `--c-code-bg`                            | 行内代码与代码块背景   |
-| `--c-shadow`                             | 阴影                   |
+| 变量          | 用途                                     |
+| ------------- | ---------------------------------------- |
+| `--c-accent`  | 强调色：链接、激活态、hover              |
+| `--c-bg`      | 页面与组件底色                           |
+| `--c-bg-soft` | 弱一层的底色：工具栏、表头、折叠块       |
+| `--c-bg-mute` | 最弱一层：禁用底、滚动条、进度槽         |
+| `--c-text`    | 主文本                                   |
+| `--c-text-2`  | 次文本：辅助说明、meta、图标灰阶         |
+| `--c-border`  | 边框、分隔线                             |
+| `--c-code-bg` | 行内代码与代码块背景                     |
+| `--c-shadow`  | 卡片/figure 阴影（完整 `box-shadow` 值） |
 
 另有布局尺寸令牌 `--ap-nav-h` / `--ap-sidebar-w` / `--ap-toc-w` / `--ap-footer-h`，以及两个组件级令牌：`--ap-container-c`（各类容器的主题色，按类型在内部覆写）、`--ap-ln-gap`（代码块行号与正文的间距；行号宽度 `--ap-ln-w` 由渲染器按位数内联给出）。
+
+用法示例：
+
+```css
+/* 站点自带的 island / 组件样式 */
+.my-widget {
+  color: var(--c-text-2);
+  background-color: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: 0.5rem;
+}
+
+.my-widget__button {
+  color: var(--c-accent);
+  transition: color 140ms ease-out;
+}
+```
+
+规则约定：
+
+- **禁止硬编码颜色**：所有颜色/阴影都从上表取；需要带透明的强调色用 `color-mix(in srgb, var(--c-accent) 12%, transparent)`（框架内部同款写法）
+- **禁止覆写 `--c-*` 本身**：换肤走[覆盖示例](#覆盖示例)；组件只读不写
+- **动画 120–200ms ease-out**，`prefers-reduced-motion` 全站已统一处理，组件内无需重复声明
+- **语义对应关系**：vuepress 组件映射见下面的别名表，迁移时把 `--vp-c-*` 换成对应 `--c-*` 即可
 
 ## DOM 挂载点与 class 钩子
 
@@ -70,48 +97,6 @@ icon: star
 | `--vp-c-code-bg`                                     | `--c-code-bg` |                                 |
 
 旧组件样式可以零改动接进来；新写的组件请直接用 `--c-*`。
-
-## 下游组件如何使用主题变量
-
-自定义 island、站点级组件与注入样式的接口就是这些 CSS 变量——只要在 `#ap-content`（或页面任意位置）渲染，读变量即可自动获得亮暗两套值：
-
-**变量清单（语义）**
-
-| 变量          | 语义                                     |
-| ------------- | ---------------------------------------- |
-| `--c-accent`  | 强调色：链接、激活态、hover              |
-| `--c-bg`      | 页面与组件底色                           |
-| `--c-bg-soft` | 弱一层的底色：工具栏、表头、折叠块       |
-| `--c-bg-mute` | 最弱一层：禁用底、滚动条、进度槽         |
-| `--c-text`    | 主文本                                   |
-| `--c-text-2`  | 次文本：辅助说明、meta、图标灰阶         |
-| `--c-border`  | 边框、分隔线                             |
-| `--c-code-bg` | 行内代码与代码块背景                     |
-| `--c-shadow`  | 卡片/figure 阴影（完整 `box-shadow` 值） |
-
-**用法示例**
-
-```css
-/* 站点自带的 island / 组件样式 */
-.my-widget {
-  color: var(--c-text-2);
-  background-color: var(--c-bg-soft);
-  border: 1px solid var(--c-border);
-  border-radius: 0.5rem;
-}
-
-.my-widget__button {
-  color: var(--c-accent);
-  transition: color 140ms ease-out;
-}
-```
-
-规则约定：
-
-- **禁止硬编码颜色**：所有颜色/阴影都从上表取；需要带透明的强调色用 `color-mix(in srgb, var(--c-accent) 12%, transparent)`（框架内部同款写法）
-- **禁止覆写 `--c-*` 本身**：换肤走[覆盖示例](#覆盖示例)；组件只读不写
-- **动画 120–200ms ease-out**，`prefers-reduced-motion` 全站已统一处理，组件内无需重复声明
-- **语义对应关系**：vuepress 组件映射见上面的别名表，迁移时把 `--vp-c-*` 换成对应 `--c-*` 即可
 
 ## 暗色机制
 
