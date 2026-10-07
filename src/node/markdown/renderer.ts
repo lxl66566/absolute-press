@@ -53,6 +53,19 @@ import { Slugger } from './slugify.ts';
 import { normalizeTabMarkers, registerTabs } from './tabs.ts';
 
 /**
+ * Inline-syntax plugins shared by every renderer: core markdown-it already
+ * covers emphasis/links/code; these add the framework's inline syntaxes
+ * (`$katex$`, `==mark==`, both img-size forms, `!!heimu!!`).
+ */
+function useInlinePlugins(md: MarkdownItType): void {
+  md.use(katex);
+  md.use(mark);
+  md.use(legacyImgSize);
+  md.use(imgSize);
+  md.inline.ruler.before('emphasis', 'heimu', heimuRule);
+}
+
+/**
  * Create the markdown renderer. Async because Shiki initialization is async.
  * Pure: no file system access, no vite imports; link/image resolution is
  * injected via options.
@@ -62,16 +75,12 @@ export async function createMarkdownRenderer(
 ): Promise<MarkdownRenderer> {
   const md = new MarkdownIt({ html: true });
 
-  md.use(katex);
+  useInlinePlugins(md);
   md.use(footnote);
   md.use(tasklist);
-  md.use(mark);
-  md.use(legacyImgSize);
-  md.use(imgSize);
   md.use(figure);
   registerContainers(md, options.containerTitles ?? {});
   registerTabs(md);
-  md.inline.ruler.before('emphasis', 'heimu', heimuRule);
   md.core.ruler.after('inline', 'ap-headings', headingRule);
 
   // Code presentation: defaults <- explicit options (site config arrives
@@ -199,6 +208,55 @@ export async function createMarkdownRenderer(
   }
 
   return { render };
+}
+
+/** Options for `createInlineMarkdownRenderer`. */
+export interface InlineMarkdownRendererOptions {
+  /**
+   * `<html lang>` of the site's default locale, resolving the heimu tooltip
+   * copy; omitted renders the default-locale copy (same fallback as pages).
+   */
+  lang?: string;
+}
+
+/** Standalone renderer for single-line markdown data strings. */
+export interface InlineMarkdownRenderer {
+  /** Render one markdown line as an inline HTML fragment. */
+  render: (src: string) => string;
+}
+
+/**
+ * Sync inline counterpart of `createMarkdownRenderer` for data strings
+ * (project descriptions, xlist meta cells): the framework's inline syntaxes
+ * only — emphasis, links, images, `$katex$`, `==mark==`, `!!heimu!!` — with
+ * no block machinery (footnotes, containers, tabs, fences/shiki), so block
+ * syntax stays literal (`> q` / `# h` render as text) and creation is cheap
+ * enough for vite-config-time use. Strings are author-trusted like page
+ * markdown: raw HTML passes through (`html: true`).
+ */
+export function createInlineMarkdownRenderer(
+  options: InlineMarkdownRendererOptions = {},
+): InlineMarkdownRenderer {
+  const md = new MarkdownIt({ html: true });
+  useInlinePlugins(md);
+  // Rules read the render ctx from env (heimu resolves its tooltip copy via
+  // ctx.env.lang); one fixed minimal ctx serves every render of the instance.
+  const ctx: AbsCtx = {
+    env: { filePath: '(inline)', lang: options.lang },
+    slugger: new Slugger(),
+    title: null,
+    headings: [],
+    links: [],
+    seq: { tabGroup: 0, tabInput: 0, fragment: 0, codeFold: 0 },
+    tabGroupStack: [],
+  };
+  return {
+    render: (src: string): string => {
+      const env: Env = {};
+      setCtx(env, ctx);
+      return md.renderInline(src, env);
+    },
+  };
 }
 
 /**

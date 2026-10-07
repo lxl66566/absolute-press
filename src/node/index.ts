@@ -9,6 +9,13 @@
  * only guarantees the vite/esbuild path.
  */
 export { absolutePress } from './build/plugin.ts';
+// Standalone inline markdown renderer for data strings (vite-config-time
+// use, e.g. rendering TS data-module descriptions to virtual modules).
+export {
+  createInlineMarkdownRenderer,
+  type InlineMarkdownRenderer,
+  type InlineMarkdownRendererOptions,
+} from './markdown/index.ts';
 export type { AbsolutePressConfig, NavConfig } from './config.ts';
 // `defineSiteConfig` is the canonical name in vite.config.ts; `defineConfig`
 // stays as the original alias (it shadows vitest's helper of the same name,
