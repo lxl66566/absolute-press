@@ -20,9 +20,9 @@ type TitledType = (typeof TITLED_TYPES)[number];
  */
 const DEFAULT_TITLES: Record<TitledType | 'details', string> = {
   tip: '提示',
-  warning: '注意',
-  danger: '危险',
-  caution: '警告',
+  warning: '警告',
+  danger: '特别注意',
+  caution: '注意',
   error: '错误',
   info: '信息',
   details: '详情',
