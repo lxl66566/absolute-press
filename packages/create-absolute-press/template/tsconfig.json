@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    // solid-js@2.0-rc 没有独立的 jsx-runtime 导出，JSX 类型在 @solidjs/web 里
+    "paths": {
+      "solid-js/jsx-runtime": ["./node_modules/@solidjs/web/types/jsx.d.ts"]
+    },
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true
+  },
+  "exclude": ["dist", "node_modules", "src"]
+}

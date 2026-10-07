@@ -1,0 +1,26 @@
+{
+  "name": "my-blog",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A blog built with absolute-press",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@solidjs/web": "2.0.0-rc.13",
+    "absolute-press": "^0.1.0",
+    "solid-js": "2.0.0-rc.13"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@unocss/preset-wind4": "^66.10.5",
+    "typescript": "^7.0.2",
+    "unocss": "^66.10.5",
+    "vite": "^8.3.3",
+    "vite-plugin-solid": "3.0.0-next.27"
+  }
+}

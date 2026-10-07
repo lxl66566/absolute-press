@@ -1,0 +1,29 @@
+{
+  "name": "create-absolute-press",
+  "version": "0.1.0",
+  "description": "Scaffold an absolute-press blog: pnpm create absolute-press my-blog",
+  "keywords": [
+    "absolute-press",
+    "blog",
+    "create",
+    "scaffold",
+    "ssg"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/absolute-press.git",
+    "directory": "packages/create-absolute-press"
+  },
+  "bin": {
+    "create-absolute-press": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "template"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

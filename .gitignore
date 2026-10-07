@@ -1,0 +1,5 @@
+node_modules
+dist
+dist-docs
+# Playwright test artifacts (traces, failure contexts)
+test-results

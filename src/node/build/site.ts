@@ -1,0 +1,996 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { BUILTIN_ISLAND_NAMES } from '../../shared/islands.ts';
+import { seoPageType } from '../../shared/seo.ts';
+import type {
+  ArticleInfo,
+  LocaleInfo,
+  PageAlternate,
+  PageMeta,
+  PagePayload,
+  RelatedLink,
+} from '../../shared/types.ts';
+import { ARCHIVE_PER_PAGE, HOME_FEED_PER_PAGE } from '../../shared/types.ts';
+import type { MarkdownRenderer, RenderResult } from '../../shared/types.ts';
+import type { ResolvedConfig } from '../config.ts';
+import { escapeHtml } from '../escape.ts';
+import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
+import { localImageSize } from '../image-size.ts';
+import { fenceLanguages } from '../markdown/fence.ts';
+import {
+  assertNoArchiveCollisions,
+  groupArchiveArticles,
+  type ArchivePage,
+} from './archive.ts';
+import {
+  LinkResolver,
+  bareLinkReport,
+  deadLinkReport,
+  devFsUrl,
+} from './assets.ts';
+import type { DeadLink } from './assets.ts';
+import { clientEntry } from './clientEntry.ts';
+import { encryptRuleFor } from './encrypt.ts';
+import { renderRobots, renderRss, renderSitemap } from './feeds.ts';
+import type { FeedArticle, SitemapEntry } from './feeds.ts';
+import { getGitTimes } from './git.ts';
+import { katexAssets, katexDevHref, pageUsesKatex } from './katex-assets.ts';
+import { createMarkdownRenderer } from './markdown-adapter.ts';
+import { buildChrome } from './nav-tree.ts';
+import {
+  buildArticles,
+  isLocaleHome,
+  routeToFileName,
+  scanPages,
+} from './pages.ts';
+import type { PageSource, RenderedPage } from './pages.ts';
+import { buildRelatedMap } from './related.ts';
+import { baseOf, renderShell, type ShellInput } from './shell.ts';
+
+interface RenderedEntry {
+  mtimeMs: number;
+  result: RenderResult;
+  /**
+   * Head/RSS excerpt source, cached with the render: deriving it per emit
+   * or dev request would re-scan every page's full html on each pass.
+   */
+  excerpt: string;
+}
+
+/** RenderedPage plus the raw render html, used by content decoration. */
+interface EmittedPage extends RenderedPage {
+  html: string;
+}
+
+/** Navbar/sidebar/article list shared by every payload of one locale. */
+interface LocaleChrome {
+  navbar: PagePayload['navbar'];
+  sidebar: PagePayload['sidebar'];
+  articles: ArticleInfo[];
+}
+
+/** relPath -> (locale key -> page source), over the full scan. */
+function siblingIndex(
+  pages: PageSource[],
+): Map<string, Map<string, PageSource>> {
+  const index = new Map<string, Map<string, PageSource>>();
+  for (const p of pages) {
+    let group = index.get(p.relPath);
+    if (!group) {
+      group = new Map();
+      index.set(p.relPath, group);
+    }
+    group.set(p.locale.key, p);
+  }
+  return index;
+}
+
+/**
+ * Alternates of one `<locale key -> entry>` group, config locale order
+ * (default first); undefined when fewer than two locales carry it.
+ */
+function alternatesIn<T>(
+  config: ResolvedConfig,
+  group: Map<string, T>,
+  alternateOf: (entry: T) => PageAlternate,
+): PageAlternate[] | undefined {
+  const out: PageAlternate[] = [];
+  for (const locale of config.locales) {
+    const found = group.get(locale.key);
+    if (found) out.push(alternateOf(found));
+  }
+  return out.length > 1 ? out : undefined;
+}
+
+/**
+ * Render state shared by one dev request or one build emit: every page is
+ * rendered at most once, then reused. Per-locale chrome is filled lazily so
+ * a dev request touching one locale skips the others.
+ */
+interface RenderContext {
+  pages: EmittedPage[];
+  byRoute: Map<string, EmittedPage>;
+  /** locale key -> chrome; filled on demand via chromeOf(). */
+  chrome: Map<string, LocaleChrome>;
+  /** relPath -> locale key -> page; hreflang counterpart lookup. */
+  siblings: Map<string, Map<string, PageSource>>;
+  /** Archive key `<kind>/<name>` -> alternates; lazy like the chrome. */
+  archiveAlternates: Map<string, PageAlternate[]> | null;
+  integrations: Pick<
+    PagePayload['site'],
+    'icons' | 'algolia' | 'social' | 'logo'
+  >;
+}
+
+export interface BuildAssets {
+  /** Dev pages serve the framework entry directly; only the build pipeline
+   * passes an emitted chunk. Drives the shell's dev/build branches. */
+  isBuild: boolean;
+  /** Client entry chunk file name, e.g. 'assets/entry-a1b2.js'. */
+  scriptFile: string;
+  /** Stylesheet asset file names from the client bundle. */
+  cssFiles: string[];
+}
+
+export interface EmittedFile {
+  fileName: string;
+  source: string | Buffer;
+}
+
+// Hides gated prose pre-hydration; the PasswordGate island renders its own UI
+// as `.ap-gate`, so only non-island children (the raw content) stay hidden.
+const GATE_STYLE =
+  '<style>[data-ap-island="PasswordGate"]>:not(.ap-gate){display:none}</style>';
+
+/**
+ * Owns the whole site state: scan -> render (cached) -> nav/sidebar/payload
+ * -> shell HTML. Shared by the dev middleware and the build emitter.
+ */
+export class SiteStore {
+  private pages: PageSource[] = [];
+  private rendered = new Map<string, RenderedEntry>();
+  private gitTimes = new Map<string, string>();
+  private relatedCache: Map<string, RelatedLink[]> | null = null;
+  private renderer: MarkdownRenderer | null = null;
+  private rendererPromise: Promise<MarkdownRenderer> | null = null;
+  /** Language set the current/pending renderer was created with; the
+   * memoization key of ensureRenderer(). */
+  private rendererLangs: ReadonlySet<string> = new Set();
+  /** An invalidating edit introduced languages outside rendererLangs; the
+   * dev middleware refreshes before serving (see refreshRenderer). */
+  private langsDirty = false;
+  readonly links: LinkResolver;
+  // Explicit field instead of a constructor parameter property: this module
+  // loads through plain node ESM type-stripping when imported as 'absolute-press'
+  // (vite config loading), which rejects non-erasable syntax.
+  private readonly config: ResolvedConfig;
+  // Dev trusts the watcher's invalidate()/resync() as the sole freshness
+  // mechanism (see renderPage); build keeps the per-pass mtime stat check.
+  // Set by sync(), like LinkResolver.setMode.
+  private trustWatcher = false;
+  // Last dev archive-collision warning; identical lists stay silent across
+  // resyncs (see warnArchiveCollisions).
+  private lastCollisionWarn: string | null = null;
+  // Dev per-page warnings already emitted (see warnDevPageIssues); reset by
+  // sync() alongside the resolver's fresh dead-link record round.
+  private devWarned = new Set<string>();
+
+  constructor(config: ResolvedConfig) {
+    this.config = config;
+    this.links = new LinkResolver('build');
+  }
+
+  /**
+   * Shiki's default cold-start loads every bundled grammar (measured ~2s);
+   * the site only needs the languages its fences actually use, so the
+   * scanned set is passed explicitly and the renderer is memoized per set —
+   * a resync that changes the languages rebuilds, everything else reuses
+   * the live instance. The scan reads every source once before rendering;
+   * that extra pass is the cheap price of a small init.
+   */
+  private async ensureRenderer(): Promise<MarkdownRenderer> {
+    const langs = new Set(this.scannedLangs());
+    if (
+      this.rendererPromise !== null &&
+      this.rendererLangs.size === langs.size &&
+      [...langs].every(l => this.rendererLangs.has(l))
+    ) {
+      return this.rendererPromise;
+    }
+    this.rendererLangs = langs;
+    const promise = createMarkdownRenderer({
+      resolveLink: this.links.resolveLink,
+      resolveImage: this.links.resolveImage,
+      // Build-time intrinsic sizes: local images render CLS-safe with
+      // width/height attributes (see image-size.ts).
+      imageSize: localImageSize,
+      // Site-wide code options flow in explicitly (resolveConfig already
+      // merged the defaults), instead of a module-level ambient state.
+      code: this.config.code,
+      shikiLangs: [...langs],
+      islands: [
+        ...BUILTIN_ISLAND_NAMES,
+        ...Object.keys(this.config.islands),
+      ].map(name => ({
+        name,
+        // Site islands declared as entry-list split their children into
+        // `@@@` entries at build time (data-backed xlist pages).
+        ...(this.config.entryListIslands.includes(name)
+          ? { entryList: true }
+          : {}),
+      })),
+    });
+    this.rendererPromise = promise;
+    this.renderer = await promise;
+    return this.renderer;
+  }
+
+  /** Union of fence languages over the scanned pages (raw strings; the
+   * renderer drops entries shiki cannot load — see isBundledLang). */
+  private scannedLangs(): Iterable<string> {
+    const langs = new Set<string>();
+    for (const page of this.pages) {
+      const src = fs.readFileSync(page.filePath, 'utf8');
+      for (const lang of fenceLanguages(src)) langs.add(lang);
+    }
+    return langs;
+  }
+
+  /** Full (re)scan; keeps render cache entries (freshness: mtime in build,
+   * watcher events in dev — see renderPage). */
+  async sync(mode: 'dev' | 'build'): Promise<void> {
+    this.links.setMode(mode);
+    this.trustWatcher = mode === 'dev';
+    this.pages = await scanPages(this.config);
+    this.links.setPages(this.pages);
+    await this.ensureRenderer();
+    // The renderer set is now disk-fresh; a stale invalidate flag would
+    // only buy one redundant refresh.
+    this.langsDirty = false;
+    this.relatedCache = null;
+    // New resolution round: page warnings may fire again from scratch.
+    this.devWarned.clear();
+    if (mode === 'build' || this.gitTimes.size === 0) {
+      this.gitTimes = await getGitTimes(
+        this.pages.map(p => p.filePath),
+        this.config.contentDir,
+      );
+    }
+    if (mode === 'dev') this.warnArchiveCollisions();
+  }
+
+  /** Dev: drop one file's render cache (watcher paths may differ in separators). */
+  invalidate(file: string): void {
+    const posix = file.split(path.sep).join('/');
+    for (const key of this.rendered.keys()) {
+      if (key.split(path.sep).join('/') === posix) this.rendered.delete(key);
+    }
+    this.relatedCache = null;
+    // The renderer's shiki set is frozen at creation; an edit introducing a
+    // fence language outside it must rebuild, or the block highlights as
+    // plain text until a restart. Flag it — the dev middleware refreshes
+    // before serving, so the full-reload this edit triggers arrives after
+    // the rebuild and highlights the new language.
+    if (this.rendererPromise === null) return;
+    let fresh: ReadonlySet<string>;
+    try {
+      fresh = fenceLanguages(fs.readFileSync(file, 'utf8'));
+    } catch {
+      return; // vanished mid-event; the resync path owns structural changes
+    }
+    for (const lang of fresh) {
+      if (!this.rendererLangs.has(lang)) {
+        this.langsDirty = true;
+        break;
+      }
+    }
+  }
+
+  /**
+   * Dev middleware gate: refresh the renderer when invalidated edits
+   * introduced new languages. No-op on the common path (same-language
+   * edits), so requests only pay a boolean check. A rebuild also drops the
+   * render cache: html produced by the previous renderer (rss read mid-edit,
+   * a probe between invalidate and refresh) must not keep its plain-text
+   * fences.
+   */
+  async refreshRenderer(): Promise<void> {
+    if (!this.langsDirty) return;
+    this.langsDirty = false;
+    await this.ensureRenderer();
+    this.rendered.clear();
+    this.relatedCache = null;
+  }
+
+  /** Dev: structural change (add/unlink) — rescan and clear all caches. */
+  async resync(mode: 'dev' | 'build'): Promise<void> {
+    this.rendered.clear();
+    // Drop the git-times cache too: sync() re-pulls it only when empty, and
+    // commits landing mid-dev-session must surface as fresh lastmod values.
+    this.gitTimes.clear();
+    await this.sync(mode);
+  }
+
+  /**
+   * Dev feedback parity for archive route collisions: build fails on them
+   * in emitAll(), but dev must stay browsable — warn instead of throwing,
+   * keeping devHtml's winner semantics (the page serves, archives follow).
+   * Runs once per sync/resync — never on the request path — and dedupes
+   * identical warnings across resyncs so unrelated structural edits do not
+   * re-print a known collision (a changed list warns again).
+   */
+  private warnArchiveCollisions(): void {
+    // A render error during the pre-check must not break sync: the request
+    // path reports it as before (500 on the offending page), so swallow and
+    // skip this pass of the check.
+    try {
+      const ctx = this.buildContext();
+      const archives = [
+        ...this.archivePages(ctx, 'category'),
+        ...this.archivePages(ctx, 'tag'),
+      ];
+      let message: string | null = null;
+      try {
+        // Same assertion the build emit uses; catch turns it into a warning.
+        assertNoArchiveCollisions(this.pages, archives);
+      } catch (e) {
+        message = e instanceof Error ? e.message : String(e);
+      }
+      if (message === null) {
+        this.lastCollisionWarn = null;
+        return;
+      }
+      if (message === this.lastCollisionWarn) return;
+      this.lastCollisionWarn = message;
+      console.warn(
+        `${message} (dev keeps the route browsable; build will fail)`,
+      );
+    } catch {
+      // ignored: see the comment at the top
+    }
+  }
+
+  private renderPage(page: PageSource): RenderedEntry {
+    const renderer = this.renderer;
+    if (!renderer) throw new Error('SiteStore.sync() not awaited');
+    const cached = this.rendered.get(page.filePath);
+    // Dev: buildContext() runs per request (devHtml/rss), so the per-page
+    // statSync used to put N syscalls on every dev hit; the watcher's
+    // invalidate()/resync() is already the freshness mechanism there, so
+    // cache hits skip the stat entirely. Build has no watcher and keeps the
+    // mtime check as the source of truth (generateBundle path).
+    if (cached) {
+      if (this.trustWatcher) return cached;
+      if (cached.mtimeMs === fs.statSync(page.filePath).mtimeMs) return cached;
+    }
+    const mtimeMs = fs.statSync(page.filePath).mtimeMs;
+    const result = renderer.render(fs.readFileSync(page.filePath, 'utf8'), {
+      filePath: page.filePath,
+      // Build-time copy (heimu tooltip) resolves by lang, like the client.
+      lang: page.locale.lang,
+    });
+    const entry: RenderedEntry = {
+      mtimeMs,
+      result,
+      excerpt: plainExcerpt(result.html, META_EXCERPT_LIMIT),
+    };
+    this.rendered.set(page.filePath, entry);
+    return entry;
+  }
+
+  /** Render every page (cached), carrying meta and html for the emit pass. */
+  private renderAll(): EmittedPage[] {
+    return this.pages.map(p => {
+      const entry = this.renderPage(p);
+      return {
+        ...p,
+        meta: this.metaOf(p, entry),
+        html: entry.result.html,
+      };
+    });
+  }
+
+  /**
+   * Render everything once and derive the data shared by all page/archive
+   * payloads. Reusing one context per dev request / emit pass keeps per-page
+   * work linear; re-rendering per page previously re-stated every file for
+   * every emitted page (O(N^2) stat calls).
+   */
+  private buildContext(): RenderContext {
+    const pages = this.renderAll();
+    return {
+      pages,
+      byRoute: new Map(pages.map(p => [p.route, p])),
+      chrome: new Map(),
+      siblings: siblingIndex(pages),
+      archiveAlternates: null,
+      integrations: this.siteIntegrations(pages),
+    };
+  }
+
+  /** Compute-if-absent per-locale chrome (navbar/sidebar/articles). */
+  private chromeOf(ctx: RenderContext, key: string): LocaleChrome {
+    let chrome = ctx.chrome.get(key);
+    if (!chrome) {
+      const siblings = ctx.pages.filter(p => p.locale.key === key);
+      const { nav } = this.config;
+      // Sidebar shares the navbar's display labels so drawer and rail never
+      // contradict the navbar wording; groups stay navbar-only (the sidebar
+      // must keep the full tree).
+      const labels = Object.fromEntries(
+        Object.entries(nav.tweaks ?? {}).flatMap(([dir, t]) =>
+          t.label === undefined ? [] : [[dir, t.label] as const],
+        ),
+      );
+      // One tree pass feeds both views; standalone buildNavbar/buildSidebar
+      // would rebuild the same directory tree twice per locale.
+      const { navbar, sidebar } = buildChrome(siblings, nav.exclude, {
+        tweaks: nav.tweaks,
+        order: nav.order,
+        labels,
+      });
+      chrome = {
+        articles: buildArticles(siblings),
+        navbar,
+        sidebar,
+      };
+      ctx.chrome.set(key, chrome);
+    }
+    return chrome;
+  }
+
+  private renderedOf(page: PageSource, ctx: RenderContext): EmittedPage {
+    const rendered = ctx.byRoute.get(page.route);
+    // The context is built from the same page list the caller iterates, so
+    // a miss means the caller skipped buildContext(); fail loudly rather
+    // than silently re-rendering behind the shared cache.
+    if (!rendered) {
+      throw new Error(
+        `[absolute-press] page ${page.filePath} not in render context`,
+      );
+    }
+    return rendered;
+  }
+
+  private metaOf(page: PageSource, entry: RenderedEntry): PageMeta {
+    const { result, excerpt } = entry;
+    const date = result.frontmatter.date;
+    const parsed = date ? new Date(date) : null;
+    // An unparsable date silently degrades (createdAt: null drops the page
+    // to the sort end and out of RSS ordering) — warn near the source file.
+    if (date && parsed && Number.isNaN(parsed.getTime())) {
+      console.warn(
+        `[absolute-press] invalid frontmatter date "${date}" in ${page.filePath}; falling back to no date (RSS/sort)`,
+      );
+    }
+    return {
+      route: page.route,
+      locale: page.locale.key,
+      title: result.title ?? '',
+      headings: result.headings,
+      frontmatter: result.frontmatter,
+      createdAt:
+        parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null,
+      updatedAt: this.gitTimes.get(page.filePath) ?? null,
+      // Omitted when the site disables it; the client hides an absent value.
+      ...(this.config.readingTime ? { readingTime: result.readingTime } : {}),
+      // Omitted when empty: head consumers fall back to site.description.
+      ...(excerpt ? { excerpt } : {}),
+    };
+  }
+
+  /** Aggregated `/category/<name>.html` and `/tag/<name>.html` pages. */
+  private archivePages(
+    ctx: RenderContext,
+    kind: 'category' | 'tag',
+  ): ArchivePage[] {
+    const out: ArchivePage[] = [];
+    for (const locale of this.config.locales) {
+      const articles = this.chromeOf(ctx, locale.key).articles;
+      for (const group of groupArchiveArticles(articles, kind)) {
+        out.push({
+          route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}.html`,
+          title: group.name,
+          locale,
+          kind,
+          articles: group.articles,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Page-route -> related links map (mutual reference counts). Lazy: built
+   * from the cached render results once, reused for every page payload.
+   * Options flow in explicitly (resolved site config, no ambient channel).
+   */
+  private related(): Map<string, RelatedLink[]> {
+    this.relatedCache ??= buildRelatedMap(
+      this.pages.map(p => {
+        const result = this.renderPage(p).result;
+        return {
+          route: p.route,
+          locale: p.locale.key,
+          title: result.title ?? '',
+          links: result.links,
+        };
+      }),
+      this.config.related,
+    );
+    return this.relatedCache;
+  }
+
+  /**
+   * hreflang alternates of one page: the same relPath in the other locale
+   * trees. Locale directories mirror by convention only — nothing
+   * guarantees a counterpart exists — so every entry is checked against the
+   * scanned pages and a missing translation simply drops out (no invented
+   * URLs). Undefined when fewer than two locales carry the page.
+   */
+  private alternatesOf(
+    ctx: RenderContext,
+    page: PageSource,
+  ): PageAlternate[] | undefined {
+    const group = ctx.siblings.get(page.relPath);
+    if (!group) return undefined;
+    return alternatesIn(this.config, group, p => ({
+      lang: p.locale.lang,
+      route: p.route,
+    }));
+  }
+
+  /**
+   * Archive key `<kind>/<name>` -> alternates, derived like page
+   * alternates from the per-locale archive sets. Lazy: it calls chromeOf()
+   * for every locale, which must not happen on a dev request touching one
+   * locale only.
+   */
+  private archiveAlternatesOf(
+    ctx: RenderContext,
+  ): Map<string, PageAlternate[]> {
+    ctx.archiveAlternates ??= (() => {
+      const groups = new Map<string, Map<string, PageAlternate>>();
+      for (const archive of [
+        ...this.archivePages(ctx, 'category'),
+        ...this.archivePages(ctx, 'tag'),
+      ]) {
+        const key = `${archive.kind}/${archive.title}`;
+        let group = groups.get(key);
+        if (!group) {
+          group = new Map();
+          groups.set(key, group);
+        }
+        group.set(archive.locale.key, {
+          lang: archive.locale.lang,
+          route: archive.route,
+        });
+      }
+      const out = new Map<string, PageAlternate[]>();
+      for (const [key, group] of groups) {
+        const alternates = alternatesIn(this.config, group, a => a);
+        if (alternates) out.set(key, alternates);
+      }
+      return out;
+    })();
+    return ctx.archiveAlternates;
+  }
+
+  /** PageMeta plus the alternates field (absent when trivial). */
+  private withAlternates(
+    ctx: RenderContext,
+    page: PageSource,
+    meta: PageMeta,
+  ): PageMeta {
+    const alternates = this.alternatesOf(ctx, page);
+    return alternates ? { ...meta, alternates } : meta;
+  }
+
+  private payloadFor(page: RenderedPage, ctx: RenderContext): PagePayload {
+    const chrome = this.chromeOf(ctx, page.locale.key);
+    const encrypted = encryptRuleFor(page.route, this.config.encrypt);
+    const payload: PagePayload = {
+      site: this.siteBlock(ctx, page.route, page.locale.key, {
+        // Serialized only when non-default to keep the payload small.
+        ...(this.config.home.feedPerPage !== HOME_FEED_PER_PAGE
+          ? { feedPerPage: this.config.home.feedPerPage }
+          : {}),
+        ...(this.config.archive.perPage !== ARCHIVE_PER_PAGE
+          ? { archivePerPage: this.config.archive.perPage }
+          : {}),
+        ...(this.config.footer
+          ? { footerCredit: this.config.footer.credit }
+          : {}),
+      }),
+      navbar: chrome.navbar,
+      sidebar: chrome.sidebar,
+      page: this.withAlternates(ctx, page, page.meta),
+    };
+    // Feed can be disabled site-wide (docs/landing home pages keep their
+    // prose intro as the visual primary).
+    if (isLocaleHome(page) && this.config.home.feed)
+      payload.articles = chrome.articles;
+    // Filled only when non-empty to keep the serialized payload small. Locale
+    // homes are excluded outright: the related graph is article-tail chrome,
+    // and the client skips non-article pages via the same seoPageType
+    // predicate (mountRelatedGraph) — filling `related` there would only
+    // bloat the landing page's payload with data nothing renders. Note this
+    // is independent of the home feed config: feed and feed:false homes are
+    // both website pages.
+    if (seoPageType(payload) === 'article') {
+      const related = this.related().get(page.route);
+      if (related && related.length > 0) payload.related = related;
+    }
+    if (encrypted) payload.encrypted = encrypted;
+    return payload;
+  }
+
+  /**
+   * Icon subset used by the site's pages and social entries + Algolia
+   * config, when present.
+   */
+  private siteIntegrations(
+    pages: RenderedPage[],
+  ): Pick<PagePayload['site'], 'icons' | 'algolia' | 'social' | 'logo'> {
+    const used = new Set<string>();
+    for (const p of pages) {
+      const icon = p.meta.frontmatter.icon;
+      if (icon && icon in this.config.icons) used.add(icon);
+    }
+    // Config-icon social entries ride along in the payload icon subset;
+    // built-in brand keys resolve client-side and need no registration.
+    for (const s of this.config.nav.social ?? []) {
+      if (s.icon in this.config.icons) used.add(s.icon);
+    }
+    return {
+      ...(used.size > 0
+        ? {
+            icons: Object.fromEntries(
+              [...used]
+                .toSorted()
+                .map(key => [key, this.config.icons[key] ?? '']),
+            ),
+          }
+        : {}),
+      ...(this.config.algolia ? { algolia: this.config.algolia } : {}),
+      ...(this.config.nav.social ? { social: this.config.nav.social } : {}),
+      ...(this.config.nav.logo ? { logo: this.config.nav.logo } : {}),
+    };
+  }
+
+  /**
+   * Page-body decorations around the static markdown HTML: gated pages are
+   * wrapped in a PasswordGate island placeholder (content hidden until the
+   * client gate unlocks it); article pages get the Giscus island appended.
+   */
+  private decorateContent(
+    page: PageSource,
+    payload: PagePayload,
+    html: string,
+  ): string {
+    let content = html;
+    const encrypted = payload.encrypted;
+    if (encrypted) {
+      // PasswordGate derives its messages from the page language client-side;
+      // no locale prop (the island would ignore it anyway).
+      const props = escapeHtml(
+        JSON.stringify({
+          hashes: encrypted.hashes,
+          ...(encrypted.hint !== undefined ? { hint: encrypted.hint } : {}),
+        }),
+      );
+      content =
+        `${GATE_STYLE}<div data-ap-island="PasswordGate" data-props="${props}">` +
+        `${content}</div>`;
+    }
+    const giscus = this.config.giscus;
+    if (giscus && !isLocaleHome(page)) {
+      const props = escapeHtml(
+        JSON.stringify({ ...giscus, lang: page.locale.lang }),
+      );
+      content += `<div data-ap-island="Giscus" data-props="${props}"></div>`;
+    }
+    return content;
+  }
+
+  /** Frontmatter icons missing from the config icons map (build error). */
+  private invalidIcons(
+    pages: RenderedPage[],
+  ): { file: string; icon: string }[] {
+    const out: { file: string; icon: string }[] = [];
+    for (const p of pages) {
+      const icon = p.meta.frontmatter.icon;
+      if (icon && !(icon in this.config.icons)) {
+        out.push({ file: p.filePath, icon });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Shared `payload.site` block of one locale's pages; page payloads pass
+   * the home/archive/footer knobs as `extra` (archive pages carry none).
+   * Integrations stay last — key order drives the serialized JSON order.
+   */
+  private siteBlock(
+    ctx: RenderContext,
+    route: string,
+    localeKey: string,
+    extra: Pick<
+      PagePayload['site'],
+      'feedPerPage' | 'archivePerPage' | 'footerCredit'
+    > = {},
+  ): PagePayload['site'] {
+    return {
+      title: this.config.title,
+      description: this.config.description,
+      base: baseOf(route),
+      locales: this.config.locales,
+      locale: localeKey,
+      // Serialized only when non-default to keep the payload small.
+      ...(this.config.nav.align === 'center'
+        ? { navAlign: this.config.nav.align }
+        : {}),
+      ...extra,
+      ...ctx.integrations,
+    };
+  }
+
+  /**
+   * renderShell arguments shared by page and archive emits; callers add
+   * `payload` + `content` (and `katexHref`, decided per page below).
+   * Speculative loading is a production delivery concern; dev pages keep
+   * on-demand compilation semantics.
+   */
+  private shellArgs(
+    assets: BuildAssets,
+    locale: LocaleInfo,
+  ): Omit<ShellInput, 'payload' | 'content'> {
+    return {
+      scriptSrc: assets.scriptFile,
+      cssHrefs: assets.cssFiles,
+      locale,
+      hostname: this.config.hostname,
+      speculationRules: assets.isBuild,
+      ...(this.config.seo?.image ? { ogImage: this.config.seo.image } : {}),
+      ...(this.config.googleAnalytics
+        ? { gaId: this.config.googleAnalytics }
+        : {}),
+    };
+  }
+
+  /**
+   * Dev feedback parity for the served page (build reports both as errors in
+   * generateBundle): dead links (markdown + images, same record/line join as
+   * the build error) and frontmatter icons missing from the config map.
+   * Warns once per issue — deduped across requests, reset by sync() with the
+   * resolver's record round — and only ever inspects the current page, so
+   * the request path gains no site-wide scan.
+   */
+  private warnDevPageIssues(page: PageSource, rendered: EmittedPage): void {
+    const entry = this.rendered.get(page.filePath);
+    if (!entry) return;
+    const dead = deadLinkReport(
+      this.links.deadLinks.filter(d => d.file === page.filePath),
+      [{ file: page.filePath, links: entry.result.links }],
+    );
+    if (dead.length > 0) {
+      const list = dead
+        .map(
+          d =>
+            `  ${d.file}${d.line === undefined ? '' : `:${d.line}`} -> ${d.raw}`,
+        )
+        .join('\n');
+      this.warnOnce(
+        `dead:${page.filePath}:${dead.map(d => d.raw).join('|')}`,
+        `[absolute-press] dev: ${dead.length} dead link(s) in ${page.filePath} (build will fail):\n${list}`,
+      );
+    }
+    const [badIcon] = this.invalidIcons([rendered]);
+    if (badIcon) {
+      this.warnOnce(
+        `icon:${badIcon.file}:${badIcon.icon}`,
+        `[absolute-press] dev: frontmatter icon "${badIcon.icon}" in ${badIcon.file} is not registered in config icons map (build will fail)`,
+      );
+    }
+  }
+
+  /** First warn wins; identical issues stay silent until the next sync. */
+  private warnOnce(key: string, message: string): void {
+    if (this.devWarned.has(key)) return;
+    this.devWarned.add(key);
+    console.warn(message);
+  }
+
+  /** Dev middleware / build emitter: full HTML for a page route, or null. */
+  htmlForPage(
+    page: PageSource,
+    assets: BuildAssets,
+    ctx: RenderContext,
+  ): string {
+    const rendered = this.renderedOf(page, ctx);
+    // Dev-only feedback; the build emit path reports through generateBundle.
+    if (this.trustWatcher) this.warnDevPageIssues(page, rendered);
+    const payload = this.payloadFor(rendered, ctx);
+    return renderShell({
+      ...this.shellArgs(assets, page.locale),
+      // Only math pages carry the katex stylesheet; the decision re-reads
+      // the cached render html each pass, so it can never go stale.
+      ...(pageUsesKatex(rendered.html)
+        ? { katexHref: this.katexHref(assets.isBuild) }
+        : {}),
+      payload,
+      content: this.decorateContent(page, payload, rendered.html),
+    });
+  }
+
+  private archiveHtml(
+    archive: ArchivePage,
+    assets: BuildAssets,
+    ctx: RenderContext,
+  ): string {
+    const meta: PageMeta = {
+      route: archive.route,
+      locale: archive.locale.key,
+      title: archive.title,
+      headings: [],
+      frontmatter: {},
+      createdAt: null,
+      updatedAt: null,
+    };
+    const chrome = this.chromeOf(ctx, archive.locale.key);
+    const alternates = this.archiveAlternatesOf(ctx).get(
+      `${archive.kind}/${archive.title}`,
+    );
+    const payload: PagePayload = {
+      site: this.siteBlock(ctx, archive.route, archive.locale.key),
+      navbar: chrome.navbar,
+      sidebar: chrome.sidebar,
+      page: alternates ? { ...meta, alternates } : meta,
+      articles: archive.articles,
+    };
+    // No katexHref: archive content is a plain heading plus the article
+    // list — it never renders math.
+    return renderShell({
+      ...this.shellArgs(assets, archive.locale),
+      payload,
+      content: `<h1>${escapeHtml(archive.title, { attr: false })}</h1>`,
+    });
+  }
+
+  private katexHref(build: boolean): string {
+    return build ? 'assets/katex/katex.min.css' : katexDevHref();
+  }
+
+  /** Dead links collected across all renders since last sync. */
+  deadLinks(): DeadLink[] {
+    // Line numbers live on the rendered CollectedLink entries, not on the
+    // resolver records; deadLinkReport joins both by file+raw.
+    const rendered = [...this.rendered].map(([file, entry]) => ({
+      file,
+      links: entry.result.links,
+    }));
+    return deadLinkReport(this.links.deadLinks, rendered);
+  }
+
+  /** Bare relative links collected across all renders since last sync. */
+  bareLinks(): DeadLink[] {
+    const rendered = [...this.rendered].map(([file, entry]) => ({
+      file,
+      links: entry.result.links,
+    }));
+    return bareLinkReport(rendered);
+  }
+
+  // -- Dev entry points -----------------------------------------------------
+
+  devAssets: BuildAssets = {
+    isBuild: false,
+    // Linked installs keep the entry outside the vite root, where a
+    // root-relative URL cannot resolve; /@fs/ serves it from the package.
+    scriptFile: devFsUrl(clientEntry()),
+    cssFiles: [],
+  };
+
+  /** Dev: HTML for a URL path; null when no page matches. */
+  devHtml(url: string): string | null {
+    const route = url.endsWith('/')
+      ? `${url}index.html`
+      : url === ''
+        ? '/index.html'
+        : url;
+    const ctx = this.buildContext();
+    const page = this.links.pageForRoute(route);
+    if (page) return this.htmlForPage(page, this.devAssets, ctx);
+    const archive = [
+      ...this.archivePages(ctx, 'category'),
+      ...this.archivePages(ctx, 'tag'),
+    ].find(a => a.route === route);
+    return archive ? this.archiveHtml(archive, this.devAssets, ctx) : null;
+  }
+
+  rss(): string {
+    const feedable = this.renderAll().filter(
+      p => p.meta.frontmatter.feed !== false,
+    );
+    return renderRss(this.config, this.feedArticles(feedable));
+  }
+
+  /** Feed items: article info zipped with the page's rendered content HTML. */
+  private feedArticles(pages: EmittedPage[]): FeedArticle[] {
+    const htmlByRoute = new Map(pages.map(p => [p.route, p.html]));
+    return buildArticles(pages).map(a => ({
+      ...a,
+      html: htmlByRoute.get(a.route) ?? '',
+    }));
+  }
+
+  // -- Build entry points ---------------------------------------------------
+
+  /** Build: render everything and return files for generateBundle emit. */
+  emitAll(assets: BuildAssets): EmittedFile[] {
+    const ctx = this.buildContext();
+    const badIcons = this.invalidIcons(ctx.pages);
+    if (badIcons.length > 0) {
+      const list = badIcons
+        .map(b => `  ${b.file}: icon "${b.icon}"`)
+        .join('\n');
+      throw new Error(
+        `[absolute-press] frontmatter icon(s) not registered in config icons map:\n${list}`,
+      );
+    }
+    const out: EmittedFile[] = [];
+    for (const page of this.pages) {
+      out.push({
+        fileName: routeToFileName(page.route).slice(1),
+        source: this.htmlForPage(page, assets, ctx),
+      });
+    }
+    const archives = [
+      ...this.archivePages(ctx, 'category'),
+      ...this.archivePages(ctx, 'tag'),
+    ];
+    assertNoArchiveCollisions(this.pages, archives);
+    for (const archive of archives) {
+      out.push({
+        fileName: routeToFileName(archive.route).slice(1),
+        source: this.archiveHtml(archive, assets, ctx),
+      });
+    }
+    for (const [fileName, buf] of this.links.images) {
+      out.push({ fileName, source: buf });
+    }
+    // KaTeX css + woff2 fonts ship only when at least one page rendered
+    // math; a math-free site carries neither (same check the shell uses).
+    if (ctx.pages.some(p => pageUsesKatex(p.html))) {
+      out.push(...katexAssets());
+    }
+    // Pages carry their git last-commit time as lastmod; synthetic archive
+    // pages have no source file and stay lastmod-less. Both carry their
+    // hreflang alternates when cross-locale counterparts exist.
+    const sitemapEntries: SitemapEntry[] = [
+      ...ctx.pages.map(p => ({
+        route: p.route,
+        lastmod: p.meta.updatedAt,
+        alternates: this.alternatesOf(ctx, p),
+      })),
+      ...archives.map(a => ({
+        route: a.route,
+        lastmod: null,
+        alternates: this.archiveAlternatesOf(ctx).get(`${a.kind}/${a.title}`),
+      })),
+    ];
+    const feedable = ctx.pages.filter(p => p.meta.frontmatter.feed !== false);
+    out.push({
+      fileName: 'rss.xml',
+      source: renderRss(this.config, this.feedArticles(feedable)),
+    });
+    out.push({
+      fileName: 'sitemap.xml',
+      source: renderSitemap(this.config, sitemapEntries),
+    });
+    out.push({ fileName: 'robots.txt', source: renderRobots(this.config) });
+    return out;
+  }
+}

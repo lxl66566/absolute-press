@@ -1,0 +1,60 @@
+/*
+ * Inline toc (below xl). The fixed #ap-toc rail only fits at xl (1280px+);
+ * narrower viewports collapse the outline into this card at the top of the
+ * article body, below the meta row. Consumed by src/client/theme/InlineToc.tsx.
+ */
+
+/* The rail takes over at xl and the card leaves with it. Mirrors the
+ * #ap-toc display rules in theme.css — the two breakpoints move together. */
+@media (min-width: 1280px) {
+  .ap-toc-inline {
+    display: none;
+  }
+}
+
+/* Disclosure toggle: layout lives in Uno utilities, hover/focus here like
+ * the rail's .ap-toc-row__chevron. */
+.ap-toc-inline__toggle:hover {
+  background-color: var(--c-bg-mute);
+}
+
+.ap-toc-inline__toggle:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
+}
+
+/* Prose links (#ap-content a: accent color + hover underline) would tint
+ * the outline rows; restore the rail's row palette. The #ap-content prefix
+ * repeats the prose rule's specificity so the overrides win. */
+#ap-content .ap-toc-inline a {
+  color: var(--c-text-2);
+}
+
+#ap-content .ap-toc-inline a:hover {
+  color: var(--c-text);
+  text-decoration: none;
+}
+
+#ap-content .ap-toc-inline a.font-medium {
+  color: var(--c-accent);
+}
+
+/* Collapsed body: rows must leave the tab / a11y tree — a 0fr grid track
+ * keeps its links focusable while invisible. Visibility is discrete: with
+ * a duration it flips in late when hiding and instantly when showing, so
+ * the expand transition stays intact (same pattern as #ap-sidebar). */
+.ap-toc-inline > .ap-collapse {
+  transition:
+    grid-template-rows 160ms ease-out,
+    visibility 160ms;
+}
+
+.ap-toc-inline > .ap-collapse.ap-collapsed {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-toc-inline > .ap-collapse {
+    transition: none;
+  }
+}

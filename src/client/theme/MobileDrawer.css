@@ -1,0 +1,140 @@
+/**
+ * Mobile drawer (H6): a layered collapsible tree plus a lightweight footer.
+ * The drawer is its own fixed panel rendered by the nav chunk (ThemeNav) —
+ * it must not nest under the sticky header, whose backdrop-filter would
+ * become the containing block for fixed children. Row visuals intentionally
+ * reuse .ap-sidebar-row / .ap-sidebar-group (theme.css + sidebar.css) so
+ * drawer and desktop rail read as one navigation.
+ */
+
+.ap-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background-color: rgb(0 0 0 / 0.4);
+  animation: ap-fade 160ms ease-out both;
+}
+
+.ap-drawer-panel {
+  position: fixed;
+  top: var(--ap-nav-h);
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--ap-sidebar-w), 85vw);
+  padding: 1rem 0.75rem 1.25rem;
+  overflow-y: auto;
+  background-color: var(--c-bg);
+  border-right: 1px solid var(--c-border);
+  transform: translateX(-105%);
+  visibility: hidden;
+  transition:
+    transform 180ms ease-out,
+    visibility 180ms;
+}
+
+.ap-drawer-panel.ap-open {
+  transform: none;
+  visibility: visible;
+}
+
+.ap-drawer-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Tree rows flex-center their icons, so FaIcon's inline-flow optical lift
+ * would push glyphs above the text centerline — same reset as the navbar
+ * rail. Size stays per-surface (the footer row below upsizes its own). */
+.ap-drawer-panel .ap-fa-icon > svg {
+  translate: none;
+  transform: none;
+}
+
+/* Current-page row. Plain CSS like the navbar activation: a second color
+ * utility would lose the stylesheet-order tie against the base color. */
+.ap-drawer-link-active {
+  color: var(--c-accent);
+  font-weight: 500;
+}
+
+/* Lightweight footer (博主裁决: 作者卡可简化): brand row + social links that
+ * no longer fit the mobile top bar (M4). */
+.ap-drawer-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--c-border);
+  text-align: center;
+}
+
+.ap-drawer-footer__avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.ap-drawer-footer__title {
+  font-weight: 600;
+}
+
+.ap-drawer-footer__social {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--c-text-2);
+}
+
+.ap-drawer-footer__social a {
+  display: flex;
+  padding: 0.375rem;
+  color: inherit;
+  transition: color 140ms ease-out;
+}
+
+.ap-drawer-footer__social a:hover {
+  color: var(--c-text);
+}
+
+/* Same normalized glyph box as the navbar rail (M14). */
+.ap-drawer-footer__social svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  translate: none;
+  transform: none;
+}
+
+/* Site credits line (CC + framework placeholder): mirrors the desktop
+ * footer's quiet text; the footer itself is desktop-only. */
+.ap-drawer-footer__credits {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--c-text-2);
+}
+
+/* The drawer is a mobile-only surface; the hamburger is hidden at lg. */
+@media (min-width: 1024px) {
+  .ap-drawer-panel,
+  .ap-drawer-backdrop {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-drawer-panel {
+    transition: none;
+  }
+
+  .ap-drawer-backdrop {
+    animation: none;
+  }
+}

@@ -1,0 +1,253 @@
+/*
+ * Code block features layered on top of theme.css container chrome:
+ * line-number gutter (pure CSS counters), soft wrap, and the no-JS fold.
+ * Structure emitted by src/node/markdown/renderer.ts:
+ *
+ *   <div class="ap-code ap-code--ln [ap-code--nowrap]
+ *               [ap-code--fold is-collapsed]"
+ *        style="[counter-reset:ap-lines:N] [--ap-ln-w:Dch]">
+ *     <input type="checkbox" class="ap-code__fold-input" id="ap-code-fold-n">
+ *     <pre class="shiki">…<span class="line">/<span class="line ap-collapsible">…</pre>
+ *     <label class="ap-code__fold-toggle" for="ap-code-fold-n"></label>
+ *   </div>
+ *
+ * This file is imported AFTER theme.css in entry.tsx; tie-level selectors
+ * rely on that order, override rules below deliberately exceed it.
+ */
+
+/* --------------------------------------------------------------------------
+ * Line numbers (ap-code--ln; the renderer's inline --ap-ln-w sizes the
+ * slot to the digit count of the block's last line number)
+ * ------------------------------------------------------------------------ */
+.ap-code--ln {
+  /* Fallback for hand-written markup; rendered fences always get the exact
+   * width inline. Numbers are right-aligned, so the widest one starts here
+   * with the same 1rem inset as unnumbered code. */
+  --ap-ln-w: 1ch;
+}
+
+.ap-code--ln code {
+  counter-reset: ap-line;
+}
+
+.ap-code--ln .line {
+  counter-increment: ap-line;
+  position: relative;
+  /* Gutter slot [1rem, 1rem + --ap-ln-w], then a breathing gap before the
+   * code; override --ap-ln-gap to widen/tighten the separation. */
+  padding-left: calc(1rem + var(--ap-ln-w) + var(--ap-ln-gap));
+  --ap-ln-gap: 1.25ch;
+}
+
+.ap-code--ln .line::before {
+  content: counter(ap-line);
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  width: var(--ap-ln-w);
+  /* Right-aligned numbers, not selectable so copies stay clean. The gutter
+   * scrolls with the code when :wrap=false — intentional. */
+  text-align: right;
+  color: var(--c-text-2);
+  opacity: 0.55;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+ * Wrap (default soft-wrap; ap-code--nowrap restores horizontal scrolling)
+ * ------------------------------------------------------------------------ */
+.ap-code .line {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* theme.css sizes `code` by max-content for the scroll layout; wrapped code
+ * must track the container instead (extra specificity beats it regardless
+ * of import order). */
+.ap-code:not(.ap-code--nowrap) code {
+  width: auto;
+}
+
+.ap-code--nowrap .line {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+/* --------------------------------------------------------------------------
+ * Fold (checkbox hack — expanding works with JavaScript disabled)
+ * ------------------------------------------------------------------------ */
+.ap-code--fold {
+  position: relative;
+}
+
+/* Visually hidden but focusable: Tab reaches it, Space toggles. */
+.ap-code__fold-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Collapsed: hide lines beyond the threshold. */
+.ap-code__fold-input:not(:checked) ~ pre .line.ap-collapsible {
+  display: none;
+}
+
+/* Expanded: must also out-rank theme.css's
+ * `.ap-code.is-collapsed .line.ap-collapsible { display: none }`. */
+.ap-code.is-collapsed .ap-code__fold-input:checked ~ pre .line.ap-collapsible {
+  display: block;
+}
+
+/* Bottom fade hinting at the hidden remainder while collapsed. */
+.ap-code__fold-input:not(:checked) ~ pre {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 3.2em),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 3.2em), transparent);
+}
+
+.ap-code__fold-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  width: 100%;
+  padding: 0.45rem 1rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--c-text-2);
+  background-color: var(--c-bg-soft);
+  border-top: 1px solid var(--c-border);
+  border-radius: 0 0 0.5rem 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: color 140ms ease-out;
+}
+
+.ap-code__fold-toggle:hover {
+  color: var(--c-accent);
+}
+
+.ap-code__fold-input:focus-visible ~ .ap-code__fold-toggle {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
+}
+
+/* Button copy: English default, zh through :lang() (html lang="zh-CN").
+ * The line count comes from the container's `counter-reset: ap-lines N`
+ * inline style — a custom property would substitute into `content` as a
+ * number token (invalid), counters stay a valid content-list item. */
+.ap-code__fold-toggle::before {
+  content: 'Expand (' counter(ap-lines) ' lines)';
+}
+
+.ap-code__fold-input:checked ~ .ap-code__fold-toggle::before {
+  content: 'Collapse (' counter(ap-lines) ' lines)';
+}
+
+:lang(zh) .ap-code__fold-toggle::before {
+  content: '展开（' counter(ap-lines) ' 行）';
+}
+
+:lang(zh) .ap-code__fold-input:checked ~ .ap-code__fold-toggle::before {
+  content: '收起（' counter(ap-lines) ' 行）';
+}
+
+/* Border-drawn chevron; points down collapsed, up expanded. */
+.ap-code__fold-toggle::after {
+  content: '';
+  width: 0.4em;
+  height: 0.4em;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: translateY(-25%) rotate(45deg);
+  transition: transform 160ms ease-out;
+}
+
+.ap-code__fold-input:checked ~ .ap-code__fold-toggle::after {
+  transform: translateY(25%) rotate(225deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-code__fold-toggle,
+  .ap-code__fold-toggle::after {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Tools row (language label + copy button, top-right; build-time markup from
+ * renderer.ts, click behavior in runtime/code-tools.ts). Low-key on the dark
+ * card: muted mono label, ghost icon button, accent check on success.
+ * ------------------------------------------------------------------------ */
+.ap-code {
+  position: relative;
+}
+
+.ap-code__tools {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.6rem;
+  z-index: 1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ap-code__lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--c-text-2);
+  opacity: 0.75;
+  user-select: none;
+}
+
+.ap-code__copy {
+  display: grid;
+  place-items: center;
+  padding: 0.2rem;
+  color: var(--c-text-2);
+  background-color: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  /* Color transition only: icons never animate. */
+  transition: color 140ms ease-out;
+}
+
+.ap-code__copy:hover {
+  color: var(--c-text);
+}
+
+.ap-code__copy:focus-visible {
+  outline: 2px solid var(--c-accent);
+}
+
+.ap-code__copy svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* Success feedback: check icon + accent color while `.is-copied` is set. */
+.ap-code__copied-icon {
+  display: none;
+}
+
+.ap-code__copy.is-copied {
+  color: var(--c-accent);
+}
+
+.ap-code__copy.is-copied .ap-code__copy-icon {
+  display: none;
+}
+
+.ap-code__copy.is-copied .ap-code__copied-icon {
+  display: block;
+}

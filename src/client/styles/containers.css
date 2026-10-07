@@ -1,0 +1,88 @@
+/*
+ * ::: containers — old-site full-card shape over the restrained new-site
+ * palette: light same-hue tint across the whole card, rounded corners, and
+ * an icon + Chinese title line (markup from node/markdown/containers.ts).
+ *
+ *   <div class="ap-container ap-container--<type>">
+ *     <p class="ap-container__title"><svg class="ap-container__icon"/>标题</p>
+ *     ...
+ *
+ * Imported AFTER theme.css (entry.tsx) so the overrides below win ties.
+ */
+
+.ap-container {
+  /* Full card: replace theme.css's 4px left bar with a hairline same-hue
+   * frame so the tinted box reads as one card against the page background. */
+  border: 1px solid color-mix(in srgb, var(--ap-container-c) 25%, transparent);
+  border-radius: 0.5rem;
+}
+
+.ap-container__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Same-hue icon: inherits the title's mixed accent color. Static, no
+ * animation (icons never animate). */
+.ap-container__icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+/* Details container: the chevron icon replaces the native disclosure marker;
+ * closed it points right, open it rotates to point down (instant, no
+ * transition). */
+.ap-container--details summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  list-style: none;
+}
+
+/* The shared __title bottom margin (theme.css, id-scoped) reads as dead
+ * space under the summary line of a closed box; the summary owns the whole
+ * closed card, so it keeps a clean box instead. */
+#ap-content details.ap-container--details > summary {
+  margin: 0;
+}
+
+.ap-container--details summary::-webkit-details-marker {
+  display: none;
+}
+
+.ap-container--details[open] > summary .ap-container__icon {
+  transform: rotate(90deg);
+}
+
+/* Expand/collapse: grow the content box (::details-content) between 0 and
+ * its natural height over 120ms. calc-size() interpolates against the auto
+ * size without the global interpolate-size opt-in; browsers without
+ * calc-size (Safari) or without ::details-content keep the native instant
+ * toggle. content-visibility must join the transition (the UA flips it
+ * hidden/visible on toggle) or the flip would cut both animations short.
+ * overflow-y: clip keeps the content inside the growing box; it also forms
+ * a BFC, which contains the first content child's top margin (details is
+ * excluded from theme.css's `__title + *` reset, so that margin is restored)
+ * inside the animating box instead of letting it collapse out above; the
+ * last child's bottom margin stays zeroed by theme.css. */
+@supports (width: calc-size(auto, size)) {
+  .ap-container--details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    transition:
+      block-size 120ms ease-out,
+      content-visibility 200ms allow-discrete;
+  }
+
+  .ap-container--details[open]::details-content {
+    block-size: calc-size(auto, size);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-container--details::details-content {
+    transition: none;
+  }
+}

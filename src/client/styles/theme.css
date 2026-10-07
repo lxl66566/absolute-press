@@ -1,0 +1,844 @@
+/**
+ * Absolute theme styles.
+ * Component chrome mostly uses UnoCSS utilities; this file owns the design
+ * tokens (light/dark), the shell layout, and styles for markdown output
+ * (heimu / containers / tabs / code / prose) which has no UnoCSS source.
+ */
+
+/* --------------------------------------------------------------------------
+ * Design tokens
+ * ------------------------------------------------------------------------ */
+:root {
+  --c-accent: #3eaf7c;
+  --c-danger: #e13238;
+  --c-bg: #ffffff;
+  --c-bg-soft: #f5f6f8;
+  --c-bg-mute: #e8eaef;
+  --c-text: #20293a;
+  --c-text-2: #5d6b7d;
+  --c-border: #e2e5ea;
+  --c-code-bg: #f1f2f5;
+  --c-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+
+  /* VuePress migration aliases: complete semantic set, each pointing at the
+   * corresponding --c-* token. Defined once here (not per theme block) — they
+   * track light/dark automatically through the --c-* reference. */
+  --vp-c-accent: var(--c-accent);
+  --vp-c-bg: var(--c-bg);
+  --vp-c-bg-alt: var(--c-bg-soft);
+  --vp-c-bg-soft: var(--c-bg-soft);
+  --vp-c-bg-mute: var(--c-bg-mute);
+  --vp-c-text: var(--c-text);
+  --vp-c-text-1: var(--c-text);
+  --vp-c-text-2: var(--c-text-2);
+  --vp-c-text-3: var(--c-text-2);
+  --vp-c-border: var(--c-border);
+  --vp-c-divider: var(--c-border);
+  --vp-c-gutter: var(--c-border);
+  --vp-c-code-bg: var(--c-code-bg);
+
+  /* Chrome metrics */
+  --ap-nav-h: 3.5rem;
+  --ap-sidebar-w: 18rem;
+  --ap-toc-w: 15rem;
+  /* Desktop footer: one compact text-xs line (ArticleFooter). */
+  --ap-footer-h: 1.5rem;
+
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --c-accent: #46bd87;
+  /* Brighter than the light-theme red: the flat #e13238 loses contrast on
+   * the dark canvas. */
+  --c-danger: #f2555b;
+  --c-bg: #16181d;
+  --c-bg-soft: #1e2128;
+  --c-bg-mute: #2a2e37;
+  --c-text: #dde2ea;
+  --c-text-2: #98a2b3;
+  --c-border: #2e323b;
+  --c-code-bg: #1c1f26;
+  --c-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+
+  color-scheme: dark;
+}
+
+/* --------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------ */
+body {
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+/* Anchor offset for toc smooth-scroll and external #links */
+:is(h1, h2, h3, h4, h5, h6)[id] {
+  scroll-margin-top: 20vh;
+}
+
+/* Anchor jump target: accent tint fades in and holds until the user scrolls
+ * on their own (runtime clears it on wheel/touch/scroll keys). Negative
+ * inline margins offset the padding so the tint reads like a marker without
+ * shifting the layout. */
+#ap-content :is(h1, h2, h3, h4, h5, h6).ap-anchor-flash {
+  margin-inline: -0.4rem;
+  padding-inline: 0.4rem;
+  background-color: color-mix(in srgb, var(--c-accent) 15%, transparent);
+  border-radius: 0.375rem;
+  animation: ap-anchor-flash 160ms ease-out both;
+}
+
+/* --------------------------------------------------------------------------
+ * Shell layout (#ap-nav / #ap-sidebar / #ap-content / #ap-toc)
+ * The body is a flex column: #ap-content grows to fill the viewport so the
+ * site footer (#ap-footer) stays pinned to the page bottom on short pages;
+ * the fixed navbar is offset by body padding.
+ * ------------------------------------------------------------------------ */
+body {
+  min-height: 100vh;
+  padding-top: var(--ap-nav-h);
+  display: flex;
+  flex-direction: column;
+}
+
+#ap-content {
+  flex: 1 0 auto;
+  /* Body is a flex column; auto cross-axis margins size the item as
+   * fit-content, which an unbreakable wide child would inflate past the
+   * viewport. `stretch` restores the block fill-available width (auto
+   * margins and max-width still center/cap it; older browsers fall back to
+   * the fit-content sizing). */
+  width: stretch;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: 1.5rem 1.25rem 4rem;
+  line-height: 1.75;
+  /* Long latin tokens (URLs, slash-joined lists) must wrap instead of
+   * widening the page on mobile. Reset for code fences: they scroll. */
+  overflow-wrap: break-word;
+}
+
+/* Leading/trailing block trim: the column's top padding already clears the
+ * fixed navbar; a leading heading must not stack its section-sized top
+ * margin (h1: 1.6em) on it as dead space. The column edge is not always the
+ * body's first element: mount prepends the empty #ap-chrome slot (a real
+ * box, so margin-trim cannot see past it), and the password gate nests the
+ * body inside island wrappers whose child margins collapse into the
+ * wrapper. margin-trim handles the modern path at every framework container
+ * edge; the structural selectors repeat the trim for engines without
+ * margin-trim, keyed to framework-owned wrappers rather than sibling
+ * positions so stray non-box elements (the gate's inline <style>) cannot
+ * break the adjacency. */
+#ap-content,
+#ap-content > div[data-ap-island='PasswordGate'],
+.ap-gate,
+.ap-gate__content {
+  margin-trim: block;
+}
+
+#ap-content > :first-child,
+#ap-content > #ap-chrome:first-child + *,
+#ap-content > div[data-ap-island='PasswordGate'] > :first-child,
+/* Repeat the #ap-content context: the prose margin rules carry the column
+ * id, so a bare class selector would lose the specificity duel. */
+#ap-content .ap-gate__content > :first-child {
+  margin-top: 0;
+}
+
+#ap-content pre {
+  overflow-wrap: normal;
+}
+
+/* Site footer: a quiet compact line pinned to the page bottom by the body's
+ * flex column (short pages rest it at the bottom too). Scoped to the
+ * content column — same horizontal sizing as #ap-content per breakpoint,
+ * so it clears the fixed sidebar and its text lines up with the article
+ * body; the shell element owns the border and the exact --ap-footer-h
+ * height (flex-centers the text child). Mobile shows no footer — the
+ * credits line lives in the drawer footer. */
+#ap-footer {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--ap-footer-h);
+  border-top: 1px solid var(--c-border);
+}
+
+#ap-sidebar {
+  position: fixed;
+  top: var(--ap-nav-h);
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  width: min(var(--ap-sidebar-w), 85vw);
+  padding: 1rem 0.75rem 3rem;
+  overflow-y: auto;
+  background-color: var(--c-bg);
+  border-right: 1px solid var(--c-border);
+  transform: translateX(-105%);
+  /* Off-canvas AND out of the tab / a11y tree below lg (keyboard reach):
+   * transform alone leaves the links focusable. Visibility is discrete —
+   * with a duration it flips in late when hiding and instantly when
+   * showing, so the slide transition stays intact (same pattern as
+   * .ap-drawer-panel). */
+  visibility: hidden;
+  transition:
+    transform 180ms ease-out,
+    visibility 180ms;
+}
+
+#ap-toc {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  #ap-sidebar {
+    z-index: 30;
+    transform: none;
+    visibility: visible;
+  }
+
+  #ap-content {
+    max-width: 46rem;
+    margin-right: 1.5rem;
+    margin-left: calc(var(--ap-sidebar-w) + 1.5rem);
+  }
+
+  #ap-footer {
+    display: flex;
+    max-width: 46rem;
+    margin-right: 1.5rem;
+    margin-left: calc(var(--ap-sidebar-w) + 1.5rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  #ap-toc {
+    display: block;
+    position: fixed;
+    top: var(--ap-nav-h);
+    right: 0;
+    bottom: 0;
+    width: var(--ap-toc-w);
+    padding: 1.5rem 1rem 3rem;
+    overflow-y: auto;
+  }
+
+  #ap-content {
+    /* Fill the lane between the fixed rails instead of anchoring to the toc
+     * side (which stranded a dead zone next to the sidebar). The column
+     * keeps a readability cap; once the cap binds, the max() term splits
+     * the slack evenly so the column stays centered in the lane. */
+    margin-left: calc(
+      var(--ap-sidebar-w) + 1.5rem +
+        max(
+          0rem,
+          (100% - var(--ap-sidebar-w) - var(--ap-toc-w) - 3rem - 72rem) / 2
+        )
+    );
+    margin-right: calc(var(--ap-toc-w) + 1.5rem);
+    max-width: 72rem;
+  }
+
+  #ap-footer {
+    margin-left: calc(
+      var(--ap-sidebar-w) + 1.5rem +
+        max(
+          0rem,
+          (100% - var(--ap-sidebar-w) - var(--ap-toc-w) - 3rem - 72rem) / 2
+        )
+    );
+    margin-right: calc(var(--ap-toc-w) + 1.5rem);
+    max-width: 72rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Sidebar rail resizer (desktop). A fixed 5px strip hugging the rail's right
+ * border from the outside — the rail's own thin scrollbar stays draggable.
+ * The accent line paints over the 1px border on hover / focus / drag.
+ * ------------------------------------------------------------------------ */
+.ap-sidebar-resizer {
+  position: fixed;
+  top: var(--ap-nav-h);
+  bottom: 0;
+  left: calc(var(--ap-sidebar-w) - 1px);
+  width: 5px;
+  z-index: 40;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.ap-sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background-color: transparent;
+  transition: background-color 140ms ease-out;
+}
+
+.ap-sidebar-resizer:hover::after,
+.ap-sidebar-resizer:focus-visible::after,
+body.ap-sidebar-resizing .ap-sidebar-resizer::after {
+  background-color: var(--c-accent);
+}
+
+body.ap-sidebar-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Shared 0fr/1fr collapse (sidebar / drawer groups, toc groups, xlist
+ * reveal rows): a grid whose single track animates between 1fr and 0fr.
+ * Two non-obvious traps, hence one shared implementation:
+ * - `grid-template-rows: 0fr` only sizes the FIRST track; groups with more
+ *   than one child would land the rest in implicit auto rows and stay
+ *   visible. The collapsed state therefore also zeroes `grid-auto-rows`.
+ * - a 0fr track cannot compress a child with an automatic minimum size, so
+ *   children get `overflow: hidden` (which zeroes that minimum). Content
+ *   padding lives on a further-inward wrapper, not on the grid child.
+ * Consumers pair this class with their own hook (e.g. .ap-sidebar-group)
+ * and toggle `ap-collapsed`; the xlist reveal is inverted (collapsed by
+ * default, removes ap-collapsed to open). Keep the 160ms in sync with
+ * FOLD_SETTLE_MS (theme/constants.ts). */
+.ap-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 160ms ease-out;
+}
+
+.ap-collapse > * {
+  overflow: hidden;
+}
+
+.ap-collapse.ap-collapsed {
+  grid-template-rows: 0fr;
+  grid-auto-rows: 0fr;
+}
+
+/* --------------------------------------------------------------------------
+ * Heimu (spoiler) — black-on-black, revealed on hover/press. Pure CSS.
+ * ------------------------------------------------------------------------ */
+/* `.heimu`/`heimu` cover the old blog's migrated markup: `<span class="heimu">`
+ * and raw `<heimu>` tags pass through as unknown HTML (migration compat).
+ * Palette is the old blog's moegirl-derived spoiler: flat #404040 bar (bg =
+ * text color, no padding/radius/transition), white while revealed, lightblue
+ * links inside a revealed bar. The `#ap-content` prefixes outrank the prose
+ * `#ap-content a` link color. */
+.ap-heimu,
+.heimu,
+heimu {
+  background-color: #404040;
+  color: #404040;
+  text-shadow: none;
+}
+
+/* Reveal on hover/press, including a nested spoiler inside a revealed one. */
+:is(.ap-heimu, .heimu, heimu):is(:hover, :active),
+:is(.ap-heimu, .heimu, heimu):is(:hover, :active)
+  :is(.ap-heimu, .heimu, heimu) {
+  color: white;
+}
+
+/* Links inside the bar share the hiding color until it is revealed. */
+#ap-content :is(.ap-heimu, .heimu, heimu) a {
+  color: #404040;
+}
+
+#ap-content :is(.ap-heimu, .heimu, heimu):is(:hover, :active) a,
+#ap-content a:is(:hover, :active) :is(.ap-heimu, .heimu, heimu) {
+  color: lightblue;
+}
+
+.ap-heimu::selection,
+.ap-heimu *::selection,
+.heimu::selection,
+.heimu *::selection,
+heimu::selection,
+heimu *::selection {
+  color: white;
+}
+
+/* --------------------------------------------------------------------------
+ * ::: containers
+ * ------------------------------------------------------------------------ */
+.ap-container {
+  --ap-container-c: var(--c-accent);
+  /* Compact rhythm (user-tuned): 12px stacked gap, ~11/14px padding, and a
+   * slightly tighter leading than the prose so one-line containers stay
+   * small (the title paragraph's default margins used to add ~13px of
+   * invisible padding on top and before the body). */
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.6;
+  background-color: color-mix(in srgb, var(--ap-container-c) 7%, var(--c-bg));
+  border-left: 4px solid var(--ap-container-c);
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.ap-container__title {
+  /* Same font size as the body text — hierarchy comes from weight + color
+   * only; a shorter line box keeps the title visually level with it. */
+  font-weight: 600;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--ap-container-c) 75%, var(--c-text));
+}
+
+/* The prose margin rule `#ap-content :where(p, …)` carries an ID and
+ * outranks any single-class selector, so the container-internal resets must
+ * repeat that specificity to take effect. */
+#ap-content .ap-container__title {
+  margin: 0 0 0.3rem;
+}
+
+#ap-content .ap-container > :first-child {
+  margin-top: 0;
+}
+
+/* Details is excluded: its summary keeps margin 0 (a bottom margin would be
+ * dead space under the closed card's only line), so there is no title-carried
+ * gap to replace it with — the first content child must keep its prose top
+ * margin or the open card's content hugs the summary row. */
+#ap-content
+  .ap-container:not(.ap-container--details)
+  > .ap-container__title
+  + * {
+  margin-top: 0;
+}
+
+#ap-content .ap-container > :last-child {
+  margin-bottom: 0;
+}
+
+.ap-container--tip {
+  /* Accent hue in both themes (tracks --c-accent instead of freezing the
+   * light value) so tip bars stay in step with links / tabs. */
+  --ap-container-c: var(--c-accent);
+}
+
+.ap-container--info {
+  --ap-container-c: #4a86e8;
+}
+
+.ap-container--warning {
+  --ap-container-c: #e6a23c;
+}
+
+.ap-container--caution {
+  --ap-container-c: #e67e22;
+}
+
+.ap-container--danger {
+  --ap-container-c: var(--c-danger);
+}
+
+.ap-container--error {
+  --ap-container-c: #c0392b;
+}
+
+.ap-container--details {
+  --ap-container-c: var(--c-text-2);
+  background-color: var(--c-bg-soft);
+}
+
+.ap-container--details summary {
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.ap-container--right {
+  --ap-container-c: var(--c-border);
+  text-align: right;
+  background-color: var(--c-bg-soft);
+}
+
+/* --------------------------------------------------------------------------
+ * Tabs (CSS-only radio mode)
+ * DOM from the markdown pipeline (src/node/markdown/tabs.ts):
+ *   .ap-tabs[data-persist?] > (input.ap-tabs__radio + label.ap-tabs__label
+ *                               + .ap-tab[data-title])*
+ * The pipeline interleaves input/label/panel per tab, so plain flow puts
+ * labels after a visible panel below it. Flex + `order` gathers every label
+ * into one header row with the checked panel underneath — no JS, unlimited
+ * tabs (whitespace-only text nodes are ignored by flex layout).
+ * ------------------------------------------------------------------------ */
+.ap-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  margin: 0.75rem 0;
+  padding: 0.25rem 1rem 0.5rem;
+  background-color: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: 0.5rem;
+}
+
+.ap-tabs > input[type='radio'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ap-tabs > label {
+  order: 0;
+  margin: 0 0.25rem 0 0;
+  padding: 0.3rem 0.75rem;
+  color: var(--c-text-2);
+  border-bottom: 2px solid transparent;
+  border-radius: 0.375rem 0.375rem 0 0;
+  cursor: pointer;
+  transition:
+    color 140ms ease-out,
+    border-color 140ms ease-out;
+}
+
+.ap-tabs > label:hover {
+  color: var(--c-text);
+}
+
+.ap-tabs > input[type='radio']:checked + label {
+  color: var(--c-accent);
+  border-bottom-color: var(--c-accent);
+}
+
+.ap-tabs > .ap-tab {
+  order: 1;
+  display: none;
+  width: 100%;
+  padding-top: 0.5rem;
+}
+
+.ap-tabs > input[type='radio']:checked + label + .ap-tab {
+  display: block;
+}
+
+#ap-content .ap-tabs > .ap-tab > :last-child {
+  margin-bottom: 0;
+}
+
+/* code-tabs: panel code blocks blend into the tab container */
+.ap-tabs--code > .ap-tab > .ap-code {
+  margin: 0;
+  background-color: var(--c-code-bg);
+}
+
+/* --------------------------------------------------------------------------
+ * Code blocks (.ap-code wraps the shiki pre; runtime handles folding)
+ * ------------------------------------------------------------------------ */
+.ap-code {
+  margin: 0.75rem 0;
+  overflow: hidden;
+  background-color: var(--c-code-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 0.5rem;
+}
+
+.ap-code__title {
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  color: var(--c-text-2);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.ap-code pre {
+  margin: 0;
+  padding: 0.85rem 0;
+  overflow-x: auto;
+  background: transparent;
+}
+
+/* Shiki dual themes emit inline light-theme colors plus `--shiki-dark*`
+ * custom properties. The container owns the background in both themes; dark
+ * mode remaps text colors through the embedded dark variables. `!important`
+ * is required to beat the inline styles. */
+.ap-code pre.shiki,
+.ap-code pre.shiki span {
+  background-color: transparent !important;
+}
+
+html[data-theme='dark'] .ap-code pre.shiki,
+html[data-theme='dark'] .ap-code pre.shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+.ap-code code {
+  /* Flex column: shiki separates `.line` blocks with newline text nodes, and
+   * the pre's `white-space: pre` would render each one as an extra blank
+   * line (doubled line spacing). Flex ignores whitespace-only text nodes. */
+  display: flex;
+  flex-direction: column;
+  /* Wide lines expand the scrollable area of the pre; highlighted-line
+   * backgrounds then span the full scroll width. */
+  width: max-content;
+  min-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+
+.ap-code .line {
+  display: block;
+  min-height: 1.6em;
+  padding: 0 1rem;
+}
+
+.ap-code .line.highlighted,
+.ap-code .highlighted {
+  background-color: color-mix(in srgb, var(--c-accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+/* collapsed-lines: runtime JS toggles .is-collapsed / injects the toggle */
+.ap-code.is-collapsed .line.ap-collapsible {
+  display: none;
+}
+
+.ap-code__collapse {
+  display: block;
+  width: 100%;
+  padding: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--c-text-2);
+  background-color: var(--c-bg-soft);
+  border-top: 1px solid var(--c-border);
+  cursor: pointer;
+  transition: color 140ms ease-out;
+}
+
+.ap-code__collapse:hover {
+  color: var(--c-accent);
+}
+
+/* --------------------------------------------------------------------------
+ * Prose (static markdown body inside #ap-content)
+ * ------------------------------------------------------------------------ */
+#ap-content :where(h1, h2, h3, h4, h5, h6) {
+  margin: 1.6em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--c-text);
+}
+
+#ap-content h1 {
+  font-size: 1.9rem;
+}
+
+#ap-content h2 {
+  padding-bottom: 0.3em;
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--c-border);
+}
+
+#ap-content h3 {
+  font-size: 1.25rem;
+}
+
+#ap-content h4 {
+  font-size: 1.1rem;
+}
+
+#ap-content :where(p, ul, ol, blockquote, table, figure) {
+  margin: 0.8em 0;
+}
+
+#ap-content :where(ul, ol) {
+  padding-left: 1.4em;
+}
+
+#ap-content ul {
+  list-style: disc;
+}
+
+#ap-content ol {
+  list-style: decimal;
+}
+
+/* Card lists (HomeFeed / ArchiveView) render as cards, not prose bullets;
+ * this id-scoped reset outranks the `#ap-content ul` disc rule above. */
+#ap-content .ap-cards {
+  list-style: none;
+}
+
+/* Task lists (@mdit/plugin-tasklist): the checkbox is the marker; keeping
+ * the disc would show a "• ☑" double marker. */
+#ap-content ul.task-list-container {
+  list-style: none;
+}
+
+#ap-content .task-list-item-checkbox {
+  margin-right: 0.4em;
+}
+
+/* Footnote block (@mdit/plugin-footnote): the bare hr+ol read as a random
+ * list; label it. Static HTML, so the CSS label covers the no-JS view too.
+ * (html[lang] drives the wording; zh is the shape source of truth.) */
+#ap-content section.footnotes::before {
+  content: '脚注';
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+
+:lang(en) #ap-content section.footnotes::before {
+  content: 'Footnotes';
+}
+
+#ap-content a {
+  color: var(--c-accent);
+  text-decoration: none;
+  transition: color 140ms ease-out;
+}
+
+#ap-content a:hover {
+  text-decoration: underline;
+}
+
+#ap-content blockquote {
+  padding: 0.25rem 1rem;
+  color: var(--c-text-2);
+  background-color: var(--c-bg-soft);
+  border-left: 4px solid var(--c-border);
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+#ap-content table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+#ap-content :where(th, td) {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--c-border);
+}
+
+#ap-content th {
+  background-color: var(--c-bg-soft);
+  font-weight: 600;
+}
+
+#ap-content tbody tr:nth-child(even) {
+  background-color: var(--c-bg-soft);
+}
+
+#ap-content img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+
+#ap-content figure img {
+  margin-inline: auto;
+  box-shadow: var(--c-shadow);
+}
+
+#ap-content figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--c-text-2);
+  text-align: center;
+}
+
+#ap-content :where(p, li, td, th) code {
+  padding: 0.15em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background-color: var(--c-code-bg);
+  border-radius: 0.3rem;
+}
+
+#ap-content mark {
+  padding: 0 0.2em;
+  color: inherit;
+  background-color: color-mix(in srgb, var(--c-accent) 30%, transparent);
+  border-radius: 0.2rem;
+}
+
+#ap-content hr {
+  margin: 2rem 0;
+  border-top: 1px solid var(--c-border);
+}
+
+/* --------------------------------------------------------------------------
+ * Navbar dropdown panels
+ * Capped below the navbar edge; long catalogs scroll inside the panel
+ * instead of spilling past the viewport. Scrollbar follows the theme.
+ * ------------------------------------------------------------------------ */
+.ap-nav-drop {
+  /* About half the viewport (site UX rule); nested flyouts get the same cap
+   * from navbar/placement.ts (placeNestedFlyout). Two copies of the cap —
+   * change them together. */
+  max-height: 50vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+}
+
+.ap-nav-drop::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ap-nav-drop::-webkit-scrollbar-thumb {
+  background-color: var(--c-border);
+  border-radius: 9999px;
+}
+
+/* --------------------------------------------------------------------------
+ * Animations
+ * ------------------------------------------------------------------------ */
+@keyframes ap-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ap-anchor-flash {
+  from {
+    background-color: transparent;
+  }
+}
+
+@keyframes ap-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ap-feed-anim {
+  animation: ap-fade-up 160ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

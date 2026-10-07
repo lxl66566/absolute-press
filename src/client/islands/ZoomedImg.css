@@ -1,0 +1,54 @@
+/*
+ * ZoomedImg island styles (scale/mask extras for migrated content). Tokens
+ * come from the --c-* theme variables; motion 120-200ms ease-out.
+ */
+
+.ap-zoomed {
+  margin: 0.75rem auto;
+  max-width: 100%;
+}
+
+.ap-zoomed__wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+
+.ap-zoomed__wrapper.is-masked {
+  cursor: zoom-out;
+}
+
+/* Masked state: blur the image behind a translucent veil (legacy blog
+ * behavior; revealed once by click, then normal zoom applies). */
+.ap-zoomed__wrapper.is-masked img {
+  filter: blur(12px) brightness(0.9);
+  transform: scale(1.02);
+}
+
+.ap-zoomed__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ap-zoomed__veil::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--c-bg) 55%, transparent);
+}
+
+.ap-zoomed__veil-text {
+  position: relative;
+  padding: 0.4em 1em;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--c-text);
+  background-color: color-mix(in srgb, var(--c-bg-mute) 80%, transparent);
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
