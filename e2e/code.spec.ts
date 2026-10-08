@@ -1,4 +1,11 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { expect, test, type Page } from 'playwright/test';
+
+/** Debug screenshots land in the OS temp dir (manual inspection only). */
+const shot = (name: string): string =>
+  join(tmpdir(), `code-fold-${name}-zh.png`);
 
 /**
  * Code block features (src/client/styles/code.css + markdown pipeline):
@@ -90,11 +97,9 @@ test('blocks over 15 lines are collapsed and expand without JS', async ({
     '.ap-code--fold.is-collapsed[style*="counter-reset:ap-lines 18"]',
   );
   await block.scrollIntoViewIfNeeded();
-  await block.screenshot({
-    path: 'Z:/Temp/code-fold-collapsed-zh.png',
-  });
+  await block.screenshot({ path: shot('collapsed') });
   await block.locator('.ap-code__fold-toggle').click();
-  await block.screenshot({ path: 'Z:/Temp/code-fold-expanded-zh.png' });
+  await block.screenshot({ path: shot('expanded') });
 });
 
 test('wrap is the default: long lines fold into the container', async ({

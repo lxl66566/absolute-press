@@ -3,3 +3,6 @@ dist
 dist-docs
 # Playwright test artifacts (traces, failure contexts)
 test-results
+
+# e2e debug screenshots (previously committed by accident)
+Z:
