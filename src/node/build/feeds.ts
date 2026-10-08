@@ -119,6 +119,7 @@ export function renderRobots(config: ResolvedConfig): string {
     // String encrypt rules double as crawl exclusions; RegExp rules cannot
     // be expressed as robots patterns and stay unlisted (see encrypt docs).
     ...encryptDisallowPaths(config.encrypt).map(p => `Disallow: ${p}`),
+    ...(config.seo?.exclude ?? []).map(p => `Disallow: ${p}`),
     '',
     `Sitemap: ${config.hostname}/sitemap.xml`,
     '',

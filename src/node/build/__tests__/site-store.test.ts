@@ -498,6 +498,44 @@ describe('SiteStore', () => {
     expect(robots).not.toContain('re/');
   });
 
+  it('keeps seo.exclude prefixes out of the sitemap and disallowed in robots.txt', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'hide/a.md': '# A\n',
+      'hide/deep/b.md': '# B\n',
+      'show.md': '# S\n',
+    });
+    const config = resolveConfig(
+      {
+        contentDir: 'content',
+        title: 'Site',
+        description: 'desc',
+        hostname: 'https://test.example.com',
+        seo: { exclude: ['/hide'] },
+      },
+      fx.root,
+    );
+    const store = new SiteStore(config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    // Excluded pages still build; they just stay uncrawled.
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('hide/a.html');
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).not.toContain('hide');
+    expect(sitemap).toContain('https://test.example.com/show');
+    const robots = String(
+      files.find(f => f.fileName === 'robots.txt')?.source ?? '',
+    );
+    expect(robots).toContain('Disallow: /hide');
+  });
+
   it('emits a Cloudflare Pages _headers only when deploy.cloudflare is on', async () => {
     const fx = await contentFixture({ 'index.md': '# Home\n' });
     const assets = {

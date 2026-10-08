@@ -348,8 +348,13 @@ export interface ResolvedConfig {
 function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
   const image = seo?.image?.trim() ? seo.image : undefined;
   const author = seo?.author?.name.trim() ? seo.author : undefined;
-  if (!image && !author) return undefined;
-  return { ...(image ? { image } : {}), ...(author ? { author } : {}) };
+  const exclude = (seo?.exclude ?? []).map(normalizeRouteForMatch);
+  if (!image && !author && exclude.length === 0) return undefined;
+  return {
+    ...(image ? { image } : {}),
+    ...(author ? { author } : {}),
+    ...(exclude.length > 0 ? { exclude } : {}),
+  };
 }
 
 export function resolveConfig(

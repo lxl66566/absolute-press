@@ -147,10 +147,11 @@ sidebar 由内容目录树完整生成，`sidebar.*` 只调整生成结果的顺
 seo: {
   image: '/og.png', // 分享卡片图，相对站点 public 根解析或绝对 URL
   author: { name: 'Alice', url: 'https://example.com/about' }, // JSON-LD 作者，url 可选
+  exclude: ['/hide'], // 不进入 sitemap 且 robots.txt 追加 Disallow 的路由前缀
 }
 ```
 
-SEO head 选项：`image` 是分享卡片图，构建期输出 `og:image`（相对值如 `'/og.png'` 解析到站点 public 根，拼上 `hostname` 成绝对地址，与 `nav.logo` 同语义；`https://` 开头的绝对 URL 原样透传）并把 `twitter:card` 升级为 `summary_large_image`。未配置时输出 `twitter:card: summary`（无图卡片），不输出 `og:image`。`author` 是文章页 BlogPosting JSON-LD 的作者（schema.org Person），未配置或 name 为空则不输出 author 字段。每页的 `meta description` 取正文摘要（见 [SEO](./seo.md)），无需逐页配置。
+SEO head 选项：`image` 是分享卡片图，构建期输出 `og:image`（相对值如 `'/og.png'` 解析到站点 public 根，拼上 `hostname` 成绝对地址，与 `nav.logo` 同语义；`https://` 开头的绝对 URL 原样透传）并把 `twitter:card` 升级为 `summary_large_image`。未配置时输出 `twitter:card: summary`（无图卡片），不输出 `og:image`。`author` 是文章页 BlogPosting JSON-LD 的作者（schema.org Person），未配置或 name 为空则不输出 author 字段。`exclude` 让若干路由前缀保持不被抓取：不进 sitemap.xml，robots.txt 各追加一条 `Disallow`；页面仍会构建。加密页用 `encrypt` 即可，无需重复列在这里。每页的 `meta description` 取正文摘要（见 [SEO](./seo.md)），无需逐页配置。
 
 ## related
 

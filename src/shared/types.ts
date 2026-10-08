@@ -360,6 +360,13 @@ export interface SiteConfig {
       /** Author profile URL; becomes the schema.org `url`. */
       url?: string;
     };
+    /**
+     * Route prefixes that must stay uncrawled: excluded from sitemap.xml
+     * and disallowed in robots.txt (e.g. `['/hide']`). For password-gated
+     * pages prefer `encrypt` — it excludes from the sitemap and disallows
+     * on its own, and also gates the content.
+     */
+    exclude?: string[];
   };
   /**
    * Footer options. The footer is one quiet line: the desktop footer under

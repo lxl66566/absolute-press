@@ -44,6 +44,7 @@ import {
   buildArticles,
   INDEX_STEMS,
   isLocaleHome,
+  isNavExcluded,
   routeToFileName,
   scanPages,
   stemOf,
@@ -997,7 +998,8 @@ export class SiteStore {
         .filter(
           p =>
             !encryptRuleFor(p.route, this.config.encrypt) &&
-            !isNotFoundRoute(p.route),
+            !isNotFoundRoute(p.route) &&
+            !isNavExcluded(p.route, this.config.seo?.exclude ?? []),
         )
         .map(p => ({
           route: p.route,

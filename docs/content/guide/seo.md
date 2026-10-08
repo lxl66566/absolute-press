@@ -50,8 +50,8 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 
 ## sitemap 与 robots.txt
 
-- `sitemap.xml`：全部页面路由（含归档页、各 locale），每条 `<loc>` 用 `hostname` 拼成绝对地址；内容页带 `<lastmod>`（取该文件 git 最后一次提交时间，W3C UTC 格式），归档页无源文件故不带；有跨 locale 镜像页的条目带 `xhtml:link` hreflang 互链（与页面 head 一致）。命中 encrypt 规则的页面不进入 sitemap——sitemap 条目等于把 URL 主动递给爬虫，与密码门的「不列出」意图相悖
-- `robots.txt`：`User-agent: * / Allow: /` 加一行 `Sitemap: <hostname>/sitemap.xml`；encrypt 的字符串规则各追加一条 `Disallow`（与匹配侧同款归一化路径，非 ASCII 路由写解码后的原文）；RegExp 规则无法表达为 robots 模式，不会写入
+- `sitemap.xml`：全部页面路由（含归档页、各 locale），每条 `<loc>` 用 `hostname` 拼成绝对地址；内容页带 `<lastmod>`（取该文件 git 最后一次提交时间，W3C UTC 格式），归档页无源文件故不带；有跨 locale 镜像页的条目带 `xhtml:link` hreflang 互链（与页面 head 一致）。命中 encrypt 规则或 `seo.exclude` 前缀的页面不进入 sitemap——sitemap 条目等于把 URL 主动递给爬虫，与「不列出」意图相悖
+- `robots.txt`：`User-agent: * / Allow: /` 加一行 `Sitemap: <hostname>/sitemap.xml`；encrypt 的字符串规则与 `seo.exclude` 前缀各追加一条 `Disallow`（与匹配侧同款归一化路径，非 ASCII 路由写解码后的原文）；RegExp 规则无法表达为 robots 模式，不会写入
 
 两者都由构建层生成，换域名只改 `hostname` 配置，无需手工维护。
 

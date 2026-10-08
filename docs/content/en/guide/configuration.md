@@ -147,10 +147,11 @@ The sidebar is generated complete from the content directory tree; `sidebar.*` o
 seo: {
   image: '/og.png', // share-card image, resolved against the site public root or an absolute URL
   author: { name: 'Alice', url: 'https://example.com/about' }, // JSON-LD author, url optional
+  exclude: ['/hide'], // route prefixes kept out of sitemap.xml and disallowed in robots.txt
 }
 ```
 
-SEO head options: `image` is the share-card image. At build time it produces `og:image` (a relative value like `'/og.png'` resolves against the site public root and is joined with `hostname` into an absolute URL, same semantics as `nav.logo`; an absolute `https://` URL passes through unchanged) and upgrades `twitter:card` to `summary_large_image`. Without it, only `twitter:card: summary` is emitted (card without image), and no `og:image`. `author` is the author of the article-page BlogPosting JSON-LD (schema.org Person); when unset or blank-named, no `author` field is emitted. Each page's `meta description` comes from the content excerpt (see [SEO](./seo.md)); no per-page config needed.
+SEO head options: `image` is the share-card image. At build time it produces `og:image` (a relative value like `'/og.png'` resolves against the site public root and is joined with `hostname` into an absolute URL, same semantics as `nav.logo`; an absolute `https://` URL passes through unchanged) and upgrades `twitter:card` to `summary_large_image`. Without it, only `twitter:card: summary` is emitted (card without image), and no `og:image`. `author` is the author of the article-page BlogPosting JSON-LD (schema.org Person); when unset or blank-named, no `author` field is emitted. `exclude` keeps route prefixes uncrawled: out of sitemap.xml plus one `Disallow` each in robots.txt; the pages are still built. Gated pages need no entry here — `encrypt` already excludes and disallows them. Each page's `meta description` comes from the content excerpt (see [SEO](./seo.md)); no per-page config needed.
 
 ## related
 
