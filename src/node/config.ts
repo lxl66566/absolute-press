@@ -5,6 +5,7 @@ import type {
   DirectoryIndex,
   LocaleInfo,
   MarkdownCodeOptions,
+  PageFrontmatter,
   RelatedDepth,
   SiteConfig,
   SocialEntry,
@@ -111,6 +112,15 @@ function resolveHostname(hostname: string): string {
  */
 export interface AbsolutePressConfig extends SiteConfig {
   /**
+   * Site-data hook: runs once per scan (startup, build, dev resyncs and
+   * content edits) with the collected page inventory — normalized and raw
+   * frontmatter, creation and git times — before rendering. The return
+   * value is JSON-serialized into the `virtual:absolute-press/site-data`
+   * module for site islands, so it must be JSON-serializable; a returned
+   * promise is awaited.
+   */
+  onScan?: (ctx: SiteScanContext) => unknown;
+  /**
    * Navbar options in one place: exclusions, brand image, per-directory
    * tweaks, top-level order, lane alignment and social buttons.
    */
@@ -169,6 +179,37 @@ export interface AbsolutePressConfig extends SiteConfig {
 /** Identity helper with defaults applied later in resolveConfig. */
 export function defineConfig(config: AbsolutePressConfig): AbsolutePressConfig {
   return config;
+}
+
+/** One content page as seen by the site scan, before rendering. */
+export interface SiteScanPage {
+  /** Absolute path of the markdown source. */
+  filePath: string;
+  /**
+   * Locale-prefixed clean route: leaf `/guide/a`, directory index `/guide/`
+   * (`/guide` in bare mode), locale home `/en/`, site home `/`.
+   */
+  route: string;
+  /** Path relative to the locale content root, posix separators. */
+  relPath: string;
+  /** Locale the page belongs to. */
+  locale: LocaleInfo;
+  /** Frontmatter normalized to the framework-recognized keys. */
+  frontmatter: PageFrontmatter;
+  /** Parsed frontmatter as the yaml source gave it; custom keys live here. */
+  rawFrontmatter: Record<string, unknown>;
+  /** Frontmatter `date` as an ISO string; null when absent or unparsable. */
+  createdAt: string | null;
+  /** Last git commit time as an ISO string; null when unavailable. */
+  updatedAt: string | null;
+}
+
+/** Argument of the config `onScan` hook. */
+export interface SiteScanContext {
+  /** Fully resolved site config. */
+  config: ResolvedConfig;
+  /** Every scanned content page, all locales, in config locale order. */
+  pages: SiteScanPage[];
 }
 
 /**
@@ -335,6 +376,8 @@ export interface ResolvedConfig {
   googleAnalytics?: string;
   /** Registered icon map (empty when unconfigured). */
   icons: Record<string, string>;
+  /** Site-data hook from AbsolutePressConfig, absent when unconfigured. */
+  onScan?: AbsolutePressConfig['onScan'];
 }
 
 /**
@@ -472,5 +515,6 @@ export function resolveConfig(
       ? { googleAnalytics: config.googleAnalytics }
       : {}),
     icons: config.icons ?? {},
+    ...(config.onScan ? { onScan: config.onScan } : {}),
   };
 }

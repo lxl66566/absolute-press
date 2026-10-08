@@ -397,3 +397,23 @@ describe('resolveConfig related', () => {
     expect(kept.related.twoHopNodeLimit).toBe(12);
   });
 });
+
+describe('resolveConfig onScan', () => {
+  it('keeps the hook absent when unconfigured', () => {
+    const config = resolveConfig(baseConfig(), '/root');
+    expect(config.onScan).toBeUndefined();
+  });
+
+  it('passes the hook through verbatim', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), onScan: scanHook },
+      '/root',
+    );
+    expect(config.onScan).toBe(scanHook);
+  });
+});
+
+/** Module-scope hook so the passthrough test compares one stable reference. */
+function scanHook(): { pages: number } {
+  return { pages: 0 };
+}

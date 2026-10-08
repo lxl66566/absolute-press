@@ -71,13 +71,14 @@ describe('frontmatter', () => {
     expect(result.frontmatter.date).toBe('2024-12-31 00:30');
   });
 
-  it('warns once about unknown top-level keys, with file and key names', () => {
+  it('stays silent in the renderer; the site scan owns unknown-key warnings', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     md.render('---\ntags: typo\nunknown: 1\n---\n\nx', ENV);
+    expect(warn).not.toHaveBeenCalled();
+    parseFrontmatter('---\ntags: typo\n---\nx', 'post.md');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toContain('post.md');
     expect(warn.mock.calls[0]?.[0]).toContain('tags');
-    expect(warn.mock.calls[0]?.[0]).toContain('unknown');
   });
 
   it('does not warn when every key is recognized', () => {

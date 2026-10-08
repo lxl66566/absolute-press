@@ -21,6 +21,8 @@ export type {
   NavConfig,
   SidebarConfig,
 } from './config.ts';
+// Site-scan hook contracts: the onScan argument and its per-page shape.
+export type { SiteScanContext, SiteScanPage } from './config.ts';
 // `defineSiteConfig` is the canonical name in vite.config.ts; `defineConfig`
 // stays as the original alias (it shadows vitest's helper of the same name,
 // so prefer the explicit one when both imports live in one file).

@@ -188,7 +188,9 @@ export async function createMarkdownRenderer(
   }
 
   function render(src: string, env: MarkdownEnv): RenderResult {
-    const { frontmatter, content } = parseFrontmatter(src, env.filePath);
+    // The site scan already parsed (and warned about) this file's
+    // frontmatter; the renderer re-parse stays silent.
+    const { frontmatter, content } = parseFrontmatter(src);
     const ctx: AbsCtx = {
       env,
       slugger: new Slugger(),

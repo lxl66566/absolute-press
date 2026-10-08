@@ -14,6 +14,7 @@ import type {
 import { ARCHIVE_PER_PAGE, HOME_FEED_PER_PAGE } from '../../shared/types.ts';
 import type { MarkdownRenderer, RenderResult } from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
+import type { SiteScanContext } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
@@ -46,11 +47,18 @@ import {
   isLocaleHome,
   isNavExcluded,
   routeToFileName,
-  scanPages,
   stemOf,
 } from './pages.ts';
 import type { PageSource, RenderedPage } from './pages.ts';
 import { buildRelatedMap } from './related.ts';
+import {
+  createdAtOf,
+  scanFile,
+  scanSite,
+  siteScanContext,
+  type ScannedFile,
+  type SiteScan,
+} from './scan.ts';
 import { baseOf, renderShell, type ShellInput } from './shell.ts';
 
 interface RenderedEntry {
@@ -154,6 +162,10 @@ const GATE_STYLE =
  */
 export class SiteStore {
   private pages: PageSource[] = [];
+  /** Latest site scan: page sources plus the single-read file cache. */
+  private scan: SiteScan = { sources: [], files: new Map() };
+  /** Latest onScan hook result; undefined while no hook is configured. */
+  private siteDataValue: unknown;
   private rendered = new Map<string, RenderedEntry>();
   private gitTimes = new Map<string, string>();
   private relatedCache: Map<string, RelatedLink[]> | null = null;
@@ -247,7 +259,8 @@ export class SiteStore {
   async sync(mode: 'dev' | 'build'): Promise<void> {
     this.links.setMode(mode);
     this.trustWatcher = mode === 'dev';
-    this.pages = await scanPages(this.config);
+    this.scan = await scanSite(this.config);
+    this.pages = this.scan.sources;
     this.links.setPages(this.pages);
     await this.ensureRenderer();
     // The renderer set is now disk-fresh; a stale invalidate flag would
@@ -262,7 +275,31 @@ export class SiteStore {
         this.config.contentDir,
       );
     }
+    await this.refreshScanContext();
     if (mode === 'dev') this.warnArchiveCollisions();
+  }
+
+  /** Latest onScan hook result (undefined when no hook is configured). */
+  get siteData(): unknown {
+    return this.siteDataValue;
+  }
+
+  /**
+   * Rebuild the onScan context and hook result from the current caches
+   * (no disk IO); called by sync() and after dev content edits so the
+   * site-data module stays fresh without a restart.
+   */
+  async refreshScanContext(): Promise<void> {
+    if (!this.config.onScan) {
+      this.siteDataValue = undefined;
+      return;
+    }
+    const ctx: SiteScanContext = siteScanContext(
+      this.config,
+      this.scan,
+      this.gitTimes,
+    );
+    this.siteDataValue = await this.config.onScan(ctx);
   }
 
   /** Dev: drop one file's render cache (watcher paths may differ in separators). */
@@ -274,21 +311,30 @@ export class SiteStore {
     this.relatedCache = null;
     // The renderer's shiki set is frozen at creation; an edit introducing a
     // fence language outside it must rebuild, or the block highlights as
-    // plain text until a restart. Flag it — the dev middleware refreshes
-    // before serving, so the full-reload this edit triggers arrives after
-    // the rebuild and highlights the new language.
+    // plain text until a restart. The refreshed scan entry carries the new
+    // language set, and the dev middleware refreshes before serving, so the
+    // full-reload this edit triggers arrives after the rebuild and
+    // highlights the new language.
     if (this.rendererPromise === null) return;
-    let fresh: ReadonlySet<string>;
-    try {
-      fresh = fenceLanguages(fs.readFileSync(file, 'utf8'));
-    } catch {
-      return; // vanished mid-event; the resync path owns structural changes
-    }
-    for (const lang of fresh) {
+    const fresh = this.refreshScanEntry(file);
+    if (!fresh) return; // vanished mid-event; the resync path owns structural changes
+    for (const lang of fresh.fenceLangs) {
       if (!this.rendererLangs.has(lang)) {
         this.langsDirty = true;
         break;
       }
+    }
+  }
+
+  /** Dev: re-read one edited file into the scan cache (single read); null
+   * when the file vanished mid-event. */
+  private refreshScanEntry(file: string): ScannedFile | null {
+    try {
+      const fresh = scanFile(file);
+      this.scan.files.set(file, fresh);
+      return fresh;
+    } catch {
+      return null;
     }
   }
 
@@ -461,23 +507,15 @@ export class SiteStore {
 
   private metaOf(page: PageSource, entry: RenderedEntry): PageMeta {
     const { result, excerpt } = entry;
-    const date = result.frontmatter.date;
-    const parsed = date ? new Date(date) : null;
-    // An unparsable date silently degrades (createdAt: null drops the page
-    // to the sort end and out of RSS ordering) — warn near the source file.
-    if (date && parsed && Number.isNaN(parsed.getTime())) {
-      console.warn(
-        `[absolute-press] invalid frontmatter date "${date}" in ${page.filePath}; falling back to no date (RSS/sort)`,
-      );
-    }
+    // Invalid dates already warned at the scan (createdAtOf with filePath);
+    // this re-derivation stays silent.
     return {
       route: page.route,
       locale: page.locale.key,
       title: result.title ?? '',
       headings: result.headings,
       frontmatter: result.frontmatter,
-      createdAt:
-        parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null,
+      createdAt: createdAtOf(result.frontmatter),
       updatedAt: this.gitTimes.get(page.filePath) ?? null,
       // Omitted when the site disables it; the client hides an absent value.
       ...(this.config.readingTime ? { readingTime: result.readingTime } : {}),

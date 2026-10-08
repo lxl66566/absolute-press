@@ -797,3 +797,58 @@ describe('SiteStore', () => {
     expect(store.devHtml('/a')).toContain('language-rust');
   });
 });
+
+describe('SiteStore onScan', () => {
+  it('runs the hook at sync and exposes the result via siteData', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '---\ncategory: Rust\n---\n# A\n',
+      'b.md': '---\ncategory: Rust\ntag: t\n---\n# B\n',
+    });
+    const seen: number[] = [];
+    const onScan = (
+      ctx: Parameters<NonNullable<ResolvedConfig['onScan']>>[0],
+    ): { pages: number; categories: Record<string, number> } => {
+      seen.push(ctx.pages.length);
+      const categories: Record<string, number> = {};
+      for (const page of ctx.pages) {
+        for (const name of page.frontmatter.category ?? []) {
+          categories[name] = (categories[name] ?? 0) + 1;
+        }
+      }
+      return { pages: ctx.pages.length, categories };
+    };
+    const store = new SiteStore({ ...fx.config, onScan });
+    expect(store.siteData).toBeUndefined();
+    await store.sync('dev');
+    expect(seen).toEqual([3]);
+    expect(store.siteData).toEqual({
+      pages: 3,
+      categories: { Rust: 2 },
+    });
+  });
+
+  it('re-runs the hook on refreshScanContext after a dev edit', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '# A\n',
+    });
+    let calls = 0;
+    const onScan = (): number => ++calls;
+    const store = new SiteStore({ ...fx.config, onScan });
+    await store.sync('dev');
+    expect(store.siteData).toBe(1);
+
+    await fs.promises.writeFile(fx.abs('a.md'), '---\ntag: x\n---\n# A\n');
+    store.invalidate(fx.abs('a.md'));
+    await store.refreshScanContext();
+    expect(store.siteData).toBe(2);
+  });
+
+  it('keeps siteData undefined without a hook', async () => {
+    const fx = await contentFixture({ 'index.md': '# Home\n' });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+    expect(store.siteData).toBeUndefined();
+  });
+});

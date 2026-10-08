@@ -4,14 +4,18 @@ import type { PageFrontmatter } from '../../shared/types.ts';
 
 export interface ParsedSource {
   frontmatter: PageFrontmatter;
+  /** Every top-level yaml key with its parsed value, recognized or not. */
+  raw: Record<string, unknown>;
   content: string;
 }
 
 /**
- * Extract frontmatter; only the keys used by the framework are kept, other
- * top-level keys are dropped. `filePath` (when given) turns dropped keys
- * into one console warning so typos like `tags:` surface instead of
- * vanishing; internal re-parses (reading time) pass nothing and stay silent.
+ * Extract frontmatter; only the keys used by the framework are kept in
+ * `frontmatter`, `raw` carries everything for scan consumers. `filePath`
+ * (when given) turns dropped keys into one console warning so typos like
+ * `tags:` surface instead of vanishing; internal re-parses (renderer,
+ * reading time) pass nothing and stay silent — the site scan is the
+ * authoritative warning site, one parse per file per scan.
  */
 export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
   const { data, content } = matter(src);
@@ -43,7 +47,7 @@ export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
     }
   }
 
-  return { frontmatter, content };
+  return { frontmatter, raw, content };
 }
 
 /** Frontmatter keys the pipeline recognizes. */
