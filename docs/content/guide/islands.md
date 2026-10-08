@@ -407,6 +407,59 @@ export default Notice;
 
 管线拆分与激活时序的实现细节见[设计与实现：islands 运行时](./design/islands-runtime.md)。
 
+### 站点 island 读取全站数据（site-data）
+
+需要全站页面清单的 island（归档索引、统计卡片这类）不必自己扫内容：站点配置的 `onScan` 钩子每轮扫描后拿到页面清单并返回任意 JSON 数据，返回值注入 `virtual:absolute-press/site-data` 虚拟模块。island 直接 import 这个模块，default export 就是 `onScan` 的返回值；dev 下内容编辑触发新一轮扫描，数据自动刷新。配置签名与 `SiteScanPage` 字段见[配置参考](./configuration.md#onscan)：
+
+```ts
+// vite.config.ts（节选）
+import { defineSiteConfig } from 'absolute-press';
+import type { SiteScanContext } from 'absolute-press';
+
+export default defineSiteConfig({
+  // ...
+  onScan: (ctx: SiteScanContext) => ({
+    pages: ctx.pages.map(page => ({
+      route: page.route,
+      date: page.createdAt,
+      tags: page.frontmatter.tag ?? [],
+    })),
+  }),
+});
+```
+
+island 侧的读取：
+
+```ts
+import type { IslandComponent } from 'absolute-press/client';
+import siteData from 'virtual:absolute-press/site-data';
+
+const PageIndex: IslandComponent = () => {
+  const list = document.createElement('ul');
+  for (const page of siteData.pages) {
+    const item = document.createElement('li');
+    item.textContent = `${page.route}${page.date ? ` (${page.date.slice(0, 10)})` : ''}`;
+    list.append(item);
+  }
+  return list;
+};
+
+export default PageIndex;
+```
+
+模块没有内置类型，站点在自己的环境声明文件（如 `src/env.d.ts`）里声明，default export 写成 `onScan` 返回值的形状——框架对自己的 islands 虚拟模块也是这么做的（`src/client/runtime/env.d.ts`）：
+
+```ts
+declare module 'virtual:absolute-press/site-data' {
+  const siteData: {
+    pages: { route: string; date: string | null; tags: string[] }[];
+  };
+  export default siteData;
+}
+```
+
+组件照常经站点配置 `islands` 注册后在 markdown 里使用。未配置 `onScan` 时 import 该模块会在构建期报错，错误信息指向 `onScan` 配置；数据经 JSON 序列化注入，返回值里的 `Date` 等非 JSON 值不会原样到达 island。
+
 ## 约束与注意
 
 - island 仅块级使用，标签必须 PascalCase 且在名单内（未注册的标签按未知 HTML 透传）
