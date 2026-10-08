@@ -40,9 +40,12 @@ describe('formatDate', () => {
 
 describe('withBase', () => {
   it('joins relative base prefixes with routes', () => {
-    expect(withBase('', '/a/b.html')).toBe('a/b.html');
-    expect(withBase('../', '/a/b.html')).toBe('../a/b.html');
-    expect(withBase('../../', '/index.html')).toBe('../../index.html');
+    expect(withBase('', '/a/b')).toBe('a/b');
+    // Home route joins to the bare base; '' becomes './' (see withBase).
+    expect(withBase('', '/')).toBe('./');
+    expect(withBase('../', '/')).toBe('../');
+    expect(withBase('../', '/a/b')).toBe('../a/b');
+    expect(withBase('../../', '/')).toBe('../../');
   });
 });
 
@@ -67,58 +70,56 @@ describe('isExternalHref', () => {
   });
 
   it('keeps site routes, anchors and relative paths internal', () => {
-    expect(isExternalHref('/a/b.html')).toBe(false);
-    expect(isExternalHref('a/b.html')).toBe(false);
+    expect(isExternalHref('/a/b')).toBe(false);
+    expect(isExternalHref('a/b')).toBe(false);
     expect(isExternalHref('./x.md')).toBe(false);
     expect(isExternalHref('#heading')).toBe(false);
   });
 });
 
 describe('isActiveRoute', () => {
-  it('matches exactly and treats / as /index.html', () => {
-    expect(isActiveRoute('/a.html', '/a.html')).toBe(true);
-    expect(isActiveRoute('/', '/index.html')).toBe(true);
-    expect(isActiveRoute('/a.html', '/b.html')).toBe(false);
+  it('matches exactly and tolerates a trailing slash', () => {
+    expect(isActiveRoute('/a', '/a')).toBe(true);
+    expect(isActiveRoute('/guide/', '/guide')).toBe(true);
+    expect(isActiveRoute('/', '/')).toBe(true);
+    expect(isActiveRoute('/a', '/b')).toBe(false);
   });
 });
 
 describe('stripLocalePrefix', () => {
   it('strips a matching prefix', () => {
-    expect(stripLocalePrefix('/en/coding/foo.html', '/en')).toBe(
-      '/coding/foo.html',
-    );
+    expect(stripLocalePrefix('/en/coding/foo', '/en')).toBe('/coding/foo');
   });
 
-  it('maps a bare locale root to /index.html', () => {
-    expect(stripLocalePrefix('/en', '/en')).toBe('/index.html');
+  it('maps a bare locale root to /', () => {
+    expect(stripLocalePrefix('/en', '/en')).toBe('/');
+    expect(stripLocalePrefix('/en/', '/en')).toBe('/');
   });
 
   it('leaves non-matching routes untouched', () => {
-    expect(stripLocalePrefix('/coding/foo.html', '')).toBe('/coding/foo.html');
+    expect(stripLocalePrefix('/coding/foo', '')).toBe('/coding/foo');
   });
 });
 
 describe('parseArchiveRoute', () => {
   it('parses category and tag routes', () => {
-    expect(parseArchiveRoute('/category/foo.html')).toEqual({
+    expect(parseArchiveRoute('/category/foo')).toEqual({
       kind: 'category',
       name: 'foo',
     });
-    expect(parseArchiveRoute('/en/tag/bar.html')).toEqual({
+    expect(parseArchiveRoute('/en/tag/bar')).toEqual({
       kind: 'tag',
       name: 'bar',
     });
   });
 
   it('decodes uri-encoded names', () => {
-    expect(parseArchiveRoute('/tag/%E5%B7%A5%E5%85%B7.html')?.name).toBe(
-      '工具',
-    );
+    expect(parseArchiveRoute('/tag/%E5%B7%A5%E5%85%B7')?.name).toBe('工具');
   });
 
   it('returns null for normal routes', () => {
-    expect(parseArchiveRoute('/coding/foo.html')).toBeNull();
-    expect(parseArchiveRoute('/category/foo/bar.html')).toBeNull();
+    expect(parseArchiveRoute('/coding/foo')).toBeNull();
+    expect(parseArchiveRoute('/category/foo/bar')).toBeNull();
   });
 });
 
@@ -135,17 +136,13 @@ describe('localePrefixOf', () => {
 
 describe('archiveHref', () => {
   it('builds archive links honoring base', () => {
-    expect(archiveHref('../', '', 'tag', 'foo bar')).toBe(
-      '../tag/foo%20bar.html',
-    );
+    expect(archiveHref('../', '', 'tag', 'foo bar')).toBe('../tag/foo%20bar');
   });
 
   it('keeps the locale prefix so chips stay in their locale', () => {
-    expect(archiveHref('', '/en', 'tag', 'english')).toBe(
-      'en/tag/english.html',
-    );
+    expect(archiveHref('', '/en', 'tag', 'english')).toBe('en/tag/english');
     expect(archiveHref('../', '/en', 'category', 'guide')).toBe(
-      '../en/category/guide.html',
+      '../en/category/guide',
     );
   });
 });

@@ -544,7 +544,7 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 
 带其他扩展名的相对链接（如 `./assets/demo.svg`、`../rss.xml`）按资源 URL 原样透传，不做 md resolve。
 
-裸相对链接（无 `./` 前缀，如 `[x](guide/a.md)`）不参与上述机制：既不重写为 `.html`，也不进死链检查，会原样产出指向 `.md` 的链接。站点配置 `strictLinks` 控制对它们的报告力度（默认 `'warn'` 构建时列出清单，`'error'` 直接构建失败，`'off'` 静默），见[配置参考](./configuration.md#strictlinks)。站内链接请始终带 `./` 或 `../` 前缀。
+裸相对链接（无 `./` 前缀，如 `[x](guide/a.md)`）不参与上述机制：既不重写为站内路由，也不进死链检查，会原样产出指向 `.md` 的链接。站点配置 `strictLinks` 控制对它们的报告力度（默认 `'warn'` 构建时列出清单，`'error'` 直接构建失败，`'off'` 静默），见[配置参考](./configuration.md#strictlinks)。站内链接请始终带 `./` 或 `../` 前缀。
 
 ## HTML 透传
 

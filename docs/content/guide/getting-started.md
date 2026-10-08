@@ -131,14 +131,14 @@ UnoCSS 是可选依赖：完全不想要原子类的话，可以去掉这个插�
 ├── vite.config.ts
 ├── uno.config.ts
 └── src/               # contentDir：默认语言的内容在根
-    ├── index.md       # 首页（/index.html）
+    ├── index.md       # 首页（/）
     ├── posts/
-    │   ├── index.md   # 目录索引页 /posts/index.html
-    │   └── hello.md   # /posts/hello.html
+    │   ├── index.md   # 目录索引页 /posts/
+    │   └── hello.md   # /posts/hello
     └── en/            # 其余语言放 <contentDir>/<key>/，见多语言一章
 ```
 
-路由规则是 `**/*.md` 对应 `<路径>.html`，`index.md` 生成所在目录的索引页。导航（navbar 与 sidebar）、分类与标签归档、首页文章流都从这份目录结构推导，不需要在配置里登记页面。
+路由规则是 `**/*.md` 对应无扩展名的 `<路径>`（落盘为 `<路径>.html`），`index.md` 生成所在目录的索引页。导航（navbar 与 sidebar）、分类与标签归档、首页文章流都从这份目录结构推导，不需要在配置里登记页面。
 
 ## 开发与构建
 

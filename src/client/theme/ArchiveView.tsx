@@ -11,7 +11,7 @@ import { Pagination } from './Pagination';
 
 /**
  * Category/tag archive page. Kind and name derive from the route
- * (`/category/<name>.html`, `/tag/<name>.html`); cards reuse HomeFeed styles.
+ * (`/category/<name>`, `/tag/<name>`); cards reuse HomeFeed styles.
  */
 export function ArchiveView(props: { payload: PagePayload }): SolidElement {
   const t = useMessages(() => props.payload.site);

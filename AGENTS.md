@@ -64,11 +64,12 @@ docs/          官方文档站（vite.config.ts 接入 absolutePress() 指向 do
 - **base 自动检测**：按页面深度生成相对前缀（`''`/`'../'`…），所有资源与站内链接用它拼接，禁止绝对路径假设
 - **island**：md 内 `<Tag prop="s" :num="1">内部 md</Tag>` → 构建期预渲染 + 客户端水合；内置 Giscus/PasswordGate/ZoomedImg/Mermaid/G2Plot（名单在 shared/islands.ts，runtime 注册表有编译期覆盖检查）；站点经 config `islands` 追加。island 仅块级使用
 - **DOM class 契约**（renderer 产出、theme 消费，禁止改名）：`ap-container--<type>`、`ap-tabs`/`ap-tab`、`ap-heimu`（兼容 `.heimu`/`heimu`）、`ap-code`、占位 `data-ap-island`
+- **路由**：canonical 是无扩展名 clean URL（`x.md` → `/x`，目录 index → `/dir/`，可用 `urls.directoryIndex: 'bare'` 切 `/dir`），落盘文件保持 `x.html`/`dir/index.html` 不变；encrypt match、canonical、sitemap、payload 全部消费 clean 形态
 - **死链**：`./` `../` 相对链接构建期 resolve 失败即报错；resolve 语义 `./x` → `./x.md` → `./x/index.md` → `./x/README.md`
 - **主题**：CSS 变量 `--c-*`（亮暗双套，theme.css）+ `--vp-c-*` 兼容别名；暗色 = `html[data-theme="dark"]` + localStorage `ap-theme`；动画 120–200ms ease-out，尊重 prefers-reduced-motion
 - **i18n**：默认 locale 在 contentDir 根，其余在 `<contentDir>/<key>/`（路由加前缀）；UI 文案在 theme/i18n/，zh 为 shape 真相源
 - **加密**：客户端密码门（sha256 比对，sessionStorage 记住），非真加密，设计如此
-- **frontmatter** 只认 `date/category/tag/icon/feed`；icon 必须是 config `icons` map 的 key（svg 字符串），构建期校验
+- **frontmatter** 只认 `date/category/tag/icon/feed/overview`；icon 必须是 config `icons` map 的 key（svg 字符串），构建期校验
 
 ## 验证
 

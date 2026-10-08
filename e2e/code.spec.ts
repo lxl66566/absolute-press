@@ -8,7 +8,7 @@ import { expect, test, type Page } from 'playwright/test';
  */
 
 const DOCS = 'http://127.0.0.1:4173';
-const PAGE = '/guide/markdown.html';
+const PAGE = '/guide/markdown';
 
 async function gotoMarkdown(page: Page): Promise<void> {
   await page.goto(`${DOCS}${PAGE}`);

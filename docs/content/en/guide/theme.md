@@ -123,7 +123,7 @@ The sidebar is generated automatically from the directory tree (data in `src/nod
 - **Auto-expand for the current page**: entering a page expands its path once; a manual collapse is not overridden by auto-expansion, and the state persists across pages
 - **Arbitrary nesting depth**: groups nest as deep as the directories do, and each level collapses independently
 
-This site's `guide/advanced/deep.html` is a live example of multi-level nesting.
+This site's `guide/advanced/deep` is a live example of multi-level nesting.
 
 ## Override example
 

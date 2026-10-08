@@ -16,7 +16,7 @@ function payloadJson(): string {
     navbar: [],
     sidebar: [],
     page: {
-      route: '/a.html',
+      route: '/a',
       locale: 'root',
       title: 'A',
       headings: [],
@@ -44,7 +44,7 @@ describe('pagePayload', () => {
     );
     const payload = pagePayload();
     expect(payload?.site.title).toBe('T');
-    expect(payload?.page.route).toBe('/a.html');
+    expect(payload?.page.route).toBe('/a');
   });
 
   it('returns null when the script is absent', () => {

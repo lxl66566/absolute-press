@@ -80,10 +80,7 @@ export function NavBar(props: { payload: PagePayload }): SolidElement {
     },
   );
   const homeHref = () =>
-    withBase(
-      base(),
-      `${currentLocale(props.payload)?.prefix ?? ''}/index.html`,
-    );
+    withBase(base(), `${currentLocale(props.payload)?.prefix ?? ''}/`);
   // nav.align 'center' (老站 look): the top-level lane centers itself in the
   // leftover space via auto margins, so the rail loses its own ml-auto —
   // two competing auto-margin groups would park the lane at a third, not

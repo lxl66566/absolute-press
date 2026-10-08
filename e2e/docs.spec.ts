@@ -6,7 +6,7 @@ import { expect, test, type Page } from 'playwright/test';
  * (#ap-nav / #ap-sidebar / #ap-toc / #ap-content), islands hydrate
  * `[data-ap-island]`, theme lives on html[data-theme] + localStorage
  * `ap-theme`. The site config registers the Counter island and one encrypt
- * rule (/guide/secret.html with `docs-demo`, see vite.config.ts).
+ * rule (/guide/secret with `docs-demo`, see vite.config.ts).
  */
 
 const ORIGIN = 'http://127.0.0.1:4173';
@@ -14,84 +14,84 @@ const DOCS = `${ORIGIN}`;
 
 /** Every built docs page: content pages plus generated tag/category archives. */
 const ALL_PAGES = [
-  '/index.html',
-  '/guide/index.html',
-  '/guide/getting-started.html',
-  '/guide/configuration.html',
-  '/guide/markdown.html',
-  '/guide/islands.html',
-  '/guide/theme.html',
-  '/guide/i18n.html',
-  '/guide/encrypt.html',
-  '/guide/secret.html',
-  '/guide/migration.html',
-  '/guide/deploy.html',
-  '/guide/writing.html',
-  '/guide/search-comments.html',
-  '/guide/seo.html',
-  '/guide/faq.html',
-  '/guide/advanced/deep.html',
-  '/guide/design/index.html',
-  '/guide/design/why.html',
-  '/guide/design/architecture.html',
-  '/guide/design/build-pipeline.html',
-  '/guide/design/islands-runtime.html',
-  '/en/index.html',
-  '/en/guide/index.html',
-  '/en/guide/getting-started.html',
-  '/en/guide/configuration.html',
-  '/en/guide/markdown.html',
-  '/en/guide/islands.html',
-  '/en/guide/theme.html',
-  '/en/guide/i18n.html',
-  '/en/guide/encrypt.html',
-  '/en/guide/secret.html',
-  '/en/guide/migration.html',
-  '/en/guide/deploy.html',
-  '/en/guide/writing.html',
-  '/en/guide/search-comments.html',
-  '/en/guide/seo.html',
-  '/en/guide/faq.html',
-  '/en/guide/advanced/deep.html',
-  '/en/guide/design/index.html',
-  '/en/guide/design/why.html',
-  '/en/guide/design/architecture.html',
-  '/en/guide/design/build-pipeline.html',
-  '/en/guide/design/islands-runtime.html',
-  '/en/category/guide.html',
-  '/en/category/design.html',
-  '/en/tag/getting-started.html',
-  '/en/tag/markdown.html',
-  '/category/指南.html',
-  '/category/设计.html',
-  '/tag/css.html',
-  '/tag/faq.html',
-  '/tag/i18n.html',
-  '/tag/islands.html',
-  '/tag/markdown.html',
-  '/tag/rss.html',
-  '/tag/seo.html',
-  '/tag/solid.html',
-  '/tag/ssg.html',
-  '/tag/vuepress.html',
-  '/tag/主题.html',
-  '/tag/入门.html',
-  '/tag/写作.html',
-  '/tag/加密.html',
-  '/tag/安装.html',
-  '/tag/搜索.html',
-  '/tag/构建.html',
-  '/tag/架构.html',
-  '/tag/自测.html',
-  '/tag/评论.html',
-  '/tag/迁移.html',
-  '/tag/部署.html',
-  '/tag/配置.html',
+  '/',
+  '/guide/',
+  '/guide/getting-started',
+  '/guide/configuration',
+  '/guide/markdown',
+  '/guide/islands',
+  '/guide/theme',
+  '/guide/i18n',
+  '/guide/encrypt',
+  '/guide/secret',
+  '/guide/migration',
+  '/guide/deploy',
+  '/guide/writing',
+  '/guide/search-comments',
+  '/guide/seo',
+  '/guide/faq',
+  '/guide/advanced/deep',
+  '/guide/design/',
+  '/guide/design/why',
+  '/guide/design/architecture',
+  '/guide/design/build-pipeline',
+  '/guide/design/islands-runtime',
+  '/en/',
+  '/en/guide/',
+  '/en/guide/getting-started',
+  '/en/guide/configuration',
+  '/en/guide/markdown',
+  '/en/guide/islands',
+  '/en/guide/theme',
+  '/en/guide/i18n',
+  '/en/guide/encrypt',
+  '/en/guide/secret',
+  '/en/guide/migration',
+  '/en/guide/deploy',
+  '/en/guide/writing',
+  '/en/guide/search-comments',
+  '/en/guide/seo',
+  '/en/guide/faq',
+  '/en/guide/advanced/deep',
+  '/en/guide/design/',
+  '/en/guide/design/why',
+  '/en/guide/design/architecture',
+  '/en/guide/design/build-pipeline',
+  '/en/guide/design/islands-runtime',
+  '/en/category/guide',
+  '/en/category/design',
+  '/en/tag/getting-started',
+  '/en/tag/markdown',
+  '/category/指南',
+  '/category/设计',
+  '/tag/css',
+  '/tag/faq',
+  '/tag/i18n',
+  '/tag/islands',
+  '/tag/markdown',
+  '/tag/rss',
+  '/tag/seo',
+  '/tag/solid',
+  '/tag/ssg',
+  '/tag/vuepress',
+  '/tag/主题',
+  '/tag/入门',
+  '/tag/写作',
+  '/tag/加密',
+  '/tag/安装',
+  '/tag/搜索',
+  '/tag/构建',
+  '/tag/架构',
+  '/tag/自测',
+  '/tag/评论',
+  '/tag/迁移',
+  '/tag/部署',
+  '/tag/配置',
 ];
 
 /** Pages whose lazy islands (mermaid/g2plot) must settle before assertions. */
 const SETTLE_PAGES: Record<string, (page: Page) => Promise<void>> = {
-  '/guide/islands.html': async page => {
+  '/guide/islands': async page => {
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
@@ -101,12 +101,12 @@ const SETTLE_PAGES: Record<string, (page: Page) => Promise<void>> = {
   },
   // Architecture pages carry one mermaid fence each; wait for the SVG so
   // the lazy chunk load cannot race the no-error assertions below.
-  '/guide/design/architecture.html': async page => {
+  '/guide/design/architecture': async page => {
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
   },
-  '/en/guide/design/architecture.html': async page => {
+  '/en/guide/design/architecture': async page => {
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
@@ -178,13 +178,13 @@ test.describe('docs: every page loads cleanly', () => {
   }
 
   test('encrypted page shows the gate, not the content', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/secret.html`);
+    await page.goto(`${DOCS}/guide/secret`);
     await expect(page.locator('.ap-gate__form')).toBeVisible();
     await expect(page.locator('#ap-content')).not.toContainText('你成功解锁了');
   });
 
   test('article page mounts nav, sidebar and toc chrome', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     await expect(page.locator('#ap-nav header')).toBeVisible();
     // The aside also carries the mobile-only nav links (lg:hidden); assert
     // the sidebar's own active-page link instead.
@@ -206,7 +206,7 @@ test.describe('docs: every page loads cleanly', () => {
   test('archive page mounts the list and drops the fallback title', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/category/指南.html`);
+    await page.goto(`${DOCS}/category/指南`);
     // Exactly one h1: the interactive ArchiveView title, not the static
     // no-JS fallback that the shell emits.
     await expect(page.locator('#ap-content h1')).toHaveCount(1);
@@ -217,7 +217,7 @@ test.describe('docs: every page loads cleanly', () => {
 
 test.describe('docs: theme toggle', () => {
   test('flips html[data-theme], persists across reload', async ({ page }) => {
-    await page.goto(`${DOCS}/index.html`);
+    await page.goto(`${DOCS}/`);
     await expect(page.locator('#ap-nav header')).toBeVisible();
     const initial = await page.locator('html').getAttribute('data-theme');
     expect(initial === 'light' || initial === 'dark').toBe(true);
@@ -232,7 +232,7 @@ test.describe('docs: theme toggle', () => {
     page,
   }) => {
     await page.addInitScript(() => localStorage.setItem('ap-theme', 'dark'));
-    await page.goto(`${DOCS}/guide/markdown.html`);
+    await page.goto(`${DOCS}/guide/markdown`);
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.locator('.ap-code pre').first()).toBeVisible();
     // Neither the shiki pre nor its .ap-code container may paint near-white
@@ -267,7 +267,7 @@ test.describe('docs: chinese anchor toc', () => {
   test('toc link syncs the hash and scrolls to the heading', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/markdown.html`);
+    await page.goto(`${DOCS}/guide/markdown`);
     const link = page
       .locator('#ap-toc nav a')
       .filter({ hasText: '数学公式' })
@@ -290,7 +290,7 @@ test.describe('docs: chinese anchor toc', () => {
   });
 
   test('toc clicks flash the target heading', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/markdown.html`);
+    await page.goto(`${DOCS}/guide/markdown`);
     const link = page
       .locator('#ap-toc nav a')
       .filter({ hasText: '数学公式' })
@@ -303,7 +303,7 @@ test.describe('docs: chinese anchor toc', () => {
     page,
   }) => {
     // Initial load with a hash flashes the target heading too.
-    await page.goto(`${DOCS}/guide/markdown.html#数学公式`);
+    await page.goto(`${DOCS}/guide/markdown#数学公式`);
     const heading = page.locator('#数学公式');
     await expect(heading).toHaveClass(/ap-anchor-flash/);
     // An explicit user scroll intent (wheel) cancels it.
@@ -315,7 +315,7 @@ test.describe('docs: chinese anchor toc', () => {
 test.describe('docs: islands', () => {
   test('mermaid renders svg and g2plot renders canvas', async ({ page }) => {
     const issues = trackIssues(page);
-    await page.goto(`${DOCS}/guide/islands.html`);
+    await page.goto(`${DOCS}/guide/islands`);
     await expect(page.locator('.ap-mermaid svg').first()).toBeVisible({
       timeout: 20000,
     });
@@ -328,11 +328,11 @@ test.describe('docs: islands', () => {
     expect(
       await page.locator('.ap-g2plot canvas').count(),
     ).toBeGreaterThanOrEqual(2);
-    await expectNoIssues(issues, '/guide/islands.html');
+    await expectNoIssues(issues, '/guide/islands');
   });
 
   test('Counter island hydrates and increments on click', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/islands.html`);
+    await page.goto(`${DOCS}/guide/islands`);
     const slot = page.locator('[data-ap-island="Counter"]');
     await expect(slot).toBeAttached();
     const button = slot.locator('button.ap-demo-counter');
@@ -342,7 +342,7 @@ test.describe('docs: islands', () => {
   });
 
   test('ZoomedImg opens the shared photoswipe lightbox', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/islands.html`);
+    await page.goto(`${DOCS}/guide/islands`);
     // .first(): the page also carries a ZoomedImg nested inside the
     // ExpandableList example below.
     const standalone = page.locator('[data-ap-island="ZoomedImg"]').first();
@@ -356,7 +356,7 @@ test.describe('docs: password gate', () => {
   test('wrong password rejected; docs-demo unlocks and is remembered', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/secret.html`);
+    await page.goto(`${DOCS}/guide/secret`);
     const form = page.locator('.ap-gate__form');
     await expect(form).toBeVisible();
     await page.locator('.ap-gate__input').fill('wrong-pass');
@@ -388,42 +388,39 @@ test.describe('docs: password gate', () => {
 
 test.describe('docs: i18n', () => {
   test('en pages set lang="en"', async ({ page }) => {
-    await page.goto(`${DOCS}/en/index.html`);
+    await page.goto(`${DOCS}/en/`);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     // Default locale stays Chinese.
-    await page.goto(`${DOCS}/index.html`);
+    await page.goto(`${DOCS}/`);
     const lang = await page.locator('html').getAttribute('lang');
     expect(lang).not.toBe('en');
   });
 
   test('cross-locale link reaches the default locale', async ({ page }) => {
     // The en markdown showcase keeps one deliberate cross-locale demo link.
-    await page.goto(`${DOCS}/en/guide/markdown.html`);
+    await page.goto(`${DOCS}/en/guide/markdown`);
     await page
       .locator('#ap-content a', { hasText: 'Chinese page' })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/guide\/getting-started\.html$/);
+    await expect(page).toHaveURL(/\/guide\/getting-started$/);
     await expect(page.locator('#ap-content h1')).toContainText('快速开始');
   });
 
   test('en meta chips link to the en archive pages', async ({ page }) => {
     // Archives are grouped per locale: the 'getting-started' tag exists only
     // under /en, so a chip without the locale prefix would 404.
-    await page.goto(`${DOCS}/en/guide/getting-started.html`);
+    await page.goto(`${DOCS}/en/guide/getting-started`);
     const meta = page.locator('#ap-content .ap-article-meta');
-    // href is page-relative ('../en/tag/...' resolved against the page).
+    // href is page-relative ('../../tag/...' resolved against the page).
     await expect(meta.locator('a', { hasText: 'guide' })).toHaveAttribute(
       'href',
-      /en\/category\/guide\.html$/,
+      /en\/category\/guide$/,
     );
     const chip = meta.locator('a', { hasText: 'getting-started' });
-    await expect(chip).toHaveAttribute(
-      'href',
-      /en\/tag\/getting-started\.html$/,
-    );
+    await expect(chip).toHaveAttribute('href', /en\/tag\/getting-started$/);
     await chip.click();
-    await expect(page).toHaveURL(/\/en\/tag\/getting-started\.html$/);
+    await expect(page).toHaveURL(/\/en\/tag\/getting-started$/);
     await expect(page.locator('#ap-content h1')).toContainText(
       'getting-started',
     );
@@ -435,7 +432,7 @@ test.describe('docs: i18n', () => {
   }) => {
     // The switcher's prefix-swap href only resolves for mirrored routes:
     // run on the home pages, whose counterparts exist on both sides.
-    await page.goto(`${DOCS}/index.html`);
+    await page.goto(`${DOCS}/`);
     // Pin the client-side path: a full reload would silently rebuild the
     // chrome and mask the regression this guards (persistent chrome keeping
     // the previous locale's trees).
@@ -447,7 +444,7 @@ test.describe('docs: i18n', () => {
       page.locator('#ap-nav ul.ap-nav-drop a:visible', { hasText: text });
     await page.locator('#ap-nav button[aria-label="切换语言"]').click();
     await dropLinks('English').first().click();
-    await expect(page).toHaveURL(/\/en\/index\.html$/);
+    await expect(page).toHaveURL(/\/en\/$/);
     // Same document — the router swapped the page, nothing reloaded.
     expect(
       await page.evaluate(
@@ -466,7 +463,7 @@ test.describe('docs: i18n', () => {
     // And back to the default locale through the same control.
     await page.locator('#ap-nav button[aria-label="Change language"]').click();
     await dropLinks('简体中文').first().click();
-    await expect(page).toHaveURL(/\/index\.html$/);
+    await expect(page).toHaveURL(/\/$/);
     expect(
       await page.evaluate(
         () => (window as { apE2eMarker?: number }).apE2eMarker,
@@ -480,13 +477,13 @@ test.describe('docs: i18n', () => {
 });
 
 test.describe('docs: URL contract', () => {
-  test('in-site navigation keeps .html suffix URLs', async ({ page }) => {
-    await page.goto(`${DOCS}/index.html`);
+  test('in-site navigation uses clean extensionless URLs', async ({ page }) => {
+    await page.goto(`${DOCS}/`);
     await page
-      .locator('#ap-content a[href="guide/configuration.html"]')
+      .locator('#ap-content a[href="guide/configuration"]')
       .first()
       .click();
-    await expect(page).toHaveURL(/guide\/configuration\.html$/);
+    await expect(page).toHaveURL(/guide\/configuration$/);
     await expect(page.locator('#ap-content h1')).toContainText('配置参考');
   });
 });
@@ -510,11 +507,11 @@ test.describe('docs: soft router scroll', () => {
   test('soft navigation to a cross-page hash lands on the anchor', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     await page.evaluate(() => {
       (window as { apE2eMarker?: number }).apE2eMarker = 42;
     });
-    await plantLink(page, '/guide/markdown.html#数学公式');
+    await plantLink(page, '/guide/markdown#数学公式');
     await page.locator('a', { hasText: 'ap-e2e-link' }).click();
     // Soft navigation: the router swapped the page, nothing reloaded.
     await expect
@@ -523,7 +520,7 @@ test.describe('docs: soft router scroll', () => {
           () => `${location.pathname}${decodeURIComponent(location.hash)}`,
         ),
       )
-      .toBe('/guide/markdown.html#数学公式');
+      .toBe('/guide/markdown#数学公式');
     expect(
       await page.evaluate(
         () => (window as { apE2eMarker?: number }).apE2eMarker,
@@ -545,13 +542,13 @@ test.describe('docs: soft router scroll', () => {
   test('going back restores the scroll the left page was left at', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     await page.evaluate(() => window.scrollTo(0, 800));
     // The offset actually reached (clamped if the page is shorter); the
     // restoration must land exactly here, not one entry off.
     const left = await page.evaluate(() => window.scrollY);
     expect(left).toBeGreaterThan(400);
-    await plantLink(page, '/guide/markdown.html');
+    await plantLink(page, '/guide/markdown');
     await page.locator('a', { hasText: 'ap-e2e-link' }).click();
     // Swap done: the fresh page starts at the top.
     await expect(page.locator('#数学公式')).toBeAttached();
@@ -568,7 +565,7 @@ test.describe('docs: footnote title isolation (regression)', () => {
   test('markdown page has exactly one footnote block, titles stay clean', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/markdown.html`);
+    await page.goto(`${DOCS}/guide/markdown`);
     await expect(page.locator('section.footnotes')).toHaveCount(1);
     // No leaked footnote markup inside container titles / summaries / tabs.
     await expect(
@@ -588,7 +585,7 @@ test.describe('docs: mobile viewport (375px)', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
   test('no horizontal overflow and drawer menu works', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     await expect(page.locator('#ap-nav header')).toBeVisible();
     const overflow = await page.evaluate(
       () =>
@@ -615,7 +612,7 @@ test.describe('docs: mobile viewport (375px)', () => {
   test('inline toc sits below the meta row, collapsed until toggled', async ({
     page,
   }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     const card = page.locator('.ap-toc-inline');
     await expect(card).toBeVisible();
     // Placement contract: below the article meta row (the date line).
@@ -634,7 +631,7 @@ test.describe('docs: mobile viewport (375px)', () => {
   });
 
   test('inline toc link navigates like the rail', async ({ page }) => {
-    await page.goto(`${DOCS}/guide/getting-started.html`);
+    await page.goto(`${DOCS}/guide/getting-started`);
     await page.locator('.ap-toc-inline button.ap-toc-inline__toggle').click();
     // Wait for the expansion to settle before tapping an entry: a click
     // during the 160ms height transition computes its scroll destination

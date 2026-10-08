@@ -9,9 +9,9 @@ import { expect, type Page, test } from 'playwright/test';
  */
 
 const ORIGIN = 'http://127.0.0.1:4173';
-const DIAGRAMS = `${ORIGIN}/guide/islands.html`;
+const DIAGRAMS = `${ORIGIN}/guide/islands`;
 
-/** Open /guide/islands.html and wait for the first mermaid render. */
+/** Open /guide/islands and wait for the first mermaid render. */
 async function mermaidCanvas(page: Page) {
   await page.goto(DIAGRAMS);
   const canvas = page.locator('.ap-mermaid__canvas').first();

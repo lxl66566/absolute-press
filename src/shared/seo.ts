@@ -9,9 +9,9 @@ export interface ArchiveRoute {
   name: string;
 }
 
-/** Parse `/category/<name>.html` / `/tag/<name>.html` (locale prefix allowed). */
+/** Parse `/category/<name>` / `/tag/<name>` (locale prefix allowed). */
 export function parseArchiveRoute(route: string): ArchiveRoute | null {
-  const match = /\/(category|tag)\/([^/]+)\.html$/.exec(route);
+  const match = /\/(category|tag)\/([^/]+)$/.exec(route);
   const raw = match?.[2];
   if (!match || !raw) return null;
   return {
@@ -24,12 +24,12 @@ export function parseArchiveRoute(route: string): ArchiveRoute | null {
  * og:type derivation shared by the build-time shell and the client router's
  * soft-navigation head sync, so a client-side page swap can never diverge
  * from the SSG output. Home pages are recognized by route (payloads carry
- * no relPath): the current locale's `/index.html`; archives are the
- * synthetic listing routes; everything else is an article.
+ * no relPath): the current locale's `<prefix>/`; archives are the synthetic
+ * listing routes; everything else is an article.
  */
 export function seoPageType(payload: PagePayload): SeoPageType {
   if (parseArchiveRoute(payload.page.route) !== null) return 'website';
   const prefix =
     payload.site.locales.find(l => l.key === payload.site.locale)?.prefix ?? '';
-  return payload.page.route === `${prefix}/index.html` ? 'website' : 'article';
+  return payload.page.route === `${prefix}/` ? 'website' : 'article';
 }

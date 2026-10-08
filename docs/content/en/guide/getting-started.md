@@ -130,14 +130,14 @@ UnoCSS is optional: if you want no atomic classes at all, drop the plugin and wr
 ├── vite.config.ts
 ├── uno.config.ts
 └── src/               # contentDir: default-locale content lives at the root
-    ├── index.md       # home page (/index.html)
+    ├── index.md       # home page (/)
     ├── posts/
-    │   ├── index.md   # directory index page /posts/index.html
-    │   └── hello.md   # /posts/hello.html
+    │   ├── index.md   # directory index page /posts/
+    │   └── hello.md   # /posts/hello
     └── en/            # other locales go in <contentDir>/<key>/, see the i18n chapter
 ```
 
-Routing rule: `**/*.md` maps to `<path>.html`, and `index.md` produces the index page of its directory. Navigation (navbar and sidebar), category/tag archives, and the home article feed are all derived from this directory structure — no page registration in config.
+Routing rule: `**/*.md` maps to the extensionless `<path>` (emitted as `<path>.html`), and `index.md` produces the index page of its directory. Navigation (navbar and sidebar), category/tag archives, and the home article feed are all derived from this directory structure — no page registration in config.
 
 ## Develop and build
 

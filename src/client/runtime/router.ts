@@ -41,7 +41,8 @@ function isRoutable(a: HTMLAnchorElement): boolean {
   const href = a.getAttribute('href') ?? '';
   // Hash-only links stay in the document (TOC / anchor jumps).
   if (href === '' || href.startsWith('#')) return false;
-  // Asset URLs (images, archives, ...) have a non-HTML final segment.
+  // Asset URLs (images, downloads, ...) have a non-HTML final segment;
+  // page URLs are extensionless clean routes (legacy .html stays routable).
   const last = a.pathname.split('/').pop() ?? '';
   if (last.includes('.') && !/\.html?$/i.test(last)) return false;
   return true;

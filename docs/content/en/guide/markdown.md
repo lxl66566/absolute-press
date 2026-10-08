@@ -544,7 +544,7 @@ For screenshots that need click-to-zoom, use the ZoomedImg island — see [Islan
 
 Relative links with other extensions (e.g. `./assets/demo.svg`, `../rss.xml`) pass through as asset URLs without md resolution.
 
-Bare relative links (no `./` prefix, e.g. `[x](guide/a.md)`) take no part in this mechanism: they are neither rewritten to `.html` nor covered by dead link checking, and come out as literal links to `.md`. The site config `strictLinks` controls how loudly they are reported (default `'warn'` lists them at build time, `'error'` fails the build, `'off'` stays silent) — see [Configuration reference](./configuration.md#strictlinks). Always prefix internal links with `./` or `../`.
+Bare relative links (no `./` prefix, e.g. `[x](guide/a.md)`) take no part in this mechanism: they are neither rewritten to a route nor covered by dead link checking, and come out as literal links to `.md`. The site config `strictLinks` controls how loudly they are reported (default `'warn'` lists them at build time, `'error'` fails the build, `'off'` stays silent) — see [Configuration reference](./configuration.md#strictlinks). Always prefix internal links with `./` or `../`.
 
 ## HTML passthrough
 

@@ -45,11 +45,11 @@ const SHELL_HEAD = `
 <meta charset="utf-8">
 <title>Old | S</title>
 <meta name="description" content="old site description">
-<link rel="canonical" href="https://old.example/old.html">
+<link rel="canonical" href="https://old.example/old">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Old | S">
 <meta property="og:description" content="old site description">
-<meta property="og:url" content="https://old.example/old.html">
+<meta property="og:url" content="https://old.example/old">
 <meta property="og:site_name" content="S">
 </head><body></body></html>`;
 
@@ -60,47 +60,43 @@ function doc(): Document {
 describe('headPatchOf', () => {
   it('prefers the page excerpt and composes canonical from the origin', () => {
     const patch = headPatchOf(
-      payload('/guide/a.html', { excerpt: 'page summary' }),
+      payload('/guide/a', { excerpt: 'page summary' }),
       'https://live.example',
       'A | S',
     );
     expect(patch.description).toBe('page summary');
-    expect(patch.canonical).toBe('https://live.example/guide/a.html');
+    expect(patch.canonical).toBe('https://live.example/guide/a');
     expect(patch.ogTitle).toBe('A | S');
   });
 
   it('falls back to the site description without an excerpt', () => {
-    expect(headPatchOf(payload('/a.html'), 'https://x', 't').description).toBe(
+    expect(headPatchOf(payload('/a'), 'https://x', 't').description).toBe(
       'site description',
     );
   });
 
   it('derives og:type from the payload route', () => {
-    expect(headPatchOf(payload('/index.html'), 'https://x', 't').ogType).toBe(
+    expect(headPatchOf(payload('/'), 'https://x', 't').ogType).toBe('website');
+    expect(headPatchOf(payload('/tag/x'), 'https://x', 't').ogType).toBe(
       'website',
     );
-    expect(headPatchOf(payload('/tag/x.html'), 'https://x', 't').ogType).toBe(
-      'website',
-    );
-    expect(headPatchOf(payload('/a.html'), 'https://x', 't').ogType).toBe(
-      'article',
-    );
+    expect(headPatchOf(payload('/a'), 'https://x', 't').ogType).toBe('article');
   });
 
   it('absolutizes alternate routes against the origin', () => {
     const patch = headPatchOf(
-      payload('/a.html', {
+      payload('/a', {
         alternates: [
-          { lang: 'zh-CN', route: '/a.html' },
-          { lang: 'en', route: '/en/a.html' },
+          { lang: 'zh-CN', route: '/a' },
+          { lang: 'en', route: '/en/a' },
         ],
       }),
       'https://x',
       't',
     );
     expect(patch.alternates).toEqual([
-      { lang: 'zh-CN', href: 'https://x/a.html' },
-      { lang: 'en', href: 'https://x/en/a.html' },
+      { lang: 'zh-CN', href: 'https://x/a' },
+      { lang: 'en', href: 'https://x/en/a' },
     ]);
   });
 });
@@ -110,7 +106,7 @@ describe('applyHead', () => {
     const d = doc();
     applyHead(
       headPatchOf(
-        payload('/guide/a.html', { excerpt: 'new summary' }),
+        payload('/guide/a', { excerpt: 'new summary' }),
         'https://live.example',
         'A | S',
       ),
@@ -120,7 +116,7 @@ describe('applyHead', () => {
       d.querySelector('meta[name="description"]')?.getAttribute('content'),
     ).toBe('new summary');
     expect(d.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
-      'https://live.example/guide/a.html',
+      'https://live.example/guide/a',
     );
     expect(
       d.querySelector('meta[property="og:title"]')?.getAttribute('content'),
@@ -132,7 +128,7 @@ describe('applyHead', () => {
     ).toBe('new summary');
     expect(
       d.querySelector('meta[property="og:url"]')?.getAttribute('content'),
-    ).toBe('https://live.example/guide/a.html');
+    ).toBe('https://live.example/guide/a');
     expect(
       d.querySelector('meta[property="og:type"]')?.getAttribute('content'),
     ).toBe('article');
@@ -142,10 +138,10 @@ describe('applyHead', () => {
     const d = doc();
     applyHead(
       headPatchOf(
-        payload('/guide/a.html', {
+        payload('/guide/a', {
           alternates: [
-            { lang: 'zh-CN', route: '/guide/a.html' },
-            { lang: 'en', route: '/en/guide/a.html' },
+            { lang: 'zh-CN', route: '/guide/a' },
+            { lang: 'en', route: '/en/guide/a' },
           ],
         }),
         'https://x',
@@ -161,7 +157,7 @@ describe('applyHead', () => {
       'en',
       'x-default',
     ]);
-    expect(hreflangs[2]!.getAttribute('href')).toBe('https://x/guide/a.html');
+    expect(hreflangs[2]!.getAttribute('href')).toBe('https://x/guide/a');
     // Position: directly after the canonical link.
     const siblings = [...d.head!.children];
     expect(siblings.indexOf(hreflangs[0]!)).toBe(
@@ -173,9 +169,9 @@ describe('applyHead', () => {
     const d = doc();
     d.head!.insertAdjacentHTML(
       'beforeend',
-      '<link rel="alternate" hreflang="en" href="https://old.example/en/old.html">',
+      '<link rel="alternate" hreflang="en" href="https://old.example/en/old">',
     );
-    applyHead(headPatchOf(payload('/a.html'), 'https://x', 't'), d);
+    applyHead(headPatchOf(payload('/a'), 'https://x', 't'), d);
     expect(d.querySelectorAll('link[rel="alternate"][hreflang]')).toHaveLength(
       0,
     );
@@ -185,7 +181,7 @@ describe('applyHead', () => {
     const d = parseHTML(
       '<html><head><title>t</title></head><body></body></html>',
     ).document;
-    applyHead(headPatchOf(payload('/a.html'), 'https://x', 't'), d);
+    applyHead(headPatchOf(payload('/a'), 'https://x', 't'), d);
     expect(d.querySelector('meta[name="description"]')).toBeNull();
     expect(d.querySelector('link[rel="canonical"]')).toBeNull();
     expect(d.querySelector('meta[property^="og:"]')).toBeNull();
@@ -198,7 +194,7 @@ describe('applyHead', () => {
 describe('applyHead matches the SSG og:type', () => {
   it('flips to website on soft navigation to a locale home', () => {
     const d = doc();
-    const home = payload('/index.html');
+    const home = payload('/');
     expect(seoPageType(home)).toBe('website');
     applyHead(headPatchOf(home, 'https://x', 'S'), d);
     expect(

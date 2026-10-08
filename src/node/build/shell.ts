@@ -6,7 +6,8 @@ import { applyAssetBase } from './assets.ts';
 
 /** '' at root, '../' one level deep — enables deploy under any subpath. */
 export function baseOf(route: string): string {
-  // '/a/b.html' -> depth 1; '/index.html' -> depth 0
+  // Clean routes: '/a/b' -> depth 1; '/a/b/' (directory index) -> depth 1;
+  // '/' -> depth 0.
   const depth = route.split('/').length - 2;
   return '../'.repeat(Math.max(0, depth));
 }

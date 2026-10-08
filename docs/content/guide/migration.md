@@ -12,11 +12,28 @@ icon: migrate
 
 Absolute Press 的设计目标就是替代 vuepress-theme-hope：markdown 正文零改动迁移，URL 保持不变。本页列出兼容性承诺与已知不兼容项。
 
-## URL 兼容
+## URL 形态
 
-- 路由保持 `.html` 后缀：`docs/xxx.md` → `/xxx.html`，与 theme-hope 生成的地址逐字相同
+路由是无扩展名的 clean URL：`docs/xxx.md` → `/xxx`，目录索引页 → `/<dir>/`（或 `/<dir>`，取决于 `urls.directoryIndex`）。与 theme-hope 的 `/xxx.html` 相比只差一个后缀，旧地址的去向见下节。
+
 - 中文标题锚点用 VuePress 2 同款 slugify（移植自 @mdit-vue/shared），与 VuePress **逐字一致**（中文原样保留、英文小写、空格转连字符），旧外链的 `#锚点` 不会失效
 - base 自动检测：按页面深度生成相对前缀，换部署子路径不用改任何链接
+
+### 旧 `.html` 地址的去向
+
+落盘文件形态不变（`/xxx` 的落盘文件就是 `xxx.html`），旧外链不会 404：
+
+- **GitHub Pages**：`/xxx.html` 依旧 200，照常返回页面
+- **Cloudflare Pages**：`/xxx.html` 被 308 到 `/xxx`，一跳收敛到 canonical 地址
+
+canonical、og:url、sitemap、RSS 全部指向 clean 地址，搜索引擎权重会随之收敛。
+
+### 从 `.html` 路由版本升级
+
+- `encrypt` 规则的 `match` 字符串匹配 clean 路由：`'/guide/secret.html'` 要改成 `'/guide/secret'`；正则同理，不要再锚定 `\.html$`
+- `nav.exclude` 的前缀写法不受影响（本就按目录前缀匹配）
+- 目录索引页 URL 的平台权衡见[配置参考](./configuration.md#urls)：GitHub Pages 原生 slash（`/guide/`），Cloudflare Pages 原生 bare（`/guide`），按部署平台设置 `urls.directoryIndex`
+- giscus 的 `mapping: 'pathname'` 按 URL 建讨论串：迁移后旧文章的讨论串（按 `/x.html` 建立）不会匹配新地址，历史评论串留在旧串中
 
 ## 正文语法兼容清单
 
@@ -42,7 +59,7 @@ Absolute Press 的设计目标就是替代 vuepress-theme-hope：markdown 正文
 
 ## 迁移步骤建议
 
-1. 把原站 markdown 按原目录结构放进新的 `contentDir`，URL 即不变
+1. 把原站 markdown 按原目录结构放进新的 `contentDir`，路由即自动推导
 2. 站点配置里注册原站用到的 icon（svg 字符串）
 3. 跑一次构建：死链检查会暴露正文里的相对链接坏链（框架对 `./` `../` 链接 resolve 失败直接报错），按报错清单逐个修正即可
 4. 逐页改造 `<template #xxx>` 与 vue 组件语法
@@ -50,13 +67,13 @@ Absolute Press 的设计目标就是替代 vuepress-theme-hope：markdown 正文
 
 ## 能力对照速查
 
-| theme-hope                   | Absolute Press                              |
-| ---------------------------- | ------------------------------------------- |
-| `.html` 路由 + 中文锚点      | 逐字兼容                                    |
-| markdown 正文语法            | 逐字兼容（见上文清单）                      |
-| `<template #xxx>` / vue 组件 | 透传，需逐页改造                            |
-| frontmatter 全量键           | 只认 `date/category/tag/icon/feed/overview` |
-| 构建期密码加密               | 客户端密码门（非真加密）                    |
-| 主题插槽/组件覆写            | CSS 变量 + 挂载点 DOM                       |
+| theme-hope                   | Absolute Press                                 |
+| ---------------------------- | ---------------------------------------------- |
+| `.html` 路由 + 中文锚点      | clean URL；旧 `.html` 地址不 404，锚点逐字兼容 |
+| markdown 正文语法            | 逐字兼容（见上文清单）                         |
+| `<template #xxx>` / vue 组件 | 透传，需逐页改造                               |
+| frontmatter 全量键           | 只认 `date/category/tag/icon/feed/overview`    |
+| 构建期密码加密               | 客户端密码门（非真加密）                       |
+| 主题插槽/组件覆写            | CSS 变量 + 挂载点 DOM                          |
 
 迁移完成后，[Markdown 扩展](./markdown.md)页可以作为正文的回归自测清单。

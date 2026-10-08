@@ -93,12 +93,12 @@ function expectHeadContract(audit: HeadAudit, base: string): void {
 
 test.describe('fouc: head delivery contract', () => {
   const sitePages: Array<{ path: string; base: string }> = [
-    { path: '/index.html', base: 'assets/' },
-    { path: '/guide/getting-started.html', base: '../assets/' },
-    { path: '/guide/markdown.html', base: '../assets/' },
-    { path: '/en/guide/getting-started.html', base: '../../assets/' },
-    { path: '/en/index.html', base: '../assets/' },
-    { path: '/category/%E6%8C%87%E5%8D%97.html', base: '../assets/' },
+    { path: '/', base: 'assets/' },
+    { path: '/guide/getting-started', base: '../assets/' },
+    { path: '/guide/markdown', base: '../assets/' },
+    { path: '/en/guide/getting-started', base: '../../assets/' },
+    { path: '/en/', base: '../assets/' },
+    { path: '/category/%E6%8C%87%E5%8D%97', base: '../assets/' },
   ];
   for (const { path, base } of sitePages) {
     test(`${path}: render-blocking head + speculation rules`, async ({
@@ -109,12 +109,12 @@ test.describe('fouc: head delivery contract', () => {
   }
 
   test('katex sheet rides only on math pages', async ({ page }) => {
-    const math = await auditHead(page, `${SITE}/guide/markdown.html`);
+    const math = await auditHead(page, `${SITE}/guide/markdown`);
     expect(
       math.stylesheets.some(s => s.includes('katex')),
       'math page must link the katex css',
     ).toBe(true);
-    const plain = await auditHead(page, `${SITE}/guide/getting-started.html`);
+    const plain = await auditHead(page, `${SITE}/guide/getting-started`);
     expect(
       plain.stylesheets.some(s => s.includes('katex')),
       'math-free page must not link the katex css',
@@ -175,7 +175,7 @@ test.describe('fouc: first paint waits for stylesheets under delayed css', () =>
 
   test('site cold load', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${SITE}/guide/getting-started.html`, {
+    await page.goto(`${SITE}/guide/getting-started`, {
       waitUntil: 'load',
     });
     await paintWaitsForCss(page);
@@ -183,15 +183,15 @@ test.describe('fouc: first paint waits for stylesheets under delayed css', () =>
 
   test('content-link navigation', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${SITE}/index.html`, { waitUntil: 'load' });
-    await page.locator('#ap-content a[href$=".html"]').first().click();
+    await page.goto(`${SITE}/`, { waitUntil: 'load' });
+    await page.locator('#ap-content a[href^="guide/"]').first().click();
     await page.waitForLoadState('load');
     await paintWaitsForCss(page);
   });
 
   test('sidebar-link navigation', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${SITE}/guide/getting-started.html`, {
+    await page.goto(`${SITE}/guide/getting-started`, {
       waitUntil: 'load',
     });
     const link = page.locator('#ap-sidebar a:visible').first();
@@ -203,13 +203,13 @@ test.describe('fouc: first paint waits for stylesheets under delayed css', () =>
 
   test('locale-switch navigation', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${SITE}/index.html`, { waitUntil: 'load' });
+    await page.goto(`${SITE}/`, { waitUntil: 'load' });
     // The switch lives in a hover dropdown rendered after hydration.
     const globe = page.locator(
       '#ap-nav button[aria-label*="locale" i], #ap-nav button[aria-label*="语言" i]',
     );
     await globe.first().hover();
-    const switchLink = page.locator('#ap-nav a[href$="en/index.html"]').first();
+    const switchLink = page.locator('#ap-nav a[href$="en/"]').first();
     await expect(switchLink).toBeVisible({ timeout: 10000 });
     await switchLink.click();
     await page.waitForLoadState('load');

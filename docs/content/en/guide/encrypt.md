@@ -16,14 +16,14 @@ Absolute Press provides an article-level password gate: pages hit by a rule get 
 ```ts
 encrypt: [
   {
-    match: '/guide/secret.html', // exact string match on the route, or RegExp.test
+    match: '/guide/secret', // exact string match on the route, or RegExp.test
     passwords: ['docs-demo'],
     hint: 'optional hint text',
   },
 ];
 ```
 
-- `match` is a page route (with the `.html` suffix, including the locale prefix); matched by string equality, or by regex `test` (avoid the `/g` flag — regexes are stateful and order-sensitive)
+- `match` is a page route (the extensionless clean form, including the locale prefix); matched by string equality, or by regex `test` (avoid the `/g` flag — regexes are stateful and order-sensitive)
 - With multiple rules, **the first hit wins**
 - `hint` shows above the password input
 
@@ -42,6 +42,6 @@ Also: give protected pages frontmatter `feed: false` to leave RSS, so titles and
 
 ## Demo
 
-This site has a real rule configured: the [encryption demo page](./secret.md) is hit by `match: '/en/guide/secret.html'`, and the demo password is the `docs-demo` in the config above; `match` also accepts a RegExp form — see the site's `vite.config.ts` for the syntax.
+This site has a real rule configured: the [encryption demo page](./secret.md) is hit by `match: '/en/guide/secret'`, and the demo password is the `docs-demo` in the config above; `match` also accepts a RegExp form — see the site's `vite.config.ts` for the syntax.
 
 For the password gate's island activation and implementation details, see [islands runtime](./design/islands-runtime.md).

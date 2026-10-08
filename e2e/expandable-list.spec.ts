@@ -1,14 +1,14 @@
 import { expect, test } from 'playwright/test';
 
 /**
- * ExpandableList island against the built docs site (/guide/islands.html):
+ * ExpandableList island against the built docs site (/guide/islands):
  * static items collapse into a toolbar + rows UI after hydration; search
  * filters, sort reorders, expand/collapse-all and per-row toggles work; a
  * ZoomedImg nested inside an entry hydrates and re-hydrates on filter
  * re-entry.
  */
 
-const PAGE = '/guide/islands.html';
+const PAGE = '/guide/islands';
 const LIST = '.ap-xlist';
 
 test('static entries collapse into the toolbar UI after hydration', async ({

@@ -95,14 +95,16 @@ describe('SiteStore', () => {
       `<script type="module" src="${devFsUrl(clientEntry())}">`,
     );
 
-    const article = store.devHtml('/guide/a.html');
+    const article = store.devHtml('/guide/a');
     // Internal link rewritten page-relative; ./index.md resolves to the
-    // sibling directory index (guide/index.md).
-    expect(article).toContain('<a href="index.html">back</a>');
+    // sibling directory index (guide/index.md -> the clean route /guide/).
+    expect(article).toContain('<a href="./">back</a>');
 
     // Trailing slash resolves to the directory index.
     expect(store.devHtml('/guide/')).toContain('G');
-    expect(store.devHtml('/nope.html')).toBeNull();
+    expect(store.devHtml('/nope')).toBeNull();
+    // Legacy .html URLs are a production-host concern; dev 404s them.
+    expect(store.devHtml('/guide/a.html')).toBeNull();
   });
 
   it('caches by mtime and invalidate() accepts watcher-style posix paths', async () => {
@@ -111,16 +113,16 @@ describe('SiteStore', () => {
     await store.sync('dev');
     // Pin the mtime: a rewrite that restores it must stay a cache hit.
     fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
-    expect(store.devHtml('/a.html')).toContain('first');
+    expect(store.devHtml('/a')).toContain('first');
 
     fs.writeFileSync(fx.abs('a.md'), 'second\n');
     fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
     // Same mtime -> render cache still serves the stale content.
-    expect(store.devHtml('/a.html')).toContain('first');
+    expect(store.devHtml('/a')).toContain('first');
 
     // Watcher paths may arrive with posix separators even on Windows.
     store.invalidate(fx.abs('a.md').split(path.sep).join('/'));
-    expect(store.devHtml('/a.html')).toContain('second');
+    expect(store.devHtml('/a')).toContain('second');
   });
 
   it('resync drops every render cache regardless of mtime', async () => {
@@ -128,12 +130,12 @@ describe('SiteStore', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
-    expect(store.devHtml('/a.html')).toContain('first');
+    expect(store.devHtml('/a')).toContain('first');
 
     fs.writeFileSync(fx.abs('a.md'), 'second\n');
     fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
     await store.resync('dev');
-    expect(store.devHtml('/a.html')).toContain('second');
+    expect(store.devHtml('/a')).toContain('second');
   });
 
   it('dev trusts the watcher: warm cache hits make zero stat calls', async () => {
@@ -141,15 +143,15 @@ describe('SiteStore', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     // Warm the cache; only misses may stat.
-    store.devHtml('/a.html');
-    store.devHtml('/b.html');
+    store.devHtml('/a');
+    store.devHtml('/b');
 
     const stat = vi.spyOn(fs, 'statSync');
     try {
       // Page requests and rss() reuse the cache without freshness stats;
       // the watcher's invalidate()/resync() owns dev freshness instead.
-      store.devHtml('/a.html');
-      store.devHtml('/b.html');
+      store.devHtml('/a');
+      store.devHtml('/b');
       store.rss();
       expect(stat).not.toHaveBeenCalled();
     } finally {
@@ -161,7 +163,7 @@ describe('SiteStore', () => {
     const fx = await contentFixture({ 'a.md': '# A\n', 'b.md': '# B\n' });
     const store = new SiteStore(fx.config);
     await store.sync('dev');
-    store.devHtml('/a.html');
+    store.devHtml('/a');
     // Flip to build mode; sync keeps surviving cache entries, so freshness
     // must fall back to the mtime check (no watcher during generateBundle).
     await store.sync('build');
@@ -186,7 +188,7 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('dev');
-    store.devHtml('/a.html');
+    store.devHtml('/a');
 
     const dead = store.deadLinks();
     expect(dead).toHaveLength(1);
@@ -211,7 +213,7 @@ describe('SiteStore', () => {
     try {
       // Serving the page warns about its own dead link and icon; the page
       // still renders (dev stays browsable).
-      const html = store.devHtml('/a.html');
+      const html = store.devHtml('/a');
       expect(html).toContain('dead');
       const calls = (): string[] => warn.mock.calls.map(c => String(c[0]));
       expect(
@@ -221,11 +223,11 @@ describe('SiteStore', () => {
 
       // Repeated requests of the same page stay silent.
       warn.mockClear();
-      expect(store.devHtml('/a.html')).toBeDefined();
+      expect(store.devHtml('/a')).toBeDefined();
       expect(warn).not.toHaveBeenCalled();
 
       // Another page's identical dead link warns on its own request only.
-      store.devHtml('/b.html');
+      store.devHtml('/b');
       expect(calls().some(m => m.includes('b.md'))).toBe(true);
       expect(calls().some(m => m.includes('a.md'))).toBe(false);
     } finally {
@@ -243,8 +245,8 @@ describe('SiteStore', () => {
     await store.sync('dev');
     const rss = store.rss();
     expect(rss).toContain('<rss');
-    expect(rss).toContain('p.html');
-    expect(rss).not.toContain('hidden.html');
+    expect(rss).toContain('https://test.example.com/p');
+    expect(rss).not.toContain('hidden');
   });
 
   it('keeps `related` off home payloads either way the feed is configured', async () => {
@@ -313,11 +315,11 @@ describe('SiteStore', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
 
-    const archive = store.devHtml('/category/news.html');
+    const archive = store.devHtml('/category/news');
     expect(archive).toContain('<h1>news</h1>');
-    expect(store.devHtml('/tag/alpha.html')).toContain('<h1>alpha</h1>');
+    expect(store.devHtml('/tag/alpha')).toContain('<h1>alpha</h1>');
     // Unknown archive names fall through to null (no page, no archive).
-    expect(store.devHtml('/category/nope.html')).toBeNull();
+    expect(store.devHtml('/category/nope')).toBeNull();
   });
 
   it('emitAll returns pages, archives, feeds and static assets', async () => {
@@ -351,10 +353,59 @@ describe('SiteStore', () => {
     const html = String(
       files.find(f => f.fileName === 'post.html')?.source ?? '',
     );
+    expect(html).toContain(
+      '<link rel="canonical" href="https://test.example.com/post">',
+    );
     expect(html).toContain('<link rel="stylesheet" href="assets/app.css">');
     expect(html).toContain('<script type="module" src="assets/entry.js">');
     expect(html).not.toContain('assets/katex/katex.min.css');
-    expect(rssOf(files)).toContain('post.html');
+    expect(rssOf(files)).toContain('https://test.example.com/post');
+  });
+
+  it('emits canonical bare directory-index URLs under urls.directoryIndex: bare', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'guide/index.md': '# G\n',
+      'guide/a.md': '# A\n',
+    });
+    const config = resolveConfig(
+      {
+        contentDir: 'content',
+        title: 'Site',
+        description: 'desc',
+        hostname: 'https://test.example.com',
+        urls: { directoryIndex: 'bare' },
+      },
+      fx.root,
+    );
+    const store = new SiteStore(config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    // File names never change; only the canonical URLs do.
+    const names = files.map(f => f.fileName);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'index.html',
+        'guide/index.html',
+        'guide/a.html',
+      ]),
+    );
+    const dirIndex = String(
+      files.find(f => f.fileName === 'guide/index.html')?.source ?? '',
+    );
+    expect(dirIndex).toContain(
+      '<link rel="canonical" href="https://test.example.com/guide">',
+    );
+    const leaf = String(
+      files.find(f => f.fileName === 'guide/a.html')?.source ?? '',
+    );
+    expect(leaf).toContain(
+      '<link rel="canonical" href="https://test.example.com/guide/a">',
+    );
   });
 
   it('injects the katex stylesheet on math pages only (dev)', async () => {
@@ -365,8 +416,8 @@ describe('SiteStore', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     // Dev serves the css straight from the package via a /@fs url.
-    expect(store.devHtml('/math.html')).toContain('katex.min.css');
-    expect(store.devHtml('/plain.html')).not.toContain('katex.min.css');
+    expect(store.devHtml('/math')).toContain('katex.min.css');
+    expect(store.devHtml('/plain')).not.toContain('katex.min.css');
   });
 
   it('emits katex assets and links them on math pages only (build)', async () => {
@@ -439,13 +490,13 @@ describe('SiteStore', () => {
 
     const zhA = source('guide/a.html');
     expect(zhA).toContain(
-      '<link rel="alternate" hreflang="zh-CN" href="https://test.example.com/guide/a.html">',
+      '<link rel="alternate" hreflang="zh-CN" href="https://test.example.com/guide/a">',
     );
     expect(zhA).toContain(
-      '<link rel="alternate" hreflang="en" href="https://test.example.com/en/guide/a.html">',
+      '<link rel="alternate" hreflang="en" href="https://test.example.com/en/guide/a">',
     );
     expect(zhA).toContain(
-      '<link rel="alternate" hreflang="x-default" href="https://test.example.com/guide/a.html">',
+      '<link rel="alternate" hreflang="x-default" href="https://test.example.com/guide/a">',
     );
     // The en mirror carries the same set.
     expect(source('en/guide/a.html')).toContain('hreflang="zh-CN"');
@@ -458,10 +509,10 @@ describe('SiteStore', () => {
     const sitemap = source('sitemap.xml');
     expect(sitemap).toContain('xmlns:xhtml=');
     expect(sitemap).toContain(
-      '<xhtml:link rel="alternate" hreflang="en" href="https://test.example.com/en/guide/a.html"/>',
+      '<xhtml:link rel="alternate" hreflang="en" href="https://test.example.com/en/guide/a"/>',
     );
     const zhOnlyEntry = sitemap.match(
-      /<url><loc>https:\/\/test\.example\.com\/zh-only\.html<\/loc>(.*?)<\/url>/,
+      /<url><loc>https:\/\/test\.example\.com\/zh-only<\/loc>(.*?)<\/url>/,
     )?.[1];
     expect(zhOnlyEntry).toBeDefined();
     expect(zhOnlyEntry!).not.toContain('xhtml:link');
@@ -474,7 +525,7 @@ describe('SiteStore', () => {
     await writeFile(fx.abs('pic.png'), pngBytes(3, 2));
     const store = new SiteStore(fx.config);
     await store.sync('dev');
-    const html = store.devHtml('/a.html') ?? '';
+    const html = store.devHtml('/a') ?? '';
     // The local image carries its intrinsic size for CLS-free layout.
     expect(html).toContain('width="3"');
     expect(html).toContain('height="2"');
@@ -514,7 +565,7 @@ describe('SiteStore', () => {
         scriptFile: 'assets/entry.js',
         cssFiles: [],
       }),
-    ).toThrowError(/duplicate route \/category\/news\.html/);
+    ).toThrowError(/duplicate route \/category\/news/);
   });
 
   it('dev sync warns once about archive collisions and stays browsable', async () => {
@@ -531,10 +582,10 @@ describe('SiteStore', () => {
       await expect(store.sync('dev')).resolves.toBeUndefined();
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0]?.[0])).toMatch(
-        /duplicate route \/category\/news\.html[\s\S]*build will fail/,
+        /duplicate route \/category\/news[\s\S]*build will fail/,
       );
       // The page still wins the route in dev (browsable).
-      expect(store.devHtml('/category/news.html')).toContain('News');
+      expect(store.devHtml('/category/news')).toContain('News');
 
       // An identical resync (unchanged content) must not re-print the warning.
       await store.resync('dev');
@@ -551,7 +602,7 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await expect(store.sync('dev')).rejects.toThrowError(
-      /duplicate route \/guide\/index\.html/,
+      /duplicate route \/guide\//,
     );
   });
 
@@ -560,20 +611,20 @@ describe('SiteStore', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     // shikiLangs ['ts']: the stub highlights the fence as language-ts.
-    expect(store.devHtml('/a.html')).toContain('language-ts');
+    expect(store.devHtml('/a')).toContain('language-ts');
 
     // Same-language edit: the refresh gate stays a no-op...
     fs.writeFileSync(fx.abs('a.md'), '```ts\ny\n```\n');
     store.invalidate(fx.abs('a.md'));
     await store.refreshRenderer();
-    expect(store.devHtml('/a.html')).toContain('language-ts');
+    expect(store.devHtml('/a')).toContain('language-ts');
 
     // New language: without a rebuild the stub falls back to plain text
     // (language-text); the gate must rebuild with the fresh scan instead.
     fs.writeFileSync(fx.abs('a.md'), '```rust\nfn x() {}\n```\n');
     store.invalidate(fx.abs('a.md'));
-    expect(store.devHtml('/a.html')).toContain('language-text');
+    expect(store.devHtml('/a')).toContain('language-text');
     await store.refreshRenderer();
-    expect(store.devHtml('/a.html')).toContain('language-rust');
+    expect(store.devHtml('/a')).toContain('language-rust');
   });
 });

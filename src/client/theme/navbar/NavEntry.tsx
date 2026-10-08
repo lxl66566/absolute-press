@@ -39,7 +39,7 @@ function decodePath(path: string): string {
 }
 
 /**
- * First path segment of a site route: `/coding/a.html` -> `/coding`. A
+ * First path segment of a site route: `/coding/a` -> `/coding`. A
  * single-segment path is its own section (root pages match exactly).
  */
 function sectionOf(path: string): string {

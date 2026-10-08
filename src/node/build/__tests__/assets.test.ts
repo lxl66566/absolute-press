@@ -28,7 +28,7 @@ function page(rel: string): PageSource {
     filePath: file(rel),
     locale: LOCALE,
     relPath: rel,
-    route: routeOf(rel, LOCALE.prefix),
+    route: routeOf(rel, LOCALE.prefix, 'slash'),
   };
 }
 
@@ -38,6 +38,7 @@ const PAGES: PageSource[] = [
   page('essay/2022.md'),
   page('essay/2023.md'),
   page('articles/linux/index.md'),
+  page('articles/linux/basic.md'),
   page('hobbies/other_games/README.md'),
   page('hobbies/galgame.md'),
   page('blog/log.md'),
@@ -46,6 +47,7 @@ const PAGES: PageSource[] = [
 const ENV_A = { filePath: file('a.md') };
 const ENV_GALGAME = { filePath: file('hobbies/galgame.md') };
 const ENV_LOG = { filePath: file('blog/log.md') };
+const ENV_BASIC = { filePath: file('articles/linux/basic.md') };
 
 // Any readable file works as an image source; use this test file via a
 // page-relative src — a posix-absolute src would read as root-relative and
@@ -63,45 +65,47 @@ beforeEach(() => {
 
 describe('LinkResolver.resolveLink', () => {
   it('resolves plain .md links as before', () => {
-    expect(resolver.resolveLink('./b.md', ENV_A)).toBe('b.html');
+    expect(resolver.resolveLink('./b.md', ENV_A)).toBe('b');
   });
 
   it('resolves extensionless links via the .md candidate', () => {
-    expect(resolver.resolveLink('./b', ENV_A)).toBe('b.html');
+    expect(resolver.resolveLink('./b', ENV_A)).toBe('b');
   });
 
   it('normalizes a trailing slash before resolving', () => {
-    expect(resolver.resolveLink('./essay/2022/', ENV_A)).toBe(
-      'essay/2022.html',
-    );
+    expect(resolver.resolveLink('./essay/2022/', ENV_A)).toBe('essay/2022');
   });
 
   it('resolves .md links carrying a trailing slash', () => {
     expect(resolver.resolveLink('../essay/2023.md/', ENV_GALGAME)).toBe(
-      '../essay/2023.html',
+      '../essay/2023',
     );
   });
 
-  it('resolves directory links via index.md', () => {
+  it('resolves directory links to the trailing-slash index route', () => {
     expect(resolver.resolveLink('../articles/linux', ENV_GALGAME)).toBe(
-      '../articles/linux/index.html',
+      '../articles/linux/',
     );
   });
 
   it('resolves directory links via README.md (VuePress dir index)', () => {
     expect(resolver.resolveLink('../hobbies/other_games/', ENV_LOG)).toBe(
-      '../hobbies/other_games/index.html',
+      '../hobbies/other_games/',
     );
   });
 
   it('rewrites explicit README.md links to the canonical index route', () => {
     expect(
       resolver.resolveLink('../hobbies/other_games/README.md', ENV_LOG),
-    ).toBe('../hobbies/other_games/index.html');
+    ).toBe('../hobbies/other_games/');
+  });
+
+  it('resolves a link to the containing directory index as ./', () => {
+    expect(resolver.resolveLink('./index.md', ENV_BASIC)).toBe('./');
   });
 
   it('re-appends anchors to the resolved route', () => {
-    expect(resolver.resolveLink('./b#sec', ENV_A)).toBe('b.html#sec');
+    expect(resolver.resolveLink('./b#sec', ENV_A)).toBe('b#sec');
   });
 
   it('returns null and records dead links when no candidate hits', () => {
@@ -133,7 +137,7 @@ describe('deadLinkReport', () => {
       },
       {
         raw: './ok.md',
-        resolved: 'ok.html',
+        resolved: 'ok',
         kind: 'internal',
         dead: false,
         line: 5,
@@ -181,7 +185,7 @@ describe('bareLinkReport', () => {
         bare: true,
         line: 9,
       },
-      { raw: './ok.md', resolved: 'ok.html', kind: 'internal', dead: false },
+      { raw: './ok.md', resolved: 'ok', kind: 'internal', dead: false },
       {
         raw: 'img.png',
         resolved: 'img.png',
@@ -211,7 +215,7 @@ describe('bareLinkReport', () => {
 
   it('is empty when every link is prefixed or non-markdown', () => {
     const links: CollectedLink[] = [
-      { raw: './b.md', resolved: 'b.html', kind: 'internal', dead: false },
+      { raw: './b.md', resolved: 'b', kind: 'internal', dead: false },
       {
         raw: 'img.png',
         resolved: 'img.png',

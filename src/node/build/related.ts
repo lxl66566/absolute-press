@@ -8,7 +8,7 @@ import type {
 
 /** Minimal page data needed to build the article-reference graph. */
 export interface RelatedPageInput {
-  /** Canonical page route, e.g. `/guide/a.html`. */
+  /** Canonical page route, e.g. `/guide/a`. */
   route: string;
   /** Locale key of the page's content tree; edges never cross locales. */
   locale: string;
@@ -17,10 +17,10 @@ export interface RelatedPageInput {
 }
 
 /**
- * Normalize an internal resolved href (page-relative, e.g. `../b.html#sec`)
- * to a canonical route key: fragment stripped, resolved against the source
- * route, lowercased, guaranteed to end with `.html`. Returns null when the
- * href cannot denote a page (empty path, non-`.html` target).
+ * Normalize an internal resolved href (page-relative, e.g. `../b#sec`) to a
+ * canonical route key: fragment stripped, resolved against the source
+ * route's URL directory, lowercased. Returns null when the href cannot
+ * denote a page (empty path).
  */
 export function normalizeRelatedRoute(
   resolved: string,
@@ -28,12 +28,14 @@ export function normalizeRelatedRoute(
 ): string | null {
   const noAnchor = resolved.split('#', 1)[0] ?? '';
   if (noAnchor === '') return null;
-  // posix.resolve strips the trailing slash, so expand directories first.
-  const pathPart = noAnchor.endsWith('/') ? `${noAnchor}index.html` : noAnchor;
-  const route = path.posix
-    .resolve(path.posix.dirname(fromRoute), pathPart)
-    .toLowerCase();
-  return route.endsWith('.html') ? route : null;
+  // The browser resolves relative hrefs against the source route's URL
+  // directory (the route up to its last '/'), not posix dirname.
+  const base = fromRoute.slice(0, fromRoute.lastIndexOf('/') + 1);
+  // posix.resolve drops trailing slashes; slash-mode directory-index routes
+  // must keep theirs (`/guide/` and `/guide` are different routes).
+  const trailing = noAnchor.endsWith('/');
+  const route = path.posix.resolve(base, noAnchor).toLowerCase();
+  return trailing && route !== '/' ? `${route}/` : route;
 }
 
 /** Route key used for identity comparisons (case-insensitive). */

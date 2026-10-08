@@ -15,7 +15,7 @@ feed: false
 ```ts
 encrypt: [
   {
-    match: '/guide/secret.html',
+    match: '/guide/secret',
     passwords: ['docs-demo'],
     hint: '演示密码 docs-demo（写在加密指南页里）',
   },

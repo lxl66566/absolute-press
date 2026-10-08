@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import type { ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -98,41 +99,82 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       if (inert) return;
       // appType 'custom' makes vite preview serve dist as bare static files:
       // directory URLs (`/`, `/guide/`) 404 instead of resolving the folder's
-      // index.html. Rewrite them before the static middleware runs — same
-      // resolution production hosts (GH Pages / CF Pages) apply.
+      // index.html, and extensionless page URLs (`/guide/a`) 404 instead of
+      // resolving `/guide/a.html`. Rewrite them before the static middleware
+      // runs — the same resolution production hosts (GH Pages / CF Pages)
+      // apply. On-disk names are the decoded route file names
+      // (routeToFileName), so real files and missing paths still fall
+      // through to the static server's 404.
       const outDir = path.resolve(
         server.config.root,
         server.config.build.outDir,
       );
+      const bare = config.urls.directoryIndex === 'bare';
+      /** Decoded existence check for `<pathname><suffix>` inside outDir. */
+      const existsInDist = (pathname: string, suffix: string): boolean => {
+        let decoded: string;
+        try {
+          decoded = decodeURIComponent(pathname);
+        } catch {
+          return false; // malformed percent-encoding: not a page route
+        }
+        const abs = path.resolve(outDir, `.${decoded}${suffix}`);
+        const rel = path.relative(outDir, abs);
+        if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
+        return fs.existsSync(abs);
+      };
       server.middlewares.use((req, res, next) => {
         if (!req.url) return next();
         const url = new URL(req.url, 'http://localhost');
         if (url.pathname.endsWith('/')) {
+          // Bare mode mirrors CF Pages: a directory URL keeps its canonical
+          // form without the trailing slash.
+          if (
+            bare &&
+            url.pathname !== '/' &&
+            existsInDist(url.pathname, 'index.html')
+          ) {
+            url.pathname = url.pathname.slice(0, -1);
+            previewRedirect(url, res);
+            return;
+          }
           url.pathname += 'index.html';
           req.url = `${url.pathname}${url.search}`;
           next();
           return;
         }
-        // Directory URL without the trailing slash (`/guide`): production
-        // hosts 301 it to `/guide/`. Redirect only when the folder really
-        // resolves in dist — on-disk names are the decoded route segments
-        // (routeToFileName) — so real extensionless files and missing paths
-        // still fall through to the static server's 404.
-        if (path.extname(url.pathname) !== '') return next();
-        let decoded: string;
-        try {
-          decoded = decodeURIComponent(url.pathname);
-        } catch {
-          return next(); // malformed percent-encoding: not a directory route
+        // Extensionful URLs (assets, legacy .html bookmarks) serve as-is.
+        // A dotted file stem (notes/vue.js.md -> /notes/vue.js) is a page
+        // too: extname cannot tell it from an asset, the dist probe can.
+        if (path.extname(url.pathname) !== '') {
+          if (
+            !existsInDist(url.pathname, '') &&
+            existsInDist(url.pathname, '.html')
+          ) {
+            url.pathname += '.html';
+            req.url = `${url.pathname}${url.search}`;
+          }
+          return next();
         }
-        const dirIndex = path.resolve(outDir, `.${decoded}`, 'index.html');
-        const rel = path.relative(outDir, dirIndex);
-        if (rel.startsWith('..') || path.isAbsolute(rel)) return next();
-        if (!fs.existsSync(dirIndex)) return next();
+        // Leaf page: `/guide/a` serves `/guide/a.html` (GH Pages semantics).
+        if (existsInDist(url.pathname, '.html')) {
+          url.pathname += '.html';
+          req.url = `${url.pathname}${url.search}`;
+          next();
+          return;
+        }
+        if (!existsInDist(url.pathname, '/index.html')) return next();
+        // Directory URL without the trailing slash. Slash mode mirrors GH
+        // Pages (301 to `/guide/`); bare mode mirrors CF Pages (serve the
+        // directory index here, no redirect).
+        if (bare) {
+          url.pathname += '/index.html';
+          req.url = `${url.pathname}${url.search}`;
+          next();
+          return;
+        }
         url.pathname += '/';
-        res.statusCode = 301;
-        res.setHeader('location', `${url.pathname}${url.search}`);
-        res.end();
+        previewRedirect(url, res);
       });
     },
     configureServer(server) {
@@ -270,6 +312,13 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       }
     },
   };
+}
+
+/** 301 to `url` (pathname + search) in the preview middleware. */
+function previewRedirect(url: URL, res: ServerResponse): void {
+  res.statusCode = 301;
+  res.setHeader('location', `${url.pathname}${url.search}`);
+  res.end();
 }
 
 // Unconditional, not path.sep-based: chokidar and unit fixtures may carry

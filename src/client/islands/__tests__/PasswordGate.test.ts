@@ -50,7 +50,7 @@ const reader =
     store[key] ?? null;
 
 describe('remembered unlocks (L13)', () => {
-  const PATH = '/gossip/job.html';
+  const PATH = '/gossip/job';
   const SESSION = `ap-gate:${PATH}`;
   const SAVED = `ap-gate-saved:${PATH}`;
   const HASH_A = 'a'.repeat(64);
@@ -58,7 +58,7 @@ describe('remembered unlocks (L13)', () => {
 
   it('scopes both storage keys to the page route', () => {
     expect(gateStorageKeys(PATH)).toEqual([SESSION, SAVED]);
-    expect(gateStorageKeys('/a.html')).not.toEqual(gateStorageKeys('/b.html'));
+    expect(gateStorageKeys('/a')).not.toEqual(gateStorageKeys('/b'));
   });
 
   it('prefers the session hash over the remember-me hash', () => {

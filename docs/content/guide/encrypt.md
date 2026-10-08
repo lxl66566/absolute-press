@@ -16,14 +16,14 @@ Absolute Press 提供文章级密码门：命中规则的页面正文被 Passwor
 ```ts
 encrypt: [
   {
-    match: '/guide/secret.html', // 字符串精确匹配路由，或 RegExp.test
+    match: '/guide/secret', // 字符串精确匹配路由，或 RegExp.test
     passwords: ['docs-demo'],
     hint: '可选提示文案',
   },
 ];
 ```
 
-- `match` 是页面路由（带 `.html` 后缀、含 locale 前缀）；字符串全等匹配，或用正则 `test`（避免 `/g` 标志——正则有状态，顺序敏感）
+- `match` 是页面路由（无扩展名的 clean 形式、含 locale 前缀）；字符串全等匹配，或用正则 `test`（避免 `/g` 标志——正则有状态，顺序敏感）
 - 多条规则时**第一条命中的生效**
 - `hint` 显示在密码输入框上方
 
@@ -42,6 +42,6 @@ encrypt: [
 
 ## 演示
 
-本站配置了真实规则，[加密演示页](./secret.md)被 `match: '/guide/secret.html'` 命中，演示密码就是上面配置里的 `docs-demo`；`match` 也接受 RegExp 形式，写法见站点的 `vite.config.ts`。
+本站配置了真实规则，[加密演示页](./secret.md)被 `match: '/guide/secret'` 命中，演示密码就是上面配置里的 `docs-demo`；`match` 也接受 RegExp 形式，写法见站点的 `vite.config.ts`。
 
 密码门的 island 激活与实现细节见[islands 运行时](./design/islands-runtime.md)。

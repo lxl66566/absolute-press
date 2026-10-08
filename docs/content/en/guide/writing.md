@@ -13,14 +13,16 @@ The framework deliberately narrows the writing surface: one markdown file plus a
 
 ## A file is a page
 
-Every `**/*.md` under `contentDir` is a page, routed as `<relative path>.html`; `index.md` is the index page of its directory:
+Every `**/*.md` under `contentDir` is a page, routed as the extensionless `<relative path>`; `index.md` is the index page of its directory:
 
 ```text
 content/
-├── index.md              # home page /index.html
-├── notes/foo.md          # /notes/foo.html
-└── notes/index.md        # /notes/index.html; the directory row links here
+├── index.md              # home page /
+├── notes/foo.md          # /notes/foo
+└── notes/index.md        # /notes/; the directory row links here
 ```
+
+The emitted file names never change: `/notes/foo` is written as `notes/foo.html`, so any static host serves it directly. Directory index routes end with `/` by default; switch the form with `urls.directoryIndex` (see the [configuration reference](./configuration.md#urls) and [Deployment](./deploy.md)).
 
 Directories are categories: the sidebar is generated from directories, a folder row links directly to that directory's `index.md`, and the row label takes the first h1 of `index.md` (falling back to the directory name when no index page exists); the index page does not repeat among its own children. So "moving a file" is "moving a page" — navigation, archives, and the related graph all follow automatically. The generated order is alphabetical; adjust it with `sidebar.order` / `sidebar.tweaks` (see the [configuration reference](./configuration.md#sidebar)).
 

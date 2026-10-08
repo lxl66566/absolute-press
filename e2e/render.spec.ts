@@ -1,14 +1,14 @@
 import { expect, test, type Page } from 'playwright/test';
 
 /**
- * Markdown rendering regression suite against the docs site (dist-docs/ on
- * 127.0.0.1:4174, see playwright.config.ts). Covers the CSS-consumed DOM
+ * Markdown rendering regression suite against the docs site (dist/ on
+ * 127.0.0.1:4173, see playwright.config.ts). Covers the CSS-consumed DOM
  * contracts that unit tests cannot see: tab header layout, shiki line
- * stacking, and container spacing rhythm — all on guide/markdown.html,
+ * stacking, and container spacing rhythm — all on guide/markdown,
  * which exercises every pipeline extension.
  */
 
-const PAGE = 'http://127.0.0.1:4173/guide/markdown.html';
+const PAGE = 'http://127.0.0.1:4173/guide/markdown';
 
 interface TabsGeometry {
   labelTopSpread: number;

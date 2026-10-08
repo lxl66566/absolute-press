@@ -40,9 +40,11 @@ import { createMarkdownRenderer } from './markdown-adapter.ts';
 import { buildChrome } from './nav-tree.ts';
 import {
   buildArticles,
+  INDEX_STEMS,
   isLocaleHome,
   routeToFileName,
   scanPages,
+  stemOf,
 } from './pages.ts';
 import type { PageSource, RenderedPage } from './pages.ts';
 import { buildRelatedMap } from './related.ts';
@@ -481,7 +483,7 @@ export class SiteStore {
     };
   }
 
-  /** Aggregated `/category/<name>.html` and `/tag/<name>.html` pages. */
+  /** Aggregated `/category/<name>` and `/tag/<name>` pages. */
   private archivePages(
     ctx: RenderContext,
     kind: 'category' | 'tag',
@@ -491,7 +493,7 @@ export class SiteStore {
       const articles = this.chromeOf(ctx, locale.key).articles;
       for (const group of groupArchiveArticles(articles, kind)) {
         out.push({
-          route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}.html`,
+          route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}`,
           title: group.name,
           locale,
           kind,
@@ -896,11 +898,12 @@ export class SiteStore {
 
   /** Dev: HTML for a URL path; null when no page matches. */
   devHtml(url: string): string | null {
-    const route = url.endsWith('/')
-      ? `${url}index.html`
-      : url === ''
-        ? '/index.html'
-        : url;
+    // Routes are the clean canonical URLs, so the request path matches
+    // verbatim (`/` is the home route, `/guide/` a slash-mode directory
+    // index). Legacy `.html` URLs and non-canonical directory forms
+    // (`/guide` in slash mode, `/guide/` in bare mode) are a
+    // production-host redirect concern; dev simply 404s them.
+    const route = url === '' ? '/' : url;
     const ctx = this.buildContext();
     const page = this.links.pageForRoute(route);
     if (page) return this.htmlForPage(page, this.devAssets, ctx);
@@ -944,7 +947,11 @@ export class SiteStore {
     const out: EmittedFile[] = [];
     for (const page of this.pages) {
       out.push({
-        fileName: routeToFileName(page.route).slice(1),
+        fileName: routeToFileName(
+          page.route,
+          this.config.urls.directoryIndex,
+          INDEX_STEMS.has(stemOf(page.relPath)),
+        ).slice(1),
         source: this.htmlForPage(page, assets, ctx),
       });
     }
@@ -955,7 +962,10 @@ export class SiteStore {
     assertNoArchiveCollisions(this.pages, archives);
     for (const archive of archives) {
       out.push({
-        fileName: routeToFileName(archive.route).slice(1),
+        fileName: routeToFileName(
+          archive.route,
+          this.config.urls.directoryIndex,
+        ).slice(1),
         source: this.archiveHtml(archive, assets, ctx),
       });
     }

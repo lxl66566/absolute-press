@@ -15,7 +15,7 @@ You unlocked it. This page is hit by a rule in vite.config.ts:
 ```ts
 encrypt: [
   {
-    match: '/en/guide/secret.html',
+    match: '/en/guide/secret',
     passwords: ['docs-demo'],
     hint: 'Demo password docs-demo (see the encrypt guide)',
   },

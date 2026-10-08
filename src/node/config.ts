@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import type {
   CuratedNavItem,
+  DirectoryIndex,
   LocaleInfo,
   MarkdownCodeOptions,
   RelatedDepth,
@@ -32,6 +33,19 @@ export const DEFAULT_LOCALE_KEY = 'root';
 const RELATED_DEPTHS: readonly RelatedDepth[] = [1, 2, 3];
 
 const STRICT_LINKS: readonly StrictLinks[] = ['off', 'warn', 'error'];
+
+const DIRECTORY_INDEX: readonly DirectoryIndex[] = ['slash', 'bare'];
+
+/** Runtime guard for the compile-time `DirectoryIndex` union (JS config files). */
+function resolveDirectoryIndex(value: string | undefined): DirectoryIndex {
+  if (value === undefined) return 'slash';
+  if ((DIRECTORY_INDEX as readonly string[]).includes(value)) {
+    return value as DirectoryIndex;
+  }
+  throw new Error(
+    `[absolute-press] urls.directoryIndex must be one of ${DIRECTORY_INDEX.join(', ')}, got '${value}'`,
+  );
+}
 
 /** Runtime guard for the compile-time `StrictLinks` union (JS config files). */
 function resolveStrictLinks(value: string | undefined): StrictLinks {
@@ -293,6 +307,8 @@ export interface ResolvedConfig {
   home: Required<NonNullable<SiteConfig['home']>>;
   /** Category/tag archive page options. */
   archive: Required<NonNullable<SiteConfig['archive']>>;
+  /** Canonical URL shapes. */
+  urls: { directoryIndex: DirectoryIndex };
   /** RSS feed options. */
   feed: Required<NonNullable<SiteConfig['feed']>>;
   /** SEO head options (share-card image). */
@@ -406,6 +422,9 @@ export function resolveConfig(
         1,
         'archive.perPage',
       ),
+    },
+    urls: {
+      directoryIndex: resolveDirectoryIndex(config.urls?.directoryIndex),
     },
     feed: {
       rssLimit: resolveIntOption(

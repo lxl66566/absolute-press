@@ -600,13 +600,13 @@ describe('absolutePress dev server', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const server = stubServer(plugin);
-      const page = callMiddleware(server, '/category/news.html');
+      const page = callMiddleware(server, '/category/news');
       await waitHandled(page);
       // The page wins the route in dev: served, not a 500.
       expect(page.res.body).toContain('News');
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(String(warnSpy.mock.calls[0]?.[0])).toContain(
-        'duplicate route /category/news.html',
+        'duplicate route /category/news',
       );
 
       // An unrelated structural resync must not re-print the same warning.
@@ -629,7 +629,7 @@ describe('absolutePress dev server', () => {
     const server = stubServer(plugin);
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const first = callMiddleware(server, '/a.html');
+      const first = callMiddleware(server, '/a');
       await waitHandled(first);
       // The page still ships.
       expect(first.res.body).toContain('dead');
@@ -637,7 +637,7 @@ describe('absolutePress dev server', () => {
       expect(String(warnSpy.mock.calls[0]?.[0])).toContain('1 dead link(s) in');
 
       // The second request of the same page does not re-warn.
-      const second = callMiddleware(server, '/a.html');
+      const second = callMiddleware(server, '/a');
       await waitHandled(second);
       expect(warnSpy).toHaveBeenCalledTimes(1);
     } finally {
@@ -702,13 +702,13 @@ describe('absolutePress dev server', () => {
     expect(rss.res.headers['content-type']).toContain('xml');
     expect(rss.res.body).toContain('<rss');
 
-    const page = callMiddleware(server, '/guide/a.html');
+    const page = callMiddleware(server, '/guide/a');
     await waitHandled(page);
     expect(page.res.headers['content-type']).toContain('text/html');
     expect(page.res.body).toContain('id="__AP_DATA__"');
     // Internal link rewritten page-relative; ./index.md resolves to the
-    // sibling directory index (guide/index.md).
-    expect(page.res.body).toContain('<a href="index.html">back</a>');
+    // sibling directory index (guide/index.md -> the clean route /guide/).
+    expect(page.res.body).toContain('<a href="./">back</a>');
     // Dev pages embed the framework entry as a /@fs/ module url.
     expect(page.res.body).toContain(
       `<script type="module" src="${devFsUrl(clientEntry())}">`,
@@ -723,13 +723,13 @@ describe('absolutePress dev server', () => {
     await waitHandled(slash);
     expect(slash.res.body).toBeDefined();
 
-    const unknown = callMiddleware(server, '/nope.html');
+    const unknown = callMiddleware(server, '/nope');
     await waitHandled(unknown);
     expect(unknown.res.body).toBeUndefined();
     expect(unknown.nextCalls).toHaveLength(1);
     expect(unknown.nextCalls[0]).toBeUndefined();
 
-    const posted = callMiddleware(server, '/index.html', 'POST');
+    const posted = callMiddleware(server, '/', 'POST');
     await waitHandled(posted);
     expect(posted.nextCalls).toHaveLength(1);
   });
@@ -879,55 +879,73 @@ function fakeRes(): PreviewRes {
   return res;
 }
 
-describe('absolutePress preview server', () => {
-  it('rewrites directory urls and 301s extensionless directory routes', async () => {
-    // dist fixture for the missing-trailing-slash redirect branch.
-    const root = await makeTmp('ap-preview-');
-    const cjkDir = '标签';
-    await mkdir(path.join(root, 'dist/guide'), { recursive: true });
-    await mkdir(path.join(root, 'dist', cjkDir), { recursive: true });
-    await writeFile(path.join(root, 'dist/guide/index.html'), '<html></html>');
-    await writeFile(
-      path.join(root, 'dist', cjkDir, 'index.html'),
-      '<html></html>',
-    );
-
-    const plugin = livePlugin(userConfig());
-    let middleware:
-      | ((req: { url?: string }, res: PreviewRes, next: () => void) => void)
-      | undefined;
-    callHook(
-      plugin.configurePreviewServer,
-      {},
-      {
-        config: { root, build: { outDir: 'dist' } },
-        middlewares: {
-          use: (fn: NonNullable<typeof middleware>) => {
-            middleware = fn;
-          },
+/** Wire the preview middleware of a fresh plugin for one dist fixture. */
+function previewMiddleware(
+  cfg: AbsolutePressConfig,
+  root: string,
+): (req: { url?: string }, res: PreviewRes, next: () => void) => void {
+  const plugin = livePlugin(cfg);
+  // The middleware reads the resolved site config (directoryIndex mode).
+  callHook(plugin.configResolved, {}, { root });
+  let middleware:
+    | ((req: { url?: string }, res: PreviewRes, next: () => void) => void)
+    | undefined;
+  callHook(
+    plugin.configurePreviewServer,
+    {},
+    {
+      config: { root, build: { outDir: 'dist' } },
+      middlewares: {
+        use: (fn: NonNullable<typeof middleware>) => {
+          middleware = fn;
         },
       },
-    );
-    expect(middleware).toBeDefined();
+    },
+  );
+  if (!middleware) throw new Error('preview middleware not registered');
+  return middleware;
+}
+
+/** dist fixture: one directory index, one leaf page, one CJK directory. */
+async function distFixture(): Promise<string> {
+  const root = await makeTmp('ap-preview-');
+  const cjkDir = '标签';
+  await mkdir(path.join(root, 'dist/guide'), { recursive: true });
+  await mkdir(path.join(root, 'dist', cjkDir), { recursive: true });
+  await writeFile(path.join(root, 'dist/guide/index.html'), '<html></html>');
+  await writeFile(path.join(root, 'dist/guide/a.html'), '<html></html>');
+  await writeFile(
+    path.join(root, 'dist', cjkDir, 'index.html'),
+    '<html></html>',
+  );
+  return root;
+}
+
+describe('absolutePress preview server', () => {
+  it('rewrites directory and leaf urls, 301s bare directory routes (slash mode)', async () => {
+    const root = await distFixture();
+    const middleware = previewMiddleware(userConfig(), root);
 
     const run = (url: string): string | undefined => {
       const req: { url?: string } = { url };
-      middleware?.(req, fakeRes(), () => {});
+      middleware(req, fakeRes(), () => {});
       return req.url;
     };
     // Existing-file branch: directory urls resolve their index.html.
     expect(run('/')).toBe('/index.html');
     expect(run('/guide/')).toBe('/guide/index.html');
     expect(run('/guide/?x=1')).toBe('/guide/index.html?x=1');
-    // Exact files and extensionless paths pass through untouched.
+    // Extensionless leaf pages resolve their .html file (GH Pages semantics).
+    expect(run('/guide/a')).toBe('/guide/a.html');
+    expect(run('/guide/a?x=1')).toBe('/guide/a.html?x=1');
+    // Exact files and legacy .html bookmarks pass through untouched.
     expect(run('/guide/a.html')).toBe('/guide/a.html');
-    expect(run('/guide/a.html?x=1')).toBe('/guide/a.html?x=1');
     expect(run('/rss.xml')).toBe('/rss.xml');
 
-    // Directory route without the trailing slash: 301 like GH/CF Pages.
+    // Directory route without the trailing slash: 301 like GH Pages.
     const redirect = (url: string): PreviewRes => {
       const res = fakeRes();
-      middleware?.({ url }, res, () => {});
+      middleware({ url }, res, () => {});
       return res;
     };
     // toMatchObject: the stub's own methods are not part of the assertion.
@@ -947,22 +965,76 @@ describe('absolutePress preview server', () => {
       '/%E6%A0%87%E7%AD%BE/',
     );
 
-    // No dist folder, real extensionless file, malformed encoding or path
-    // traversal: pass through to the static server (404 or plain serve).
+    // No dist folder, malformed encoding or path traversal: pass through to
+    // the static server (404 or plain serve).
     const passThrough = (url: string): { url?: string; nexted: boolean } => {
       let nexted = false;
       const req: { url?: string } = { url };
-      middleware?.(req, fakeRes(), () => {
+      middleware(req, fakeRes(), () => {
         nexted = true;
       });
       return { url: req.url, nexted };
     };
     expect(passThrough('/missing')).toEqual({ url: '/missing', nexted: true });
-    expect(passThrough('/guide/a')).toEqual({ url: '/guide/a', nexted: true });
     expect(passThrough('/%zz')).toEqual({ url: '/%zz', nexted: true });
     expect(passThrough('/..%2Fsecret')).toEqual({
       url: '/..%2Fsecret',
       nexted: true,
+    });
+  });
+
+  it('resolves pages whose file stem contains a dot', async () => {
+    const root = await distFixture();
+    await mkdir(path.join(root, 'dist/notes'), { recursive: true });
+    await writeFile(path.join(root, 'dist/notes/vue.js.html'), '<html></html>');
+    const middleware = previewMiddleware(userConfig(), root);
+
+    const run = (url: string): string | undefined => {
+      const req: { url?: string } = { url };
+      middleware(req, fakeRes(), () => {});
+      return req.url;
+    };
+    // extname sees '.js' and would pass the page through to a static 404;
+    // the dist probe resolves its .html file instead.
+    expect(run('/notes/vue.js')).toBe('/notes/vue.js.html');
+    // Real extensionful assets keep passing through untouched.
+    expect(run('/assets/app.css')).toBe('/assets/app.css');
+  });
+
+  it('serves directory indexes bare and 301s trailing-slash urls (bare mode)', async () => {
+    const root = await distFixture();
+    const middleware = previewMiddleware(
+      userConfig({ urls: { directoryIndex: 'bare' } }),
+      root,
+    );
+
+    const run = (url: string): string | undefined => {
+      const req: { url?: string } = { url };
+      middleware(req, fakeRes(), () => {});
+      return req.url;
+    };
+    // The root keeps its trailing slash in both modes.
+    expect(run('/')).toBe('/index.html');
+    // Bare directory url serves the index in place (CF Pages semantics).
+    expect(run('/guide')).toBe('/guide/index.html');
+    // Leaf pages still resolve their .html file.
+    expect(run('/guide/a')).toBe('/guide/a.html');
+
+    // Trailing-slash directory urls redirect to the bare canonical.
+    const redirect = (url: string): PreviewRes => {
+      const res = fakeRes();
+      middleware({ url }, res, () => {});
+      return res;
+    };
+    expect(redirect('/guide/')).toMatchObject({
+      statusCode: 301,
+      location: '/guide',
+      ended: true,
+    });
+    expect(redirect('/guide/?x=1')).toMatchObject({
+      statusCode: 301,
+      location: '/guide?x=1',
+      ended: true,
     });
   });
 });

@@ -1,7 +1,7 @@
 import type { ArticleInfo, LocaleInfo } from '../../shared/types.ts';
 import type { PageSource } from './pages.ts';
 
-/** One synthetic archive page: `/category/<name>.html` or `/tag/<name>.html`. */
+/** One synthetic archive page: `/category/<name>` or `/tag/<name>`. */
 export interface ArchivePage {
   route: string;
   title: string;
@@ -76,7 +76,7 @@ function majorityCasing(variants: Map<string, number>): string {
 
 /**
  * Archive routes must not collide with a page route or another archive:
- * e.g. `content/category/foo.md` maps to the same `/category/foo.html` as
+ * e.g. `content/category/foo.md` maps to the same `/category/foo` as
  * the `foo` category archive. Without this check the failure only surfaces
  * later as a duplicate emitFile name, far from the content that caused it.
  */

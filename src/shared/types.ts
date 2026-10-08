@@ -44,7 +44,8 @@ export interface PageAlternate {
 
 /** One page's metadata, serialized into the page payload. */
 export interface PageMeta {
-  /** Locale-prefixed route with `.html` suffix, e.g. `/coding/foo.html`. */
+  /** Locale-prefixed clean route: leaf `/coding/foo`, directory index
+   * `/coding/` (`/coding` when `urls.directoryIndex` is 'bare'), home `/`. */
   route: string;
   locale: string;
   /** From first h1; empty string if absent. */
@@ -356,8 +357,23 @@ export interface SiteConfig {
     credit?: string;
   };
   /**
+   * Canonical URL shapes. Emitted file names never change (a page always
+   * ships as an `.html` file); these options only pick which URL form the
+   * canonical/og/sitemap/RSS links and the client router use.
+   */
+  urls?: {
+    /**
+     * Canonical route of a directory index page (`guide/index.md`):
+     * 'slash' -> `/guide/` (GitHub Pages native), 'bare' -> `/guide`
+     * (Cloudflare Pages native). The other form always costs one host
+     * redirect; there is no shape both platforms serve without one.
+     * @default 'slash'
+     */
+    directoryIndex?: DirectoryIndex;
+  };
+  /**
    * Policy for bare relative markdown links (no `./` `../` prefix, e.g.
-   * `guide/a.md`): they are never rewritten to `.html` and skip the
+   * `guide/a.md`): they are never rewritten to a route and skip the
    * dead-link check. `warn` reports them at build (the build passes),
    * `error` fails the build, `off` is silent. Build-time only.
    * @default 'warn'
@@ -384,6 +400,9 @@ export interface SiteConfig {
 
 /** Policy for bare relative markdown links (see `SiteConfig.strictLinks`). */
 export type StrictLinks = 'off' | 'warn' | 'error';
+
+/** Canonical form of directory-index routes (see `SiteConfig.urls`). */
+export type DirectoryIndex = 'slash' | 'bare';
 
 /** Allowed related-graph BFS depths; larger values explode the payload. */
 export type RelatedDepth = 1 | 2 | 3;
@@ -471,7 +490,7 @@ export interface MarkdownCodeOptions {
 }
 
 export interface MarkdownOptions {
-  /** Resolve an internal `.md` link to a route; null = dead link. */
+  /** Resolve an internal `.md` link to a page-relative href; null = dead link. */
   resolveLink?: (href: string, env: MarkdownEnv) => string | null;
   /** Rewrite a relative image src (build layer copies the asset). */
   resolveImage?: (src: string, env: MarkdownEnv) => string;

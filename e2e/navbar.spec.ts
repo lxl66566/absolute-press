@@ -21,7 +21,7 @@ test('top-level dropdown caps below the navbar and scrolls', async ({
   // Short viewport: the guide catalog cannot fit into one panel. Width stays
   // above the lg breakpoint where the desktop nav links show.
   await page.setViewportSize({ width: 1100, height: 300 });
-  await page.goto('/index.html');
+  await page.goto('/');
   // Top-level navbar rows open their panel on li hover whether or not the
   // row itself is a link (folder rows navigate to the folder index now).
   const guide = page.locator(TOP_ITEM, { hasText: GUIDE_LABEL });
@@ -41,7 +41,7 @@ test('top-level dropdown caps below the navbar and scrolls', async ({
 
 test('nested flyout escapes the scrollable parent panel', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 600 });
-  await page.goto('/index.html');
+  await page.goto('/');
   const guide = page.locator(TOP_ITEM, { hasText: GUIDE_LABEL });
   await guide.hover();
   const panel = guide.locator('ul').first();
@@ -74,7 +74,7 @@ test('dropdown closes after client-side navigation from a panel row', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1100, height: 600 });
-  await page.goto('/index.html');
+  await page.goto('/');
   const guide = page.locator(TOP_ITEM, { hasText: GUIDE_LABEL });
   await guide.hover();
   const panel = guide.locator('ul').first();
@@ -85,6 +85,6 @@ test('dropdown closes after client-side navigation from a panel row', async ({
   // swap, so the menu must be closed by the navigation itself, not by the
   // pointer moving away.
   await panel.locator('li > a', { hasText: '快速开始' }).click();
-  await expect(page).not.toHaveURL(/index\.html$/);
+  await expect(page).not.toHaveURL(/\/$/);
   await expect(panel).not.toBeVisible();
 });

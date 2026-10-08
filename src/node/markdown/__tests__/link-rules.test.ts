@@ -11,11 +11,11 @@ beforeAll(async () => {
 describe('link collection and rewriting', () => {
   it('rewrites internal .md links via resolveLink', () => {
     const result = md.render('[go](./foo.md)', ENV);
-    expect(result.html).toContain('href="/resolved/foo.html"');
+    expect(result.html).toContain('href="/resolved/foo"');
     expect(result.links).toEqual([
       {
         raw: './foo.md',
-        resolved: '/resolved/foo.html',
+        resolved: '/resolved/foo',
         kind: 'internal',
         dead: false,
         line: 1,
@@ -25,18 +25,18 @@ describe('link collection and rewriting', () => {
 
   it('re-appends anchors to the resolved route', () => {
     const result = md.render('[go](./foo.md#section)', ENV);
-    expect(result.html).toContain('href="/resolved/foo.html#section"');
+    expect(result.html).toContain('href="/resolved/foo#section"');
     expect(result.links[0]).toMatchObject({
-      resolved: '/resolved/foo.html#section',
+      resolved: '/resolved/foo#section',
       kind: 'internal',
     });
   });
 
   it('passes scroll-text fragments through verbatim', () => {
     const result = md.render('[go](./foo.md#:~:text=hello)', ENV);
-    expect(result.html).toContain('/resolved/foo.html#:~:text=hello');
+    expect(result.html).toContain('/resolved/foo#:~:text=hello');
     expect(result.links[0]).toMatchObject({
-      resolved: '/resolved/foo.html#:~:text=hello',
+      resolved: '/resolved/foo#:~:text=hello',
       dead: false,
     });
   });
@@ -136,7 +136,7 @@ describe('image rewriting', () => {
 
   it('collects links inside island inner markdown', () => {
     const result = renderer.render('<Demo>\n\n[go](./foo.md)\n\n</Demo>', ENV);
-    expect(result.html).toContain('href="/resolved/foo.html"');
+    expect(result.html).toContain('href="/resolved/foo"');
     expect(result.links).toHaveLength(1);
     expect(result.links[0]).toMatchObject({ kind: 'internal', dead: false });
   });

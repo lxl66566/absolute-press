@@ -24,7 +24,7 @@ function page(
   frontmatter: { icon?: string; overview?: boolean } = {},
 ): RenderedPage {
   // Routes flow through routeOf so fixtures cannot drift from production.
-  const route = routeOf(relPath, '');
+  const route = routeOf(relPath, '', 'slash');
   return {
     filePath: `/site/content/${relPath}`,
     locale: { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
@@ -61,11 +61,11 @@ describe('buildSidebar folder semantics', () => {
       item => item.kind === 'group' && item.text === '指南总览',
     );
     if (guide?.kind !== 'group') throw new Error('guide group missing');
-    expect(guide.link).toBe('/guide/index.html');
+    expect(guide.link).toBe('/guide/');
     // The index page must not repeat as a child item.
     expect(
       guide.children.some(
-        child => child.kind === 'link' && child.link === '/guide/index.html',
+        child => child.kind === 'link' && child.link === '/guide/',
       ),
     ).toBe(false);
     expect(guide.children.map(child => child.kind)).toContain('group');
@@ -80,15 +80,15 @@ describe('buildSidebar folder semantics', () => {
       item => item.kind === 'group' && item.text === '指南总览',
     );
     if (guide?.kind !== 'group') throw new Error('guide group missing');
-    expect(guide.link).toBe('/guide/index.html');
+    expect(guide.link).toBe('/guide/');
     // The README index page must not repeat as a child item.
     expect(
       guide.children.some(
-        child => child.kind === 'link' && child.link === '/guide/index.html',
+        child => child.kind === 'link' && child.link === '/guide/',
       ),
     ).toBe(false);
     expect(guide.children).toEqual([
-      { kind: 'link', text: '介绍', link: '/guide/intro.html' },
+      { kind: 'link', text: '介绍', link: '/guide/intro' },
     ]);
   });
 
@@ -103,7 +103,7 @@ describe('buildSidebar folder semantics', () => {
     if (node?.kind !== 'group') throw new Error('advanced group missing');
     expect(node.link).toBeUndefined();
     expect(node.children).toEqual([
-      { kind: 'link', text: '进阶', link: '/guide/advanced/deep.html' },
+      { kind: 'link', text: '进阶', link: '/guide/advanced/deep' },
     ]);
   });
 
@@ -123,7 +123,7 @@ describe('buildSidebar folder semantics', () => {
       sidebar.some(item => item.kind === 'group' && item.text === 'loose'),
     ).toBe(false);
     expect(
-      sidebar.some(item => item.kind === 'link' && item.link === '/index.html'),
+      sidebar.some(item => item.kind === 'link' && item.link === '/'),
     ).toBe(false);
   });
 
@@ -132,7 +132,7 @@ describe('buildSidebar folder semantics', () => {
       [page('README.md', 'Home'), page('a.md', '甲')],
       [],
     );
-    expect(sidebar).toEqual([{ kind: 'link', text: '甲', link: '/a.html' }]);
+    expect(sidebar).toEqual([{ kind: 'link', text: '甲', link: '/a' }]);
   });
 });
 
@@ -145,17 +145,17 @@ describe('buildNavbar folder-row navigation', () => {
     const guide = folderOf(nav.find(item => item.text === '指南总览'));
     // 板块名即总览: the bar row navigates to the folder index like the
     // sidebar group row.
-    expect(guide.link).toBe('/guide/index.html');
+    expect(guide.link).toBe('/guide/');
     // The bar row is detached from its panel, so the panel keeps the index
     // page as its flagged overview row instead of deduping it.
     expect(guide.children).toEqual([
       {
         kind: 'leaf',
         text: '指南总览',
-        link: '/guide/index.html',
+        link: '/guide/',
         index: true,
       },
-      { kind: 'leaf', text: '介绍', link: '/guide/intro.html' },
+      { kind: 'leaf', text: '介绍', link: '/guide/intro' },
     ]);
   });
 
@@ -165,11 +165,11 @@ describe('buildNavbar folder-row navigation', () => {
       [],
     );
     const guide = folderOf(nav.find(item => item.text === '指南总览'));
-    expect(guide.link).toBe('/guide/index.html');
+    expect(guide.link).toBe('/guide/');
     expect(guide.children[0]).toEqual({
       kind: 'leaf',
       text: '指南总览',
-      link: '/guide/index.html',
+      link: '/guide/',
       index: true,
     });
   });
@@ -189,9 +189,9 @@ describe('buildNavbar folder-row navigation', () => {
     );
     // The nested row sits right above its flyout: linking it turns the
     // repeated index child into a duplicate of the row's own destination.
-    expect(advanced.link).toBe('/guide/advanced/index.html');
+    expect(advanced.link).toBe('/guide/advanced/');
     expect(advanced.children).toEqual([
-      { kind: 'leaf', text: '深水区', link: '/guide/advanced/deep.html' },
+      { kind: 'leaf', text: '深水区', link: '/guide/advanced/deep' },
     ]);
   });
 
@@ -200,7 +200,7 @@ describe('buildNavbar folder-row navigation', () => {
     const loose = folderOf(nav.find(item => item.text === 'loose'));
     expect(loose.link).toBeUndefined();
     expect(loose.children).toEqual([
-      { kind: 'leaf', text: '甲', link: '/loose/a.html' },
+      { kind: 'leaf', text: '甲', link: '/loose/a' },
     ]);
   });
 });
@@ -217,12 +217,12 @@ describe('frontmatter overview opt-out', () => {
     const nav = buildNavbar(pages, []);
     const quiet = folderOf(nav.find(item => item.text === '安静总览'));
     // 板块名即总览 still holds: the bar row keeps navigating to the index.
-    expect(quiet.link).toBe('/quiet/index.html');
+    expect(quiet.link).toBe('/quiet/');
     // No overview row in the panel, and the payload marker tells the
     // client not to synthesize one for the nested flyout either.
     expect(quiet.overview).toBe(false);
     expect(quiet.children).toEqual([
-      { kind: 'leaf', text: '唯一', link: '/quiet/only.html' },
+      { kind: 'leaf', text: '唯一', link: '/quiet/only' },
     ]);
     // Opted-in folders stay untouched: no marker, flagged row intact.
     const guide = folderOf(nav.find(item => item.text === '指南总览'));
@@ -236,7 +236,7 @@ describe('frontmatter overview opt-out', () => {
       item => item.kind === 'group' && item.text === '安静总览',
     );
     if (quiet?.kind !== 'group') throw new Error('quiet group missing');
-    expect(quiet.link).toBe('/quiet/index.html');
+    expect(quiet.link).toBe('/quiet/');
     void navbar;
   });
 
@@ -251,10 +251,10 @@ describe('frontmatter overview opt-out', () => {
     );
     const outer = folderOf(nav.find(item => item.text === '外层'));
     const inner = folderOf(outer.children.find(item => item.text === '内层'));
-    expect(inner.link).toBe('/outer/inner/index.html');
+    expect(inner.link).toBe('/outer/inner/');
     expect(inner.overview).toBe(false);
     expect(inner.children).toEqual([
-      { kind: 'leaf', text: '深处', link: '/outer/inner/deep.html' },
+      { kind: 'leaf', text: '深处', link: '/outer/inner/deep' },
     ]);
   });
 });
@@ -270,7 +270,7 @@ describe('overview opt-out through the real parse pipeline', () => {
 
   const pageOf = (relPath: string, src: string): RenderedPage => {
     const result = md.render(src, { filePath: `/site/content/${relPath}` });
-    const route = routeOf(relPath, '');
+    const route = routeOf(relPath, '', 'slash');
     return {
       filePath: `/site/content/${relPath}`,
       locale: { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
@@ -297,10 +297,10 @@ describe('overview opt-out through the real parse pipeline', () => {
       [],
     );
     const quiet = folderOf(nav.find(item => item.text === '安静总览'));
-    expect(quiet.link).toBe('/quiet/index.html');
+    expect(quiet.link).toBe('/quiet/');
     expect(quiet.overview).toBe(false);
     expect(quiet.children).toEqual([
-      { kind: 'leaf', text: '唯一', link: '/quiet/only.html' },
+      { kind: 'leaf', text: '唯一', link: '/quiet/only' },
     ]);
   });
 
@@ -317,7 +317,7 @@ describe('overview opt-out through the real parse pipeline', () => {
     expect(guide.children[0]).toMatchObject({
       kind: 'leaf',
       text: '指南总览',
-      link: '/guide/index.html',
+      link: '/guide/',
       index: true,
     });
   });
@@ -357,12 +357,12 @@ describe('buildNavbar display tweaks', () => {
     const relabeled = folderOf(navbar.find(item => item.text === '杂项'));
     expect(navbar.find(item => item.text === 'misc')).toBeUndefined();
     // The relabeled folder row still navigates to the directory index.
-    expect(relabeled.link).toBe('/misc/index.html');
+    expect(relabeled.link).toBe('/misc/');
     const sidebar = buildSidebar(pages, [], { labels: { misc: '杂项' } });
     const group = sidebar.find(item => item.kind === 'group');
     if (group?.kind !== 'group') throw new Error('group missing');
     expect(group.text).toBe('杂项');
-    expect(group.link).toBe('/misc/index.html');
+    expect(group.link).toBe('/misc/');
   });
 
   it('keeps the directory index link through label+groups and label+items', () => {
@@ -373,16 +373,16 @@ describe('buildNavbar display tweaks', () => {
       misc: { label: '杂项', groups: [{ items: ['reciter'] }] },
     });
     expect(folderOf(grouped.find(item => item.text === '杂项')).link).toBe(
-      '/misc/index.html',
+      '/misc/',
     );
     const curated = buildNavbar(pages, [], {
       misc: {
         label: '杂项',
-        items: [{ text: '背词器', link: '/misc/reciter.html' }],
+        items: [{ text: '背词器', link: '/misc/reciter' }],
       },
     });
     expect(folderOf(curated.find(item => item.text === '杂项')).link).toBe(
-      '/misc/index.html',
+      '/misc/',
     );
   });
 
@@ -470,14 +470,14 @@ describe('buildNavbar curated tweak items', () => {
         items: [
           {
             text: '我的文章',
-            link: '/articles/index.html',
+            link: '/articles/',
             index: true,
           },
           {
             text: 'Linux 相关',
             children: [
-              { text: '前言', link: '/articles/linux/index.html' },
-              { text: '基础', link: '/articles/linux/basic.html' },
+              { text: '前言', link: '/articles/linux/' },
+              { text: '基础', link: '/articles/linux/basic' },
             ],
           },
         ],
@@ -491,19 +491,19 @@ describe('buildNavbar curated tweak items', () => {
       {
         kind: 'leaf',
         text: '我的文章',
-        link: '/articles/index.html',
+        link: '/articles/',
         index: true,
       },
       {
         kind: 'folder',
         text: 'Linux 相关',
         children: [
-          { kind: 'leaf', text: '前言', link: '/articles/linux/index.html' },
-          { kind: 'leaf', text: '基础', link: '/articles/linux/basic.html' },
+          { kind: 'leaf', text: '前言', link: '/articles/linux/' },
+          { kind: 'leaf', text: '基础', link: '/articles/linux/basic' },
         ],
       },
-      { kind: 'leaf', text: 'TG 教程', link: '/articles/telegram.html' },
-      { kind: 'leaf', text: '外部文章', link: '/articles/external.html' },
+      { kind: 'leaf', text: 'TG 教程', link: '/articles/telegram' },
+      { kind: 'leaf', text: '外部文章', link: '/articles/external' },
     ]);
   });
 
@@ -513,7 +513,7 @@ describe('buildNavbar curated tweak items', () => {
         items: [
           {
             text: 'Linux 相关',
-            link: '/articles/linux/index.html',
+            link: '/articles/linux/',
           },
         ],
       },
@@ -534,10 +534,10 @@ describe('buildNavbar curated tweak items', () => {
     expect(() =>
       buildNavbar(pages, [], {
         articles: {
-          items: [{ text: 'ghost', link: '/articles/ghost.html' }],
+          items: [{ text: 'ghost', link: '/articles/ghost' }],
         },
       }),
-    ).toThrowError(/\/articles\/ghost\.html/);
+    ).toThrowError(/\/articles\/ghost/);
   });
 
   it('rejects a childless curated item without a link', () => {
@@ -589,14 +589,14 @@ describe('buildNavbar curated tweak items', () => {
         items: [
           {
             text: '我的文章',
-            link: '/articles/index.html',
+            link: '/articles/',
             index: true,
           },
           {
             text: 'Linux 相关',
             children: [
-              { text: '前言', link: '/articles/linux/index.html' },
-              { text: '基础', link: '/articles/linux/basic.html' },
+              { text: '前言', link: '/articles/linux/' },
+              { text: '基础', link: '/articles/linux/basic' },
             ],
           },
         ],
@@ -609,7 +609,7 @@ describe('buildNavbar curated tweak items', () => {
       {
         kind: 'leaf',
         text: '我的文章',
-        link: '/articles/index.html',
+        link: '/articles/',
         icon: 'solid/blog',
         index: true,
       },
@@ -620,10 +620,10 @@ describe('buildNavbar curated tweak items', () => {
           {
             kind: 'leaf',
             text: '前言',
-            link: '/articles/linux/index.html',
+            link: '/articles/linux/',
             icon: 'brands/linux',
           },
-          { kind: 'leaf', text: '基础', link: '/articles/linux/basic.html' },
+          { kind: 'leaf', text: '基础', link: '/articles/linux/basic' },
         ],
       },
     ]);

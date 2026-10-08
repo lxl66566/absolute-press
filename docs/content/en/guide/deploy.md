@@ -27,8 +27,8 @@ dist/
 └── robots.txt
 ```
 
-- Routes keep the `<path>.html` suffix; `index.md` produces the index page of its directory
-- Non-ASCII route segments (e.g. Chinese) are URL-encoded in generated links (like the encoded form of the archive page `/tag/主题.html`), but **the on-disk file name is the decoded original**: static hosts percent-decode the request path before looking up the file, and the two sides line up — Chinese archive routes work out of the box, no rewrite rules needed
+- Routes are extensionless clean URLs: `guide/foo.md` → `/guide/foo`, and `index.md` produces the index page of its directory (`/guide/` by default; switch to `/guide` with `urls.directoryIndex`). Emitted file names always carry `.html`, so any static host serves them directly
+- Non-ASCII route segments (e.g. Chinese) are URL-encoded in generated links (like the encoded form of the archive page `/tag/主题`), but **the on-disk file name is the decoded original**: static hosts percent-decode the request path before looking up the file, and the two sides line up — Chinese archive routes work out of the box, no rewrite rules needed
 - The KaTeX stylesheet and lazily loaded island chunks (Mermaid / G2Plot / DocSearch / photoSwipe) also live under `assets/`, referenced per page via relative paths automatically; no extra configuration
 
 ## hostname and sub-paths
@@ -45,8 +45,8 @@ All in-page resources and internal links use a relative prefix generated from pa
 
 The output has no server-side requirements; mainstream platforms are zero-config or near-zero-config:
 
-- **Cloudflare Pages / Netlify / Vercel**: build command `pnpm build`, output directory = `build.outDir`; no SPA rewrite needed (no `index.html` fallback requirement — every page is a real file)
-- **GitHub Pages**: publish the output directory directly; sub-path deployments like `https://user.github.io/repo/` rely on the relative-prefix mechanism above and need no base config
+- **Cloudflare Pages / Netlify / Vercel**: build command `pnpm build`, output directory = `build.outDir`; no SPA rewrite needed (no `index.html` fallback requirement — every page is a real file). On Cloudflare Pages, prefer `urls.directoryIndex: 'bare'` (CF 308s `/guide/` to `/guide`; bare is its native form)
+- **GitHub Pages**: publish the output directory directly; sub-path deployments like `https://user.github.io/repo/` rely on the relative-prefix mechanism above and need no base config. The default `'slash'` form is GH's native form (`/guide` gets 301ed to `/guide/`), so nothing to tune
 - **nginx / Caddy**: point `root` (or `file_server`) at the output directory; do not configure an SPA fallback like `try_files ... /index.html`
 
 Caching advice: file names under `assets/` carry a content hash (images are `name.8-char-hash.ext`), so cache them long; use short or negotiated caching for `.html` and `rss.xml` / `sitemap.xml` so publishes take effect immediately.

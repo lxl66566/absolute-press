@@ -7,11 +7,11 @@ import { expect, test } from 'playwright/test';
  */
 
 const ORIGIN = 'http://127.0.0.1:4173';
-// Graph fixture page: guide/deploy.html has exactly two neighbors (faq and
+// Graph fixture page: guide/deploy has exactly two neighbors (faq and
 // the site home) that also reference each other, so the payload carries the
 // star edges plus one induced edge. Counts below are pinned to the docs'
 // current link structure.
-const TARGET = `${ORIGIN}/guide/deploy.html`;
+const TARGET = `${ORIGIN}/guide/deploy`;
 
 /** Center the graph section in the viewport (bypasses actionability checks:
  * the force-layout dots never stop drifting, so locators are never stable). */
@@ -146,9 +146,11 @@ test.describe('related articles graph', () => {
   }) => {
     await page.goto(TARGET);
     await mountGraph(page);
-    // Neighbors are sorted by refs desc, then route asc: faq and home both
-    // carry refs 1, so faq (/guide/faq.html < /index.html) comes first.
-    const node = page.locator('g.ap-graph-node:not(.is-current)').first();
+    // Neighbors are sorted by refs desc, then route asc; pick the faq
+    // node by title instead of relying on that order.
+    const node = page.locator('g.ap-graph-node:not(.is-current)', {
+      hasText: 'FAQ',
+    });
     await expect(node).toBeVisible();
     await scrollGraphIntoView(page);
     // The dot never stops drifting, so locator click's stability check
@@ -168,7 +170,7 @@ test.describe('related articles graph', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.up();
-    await page.waitForURL('**/guide/faq.html');
+    await page.waitForURL('**/guide/faq');
     // Chrome survived the swap: the window marker proves no full page
     // load happened, and the mounted navbar / sidebar still render (the
     // fixed bar lives inside the zero-height #ap-nav mount container).
@@ -217,7 +219,7 @@ test.describe('pointer cursor affordances', () => {
   test('back-to-top button and tab headers show cursor:pointer', async ({
     page,
   }) => {
-    await page.goto(`${ORIGIN}/guide/markdown.html`);
+    await page.goto(`${ORIGIN}/guide/markdown`);
     const cursorOf = (
       locator: ReturnType<typeof page.locator>,
     ): Promise<string> => locator.evaluate(el => getComputedStyle(el).cursor);

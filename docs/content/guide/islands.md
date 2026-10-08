@@ -82,7 +82,7 @@ flowchart LR
 sequenceDiagram
   participant B as 浏览器
   participant S as 静态主机
-  B->>S: GET /guide/islands.html
+  B->>S: GET /guide/islands
   S-->>B: 静态 HTML（图表仅占位）
   B->>B: 懒加载 mermaid chunk 并渲染 SVG
 ```
@@ -94,7 +94,7 @@ sequenceDiagram
 sequenceDiagram
   participant B as 浏览器
   participant S as 静态主机
-  B->>S: GET /guide/islands.html
+  B->>S: GET /guide/islands
   S-->>B: 静态 HTML（图表仅占位）
   B->>B: 懒加载 mermaid chunk 并渲染 SVG
 ```

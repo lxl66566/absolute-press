@@ -12,11 +12,28 @@ icon: migrate
 
 Absolute Press is designed to replace vuepress-theme-hope: markdown content migrates unchanged, and URLs stay the same. This page lists the compatibility commitments and the known incompatibilities.
 
-## URL compatibility
+## URL shape
 
-- Routes keep the `.html` suffix: `docs/xxx.md` → `/xxx.html`, character-for-character identical to the addresses theme-hope generates
+Routes are extensionless clean URLs: `docs/xxx.md` → `/xxx`, and a directory index → `/<dir>/` (or `/<dir>`, depending on `urls.directoryIndex`). Compared to theme-hope's `/xxx.html` only the suffix differs; where old addresses land is covered below.
+
 - Chinese heading anchors use the same slugify as VuePress 2 (ported from @mdit-vue/shared), **character-for-character identical** to VuePress (Chinese kept as-is, English lowercased, spaces to hyphens), so `#anchor` fragments in old external links keep working
 - Base auto-detection: a relative prefix is generated from page depth, so moving to a different deployment sub-path changes no links
+
+### Where old `.html` addresses land
+
+The emitted files never change shape (the file behind `/xxx` is `xxx.html`), so old links never 404:
+
+- **GitHub Pages**: `/xxx.html` still serves the page with a 200
+- **Cloudflare Pages**: `/xxx.html` is 308ed to `/xxx`, converging to the canonical address in one hop
+
+canonical, og:url, sitemap, and RSS all point at the clean addresses, so search-engine ranking converges onto them.
+
+### Upgrading from the `.html` route version
+
+- An `encrypt` rule's `match` string matches the clean route: rewrite `'/guide/secret.html'` as `'/guide/secret'`; same for regexes — stop anchoring on `\.html$`
+- `nav.exclude` prefix entries are unaffected (they always matched directory prefixes)
+- For the directory-index URL tradeoff see the [configuration reference](./configuration.md#urls): GitHub Pages natively serves slash (`/guide/`), Cloudflare Pages bare (`/guide`); set `urls.directoryIndex` per hosting platform
+- giscus `mapping: 'pathname'` keys discussion threads by URL: after the migration, threads created for `/x.html` no longer match the new addresses, so historical comments stay on the old threads
 
 ## Content syntax compatibility list
 
@@ -42,7 +59,7 @@ The following syntaxes behave the same as theme-hope; content moves over directl
 
 ## Suggested migration steps
 
-1. Put the original site's markdown into the new `contentDir` with the same directory structure — URLs stay unchanged
+1. Put the original site's markdown into the new `contentDir` with the same directory structure — routes derive automatically
 2. Register the icons the original site used in the site config (svg strings)
 3. Run a build: dead-link checking exposes broken relative links in content (the framework errors out when a `./` `../` link fails to resolve); fix them one by one from the error list
 4. Convert `<template #xxx>` and vue component syntax page by page
@@ -50,13 +67,13 @@ The following syntaxes behave the same as theme-hope; content moves over directl
 
 ## Capability comparison cheatsheet
 
-| theme-hope                         | Absolute Press                                          |
-| ---------------------------------- | ------------------------------------------------------- |
-| `.html` routes + Chinese anchors   | character-for-character compatible                      |
-| markdown content syntax            | character-for-character compatible (see the list above) |
-| `<template #xxx>` / vue components | passed through; convert page by page                    |
-| full frontmatter keys              | only `date/category/tag/icon/feed/overview`             |
-| build-time password encryption     | client-side password gate (not real encryption)         |
-| theme slots / component overrides  | CSS variables + mount-point DOM                         |
+| theme-hope                         | Absolute Press                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `.html` routes + Chinese anchors   | clean URLs; old `.html` addresses never 404, anchors character-for-character compatible |
+| markdown content syntax            | character-for-character compatible (see the list above)                                 |
+| `<template #xxx>` / vue components | passed through; convert page by page                                                    |
+| full frontmatter keys              | only `date/category/tag/icon/feed/overview`                                             |
+| build-time password encryption     | client-side password gate (not real encryption)                                         |
+| theme slots / component overrides  | CSS variables + mount-point DOM                                                         |
 
 After migrating, the [Markdown extensions](./markdown.md) page doubles as a regression self-check list for content.

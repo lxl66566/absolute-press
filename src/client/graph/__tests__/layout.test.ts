@@ -14,7 +14,7 @@ import {
   toGraphData,
 } from '../layout';
 
-const PAGE = { route: '/a.html', locale: 'zh', title: 'A' } as const;
+const PAGE = { route: '/a', locale: 'zh', title: 'A' } as const;
 
 function payload(related: RelatedLink[]): PagePayload {
   // Only the fields toGraphData reads; the rest is irrelevant here.
@@ -75,29 +75,29 @@ describe('toGraphData', () => {
   it('builds the star: current page + neighbors, one edge each', () => {
     const data = toGraphData(
       payload([
-        { route: '/b.html', title: 'B', refs: 3 },
-        { route: '/c.html', title: 'C', refs: 1 },
+        { route: '/b', title: 'B', refs: 3 },
+        { route: '/c', title: 'C', refs: 1 },
       ]),
     );
     expect(data.nodes.map(n => [n.id, n.current])).toEqual([
-      ['/a.html', true],
-      ['/b.html', false],
-      ['/c.html', false],
+      ['/a', true],
+      ['/b', false],
+      ['/c', false],
     ]);
     expect(data.edges).toEqual([
       {
-        sourceId: '/a.html',
-        targetId: '/b.html',
+        sourceId: '/a',
+        targetId: '/b',
         refs: 3,
-        source: '/a.html',
-        target: '/b.html',
+        source: '/a',
+        target: '/b',
       },
       {
-        sourceId: '/a.html',
-        targetId: '/c.html',
+        sourceId: '/a',
+        targetId: '/c',
         refs: 1,
-        source: '/a.html',
-        target: '/c.html',
+        source: '/a',
+        target: '/c',
       },
     ]);
   });
@@ -106,28 +106,24 @@ describe('toGraphData', () => {
     const data = toGraphData(
       payload([
         {
-          route: '/b.html',
+          route: '/b',
           title: 'B',
           refs: 1,
-          links: [{ route: '/c.html', refs: 4 }],
+          links: [{ route: '/c', refs: 4 }],
         },
         {
-          route: '/c.html',
+          route: '/c',
           title: 'C',
           refs: 1,
-          links: [{ route: '/b.html', refs: 4 }],
+          links: [{ route: '/b', refs: 4 }],
         },
       ]),
     );
     const pairs = data.edges
       .map(e => [e.sourceId, e.targetId].toSorted().join('~'))
       .toSorted();
-    expect(pairs).toEqual([
-      '/a.html~/b.html',
-      '/a.html~/c.html',
-      '/b.html~/c.html',
-    ]);
-    expect(data.edges.find(e => e.refs === 4)?.targetId).toBe('/c.html');
+    expect(pairs).toEqual(['/a~/b', '/a~/c', '/b~/c']);
+    expect(data.edges.find(e => e.refs === 4)?.targetId).toBe('/c');
   });
 
   it('omits the star edge for zero-refs (second-hop) members', () => {
@@ -136,23 +132,23 @@ describe('toGraphData', () => {
     const data = toGraphData(
       payload([
         {
-          route: '/b.html',
+          route: '/b',
           title: 'B',
           refs: 1,
-          links: [{ route: '/c.html', refs: 2 }],
+          links: [{ route: '/c', refs: 2 }],
         },
         {
-          route: '/c.html',
+          route: '/c',
           title: 'C',
           refs: 0,
-          links: [{ route: '/b.html', refs: 2 }],
+          links: [{ route: '/b', refs: 2 }],
         },
       ]),
     );
     const pairs = data.edges
       .map(e => [e.sourceId, e.targetId].toSorted().join('~'))
       .toSorted();
-    expect(pairs).toEqual(['/a.html~/b.html', '/b.html~/c.html']);
+    expect(pairs).toEqual(['/a~/b', '/b~/c']);
   });
 
   it('handles empty related lists and ignores self-edges', () => {
@@ -160,21 +156,21 @@ describe('toGraphData', () => {
     const data = toGraphData(
       payload([
         {
-          route: '/b.html',
+          route: '/b',
           title: 'B',
           refs: 1,
           // Malformed payload must not create a self-loop edge.
-          links: [{ route: '/b.html', refs: 9 }],
+          links: [{ route: '/b', refs: 9 }],
         },
       ]),
     );
     expect(data.edges).toEqual([
       {
-        sourceId: '/a.html',
-        targetId: '/b.html',
+        sourceId: '/a',
+        targetId: '/b',
         refs: 1,
-        source: '/a.html',
-        target: '/b.html',
+        source: '/a',
+        target: '/b',
       },
     ]);
   });
@@ -184,53 +180,51 @@ describe('adjacencyMap', () => {
   it('is undirected', () => {
     const adj = adjacencyMap([
       {
-        sourceId: '/a.html',
-        targetId: '/b.html',
+        sourceId: '/a',
+        targetId: '/b',
         refs: 1,
-        source: '/a.html',
-        target: '/b.html',
+        source: '/a',
+        target: '/b',
       },
     ]);
-    expect(adj.get('/a.html')?.has('/b.html')).toBe(true);
-    expect(adj.get('/b.html')?.has('/a.html')).toBe(true);
-    expect(adj.get('/a.html')?.has('/c.html') ?? false).toBe(false);
+    expect(adj.get('/a')?.has('/b')).toBe(true);
+    expect(adj.get('/b')?.has('/a')).toBe(true);
+    expect(adj.get('/a')?.has('/c') ?? false).toBe(false);
   });
 });
 
 describe('defaultLabelSet', () => {
   const edges = [
     {
-      sourceId: '/a.html',
-      targetId: '/b.html',
+      sourceId: '/a',
+      targetId: '/b',
       refs: 1,
-      source: '/a.html',
-      target: '/b.html',
+      source: '/a',
+      target: '/b',
     },
     {
-      sourceId: '/a.html',
-      targetId: '/c.html',
+      sourceId: '/a',
+      targetId: '/c',
       refs: 1,
-      source: '/a.html',
-      target: '/c.html',
+      source: '/a',
+      target: '/c',
     },
     {
-      sourceId: '/b.html',
-      targetId: '/d.html',
+      sourceId: '/b',
+      targetId: '/d',
       refs: 1,
-      source: '/b.html',
-      target: '/d.html',
+      source: '/b',
+      target: '/d',
     },
   ];
 
   it('labels the current page and its one-hop neighbors only', () => {
-    // /d.html is two hops away (a-b-d): its label stays hidden by default.
-    expect(defaultLabelSet('/a.html', edges)).toEqual(
-      new Set(['/a.html', '/b.html', '/c.html']),
-    );
+    // /d is two hops away (a-b-d): its label stays hidden by default.
+    expect(defaultLabelSet('/a', edges)).toEqual(new Set(['/a', '/b', '/c']));
   });
 
   it('labels nothing beyond the current dot when it has no edges', () => {
-    expect(defaultLabelSet('/z.html', edges)).toEqual(new Set(['/z.html']));
+    expect(defaultLabelSet('/z', edges)).toEqual(new Set(['/z']));
   });
 });
 
@@ -248,10 +242,7 @@ describe('nodeExtent', () => {
   it('unions node circles; labels pad both horizontal edges', () => {
     // Labels anchor left or right depending on which half of the canvas a
     // dot sits on (chart.ts), so the extent reserves overhang on both sides.
-    const extent = nodeExtent([
-      extNode('/a.html', 0, 0),
-      extNode('/b.html', 50, 30),
-    ]);
+    const extent = nodeExtent([extNode('/a', 0, 0), extNode('/b', 50, 30)]);
     expect(extent).toEqual({
       minX: -4 - LABEL_OVERHANG,
       minY: -4,
@@ -261,15 +252,13 @@ describe('nodeExtent', () => {
   });
 
   it('can skip the label overhang', () => {
-    const extent = nodeExtent([extNode('/a.html', 10, 20)], false);
+    const extent = nodeExtent([extNode('/a', 10, 20)], false);
     expect(extent).toEqual({ minX: 6, minY: 16, maxX: 14, maxY: 24 });
   });
 
   it('returns null when nothing is placed yet', () => {
     expect(nodeExtent([])).toBeNull();
-    expect(
-      nodeExtent([{ ...extNode('/a.html', 1, 1), x: undefined }]),
-    ).toBeNull();
+    expect(nodeExtent([{ ...extNode('/a', 1, 1), x: undefined }])).toBeNull();
   });
 });
 

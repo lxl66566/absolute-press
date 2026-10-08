@@ -55,7 +55,7 @@ islands: {
 ```ts
 encrypt: [
   {
-    match: '/guide/secret.html', // 字符串全等匹配路由，或 RegExp.test
+    match: '/guide/secret', // 字符串全等匹配路由，或 RegExp.test
     passwords: ['docs-demo'],
     hint: '可选提示文案',
   },
@@ -200,7 +200,22 @@ archive: {
 }
 ```
 
-归档页选项：每个分类/标签归档页（`/category/*.html`、`/tag/*.html`）的文章分页大小，客户端分页，取值须为不小于 1 的整数；非默认值才写入页面 payload。
+归档页选项：每个分类/标签归档页（`/category/*`、`/tag/*`）的文章分页大小，客户端分页，取值须为不小于 1 的整数；非默认值才写入页面 payload。
+
+## urls
+
+```ts
+urls: {
+  directoryIndex: 'slash', // 'slash' | 'bare'，默认 'slash'
+}
+```
+
+URL 形态选项。目前只有一个键：目录索引页（`guide/index.md`）的 canonical 路由。
+
+- `'slash'`（默认）：`/guide/`。GitHub Pages 的原生形态，零重定向
+- `'bare'`：`/guide`。Cloudflare Pages 的原生形态（CF 会把 `/guide/` 308 到 `/guide`）
+
+两个平台对对方形态都会补一次重定向（GH 把 `/guide` 301 到 `/guide/`，CF 反向），没有通吃的零跳转形态，按部署平台选即可。落盘文件名不受影响，永远是 `guide/index.html`。
 
 ## feed
 
@@ -228,7 +243,7 @@ footer: {
 strictLinks: 'warn', // 'off' | 'warn' | 'error'，默认 'warn'
 ```
 
-裸相对链接策略：正文里不带 `./` `../` 前缀的站内 markdown 链接（如 `guide/a.md`）既不会被改写为 `.html`，也不参与死链检查，会原样产出指向 `.md` 的链接——几乎总是漏写前缀的笔误。
+裸相对链接策略：正文里不带 `./` `../` 前缀的站内 markdown 链接（如 `guide/a.md`）既不会被改写为站内路由，也不参与死链检查，会原样产出指向 `.md` 的链接——几乎总是漏写前缀的笔误。
 
 - `'warn'`（默认）：构建时列出文件、行号与链接，构建继续通过
 - `'error'`：与死链同样直接构建报错，适合 CI 严格把关

@@ -40,7 +40,7 @@ test.describe('dev fouc: head delivery contract', () => {
   test('dev html head carries raw-css render-blocking links', async ({
     page,
   }) => {
-    const links = await directLinks(page, '/guide/advanced/deep.html');
+    const links = await directLinks(page, '/guide/advanced/deep');
     // uno virtual css + at least theme.css (app modules may add more).
     expect(links.length).toBeGreaterThanOrEqual(2);
     expect(links.some(l => l.includes('__uno.css?direct'))).toBe(true);
@@ -109,7 +109,7 @@ test.describe('dev fouc: first paint waits for stylesheets under delayed css', (
 
   test('dev cold load', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${DEV}/guide/getting-started.html`, {
+    await page.goto(`${DEV}/guide/getting-started`, {
       waitUntil: 'load',
     });
     await paintWaitsForCss(page);
@@ -117,8 +117,8 @@ test.describe('dev fouc: first paint waits for stylesheets under delayed css', (
 
   test('dev content-link navigation', async ({ page }) => {
     delayCss(page);
-    await page.goto(`${DEV}/index.html`, { waitUntil: 'load' });
-    const firstLink = page.locator('#ap-content a[href$=".html"]').first();
+    await page.goto(`${DEV}/`, { waitUntil: 'load' });
+    const firstLink = page.locator('#ap-content a[href^="guide/"]').first();
     // The landing's link set changes with the docs; follow wherever the
     // first content link points instead of hardcoding a target.
     const target = await firstLink.getAttribute('href');

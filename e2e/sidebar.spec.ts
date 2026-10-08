@@ -6,7 +6,7 @@ import { expect, test, type Locator } from 'playwright/test';
  *   separate <button> owning collapse of the whole subtree
  * - the active path auto-expands once per load/navigation; a manual
  *   collapse of the containing group must stick
- * - nesting works at any depth (docs: guide/advanced/deep.html; the
+ * - nesting works at any depth (docs: guide/advanced/deep; the
  *   index-less advanced/ folder doubles as the plain-heading row case)
  *
  * Collapsed groups hide children via 0-height tracks + overflow clipping,
@@ -31,37 +31,37 @@ function groupOf(row: Locator): Locator {
 test('folder row navigates to the folder index and highlights it', async ({
   page,
 }) => {
-  await page.goto('/guide/encrypt.html');
+  await page.goto('/guide/encrypt');
   // Scope to the rail: the mobile drawer renders the same tree with the
   // same row classes inside #ap-nav. Locate by href — 指南 as a substring
   // also appears in sibling rows (写作指南 / 部署指南 …).
   const folderRow = page.locator(
-    '#ap-sidebar a.ap-sidebar-row__link[href$="guide/index.html"]',
+    '#ap-sidebar a.ap-sidebar-row__link[href$="guide/"]',
   );
   await expect(folderRow).toHaveCount(1);
   await folderRow.click();
-  await expect(page).toHaveURL(/guide\/index\.html$/);
+  await expect(page).toHaveURL(/\/guide\/$/);
   // Same row is the active page after navigation.
   await expect(
     page.locator(
       '#ap-sidebar .ap-sidebar-row__link.ap-sidebar-row__link--active',
     ),
-  ).toHaveAttribute('href', /guide\/index\.html$/);
+  ).toHaveAttribute('href', /guide\/$/);
 });
 
 test('index pages do not repeat as sidebar children', async ({ page }) => {
-  await page.goto('/guide/index.html');
+  await page.goto('/guide/');
   const group = page.locator('#ap-sidebar li', {
-    has: page.locator('a[href$="guide/index.html"]'),
+    has: page.locator('a[href$="guide/"]'),
   });
   // The group's own subtree contains no second link to the index page.
-  expect(await group.locator('a[href$="guide/index.html"]').count()).toBe(1);
+  expect(await group.locator('a[href$="guide/"]').count()).toBe(1);
 });
 
 test('chevron collapses the group containing the current page and stays collapsed', async ({
   page,
 }) => {
-  await page.goto('/guide/advanced/deep.html');
+  await page.goto('/guide/advanced/deep');
   // advanced/ has no index.md: the row is a plain heading plus chevron.
   const advancedChevron = page
     .locator('#ap-sidebar .ap-sidebar-row')
@@ -83,17 +83,17 @@ test('chevron collapses the group containing the current page and stays collapse
   expect(await groupHeight(collapsed)).toBe(0);
 
   // State persists across a reload of a page outside the group…
-  await page.goto('/index.html');
+  await page.goto('/');
   await expect(page.locator(COLLAPSED_GROUP)).toHaveCount(1);
   // …but navigating into the group auto-expands it again.
-  await page.goto('/guide/advanced/deep.html');
+  await page.goto('/guide/advanced/deep');
   await expect(page.locator(COLLAPSED_GROUP)).toHaveCount(0);
 });
 
 test('multi-level nesting: inner and outer groups collapse independently', async ({
   page,
 }) => {
-  await page.goto('/guide/advanced/deep.html');
+  await page.goto('/guide/advanced/deep');
   const rows = page.locator('#ap-sidebar .ap-sidebar-row');
   // 指南 (outer, index link row) + advanced (inner, no index) + the page link.
   const guideRow = rows.filter({ hasText: '指南' });
@@ -132,7 +132,7 @@ test('multi-level nesting: inner and outer groups collapse independently', async
 });
 
 test('chevron is keyboard operable (Enter toggles)', async ({ page }) => {
-  await page.goto('/guide/advanced/deep.html');
+  await page.goto('/guide/advanced/deep');
   const chevron = page
     .locator('#ap-sidebar .ap-sidebar-row')
     .filter({ hasText: 'advanced' })
@@ -146,7 +146,7 @@ test('chevron is keyboard operable (Enter toggles)', async ({ page }) => {
 
 test('folder rows survive the 375px drawer', async ({ page }) => {
   page.setViewportSize({ width: 375, height: 667 });
-  await page.goto('/guide/advanced/deep.html');
+  await page.goto('/guide/advanced/deep');
   await page.getByRole('button', { name: '打开菜单' }).click();
   const drawer = page.locator('#ap-nav .ap-drawer-panel');
   await expect(drawer).toHaveClass(/ap-open/);
@@ -156,6 +156,6 @@ test('folder rows survive the 375px drawer', async ({ page }) => {
   await expect(deepLink).toHaveCount(1);
   await deepLink.click();
   // Navigating from a drawer link closes the drawer on the new page.
-  await expect(page).toHaveURL(/deep\.html$/);
+  await expect(page).toHaveURL(/\/guide\/advanced\/deep$/);
   await expect(drawer).not.toHaveClass(/ap-open/);
 });

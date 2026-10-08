@@ -37,42 +37,38 @@ function asGroup(item: SidebarItem): SidebarGroup {
 const coding = group(
   'Coding',
   [
-    group('Nested', [linkItem('Deep', '/coding/nested/deep.html')], {
-      link: '/coding/nested/index.html',
+    group('Nested', [linkItem('Deep', '/coding/nested/deep')], {
+      link: '/coding/nested/',
     }),
-    linkItem('Alpha', '/coding/alpha.html'),
+    linkItem('Alpha', '/coding/alpha'),
   ],
-  { link: '/coding/index.html' },
+  { link: '/coding/' },
 );
-const loose = group('Loose', [linkItem('Only', '/loose/only.html')]);
-const tree: SidebarItem[] = [linkItem('Home', '/index.html'), coding, loose];
+const loose = group('Loose', [linkItem('Only', '/loose/only')]);
+const tree: SidebarItem[] = [linkItem('Home', '/'), coding, loose];
 
 describe('groupKey', () => {
   it('prefers the index route so duplicate names stay unique', () => {
-    const a = group('guide', [], { link: '/a/guide/index.html' });
-    const b = group('guide', [], { link: '/b/guide/index.html' });
+    const a = group('guide', [], { link: '/a/guide/' });
+    const b = group('guide', [], { link: '/b/guide/' });
     expect(groupKey(a)).not.toBe(groupKey(b));
-    expect(groupKey(a)).toBe('/a/guide/index.html');
+    expect(groupKey(a)).toBe('/a/guide/');
   });
 
   it('falls back to text and nests under the parent key', () => {
     const child = group('assets', []);
-    expect(groupKey(child, groupKey(asGroup(coding)))).toBe(
-      '/coding/index.html/assets',
-    );
+    expect(groupKey(child, groupKey(asGroup(coding)))).toBe('/coding//assets');
   });
 });
 
 describe('groupHasActive', () => {
   it('is true for the direct parent and any ancestor', () => {
-    expect(groupHasActive(asGroup(coding), '/coding/alpha.html')).toBe(true);
-    expect(groupHasActive(asGroup(coding), '/coding/nested/deep.html')).toBe(
-      true,
-    );
+    expect(groupHasActive(asGroup(coding), '/coding/alpha')).toBe(true);
+    expect(groupHasActive(asGroup(coding), '/coding/nested/deep')).toBe(true);
   });
 
   it('counts the folder row itself when its index is active', () => {
-    expect(groupHasActive(asGroup(coding), '/coding/index.html')).toBe(true);
+    expect(groupHasActive(asGroup(coding), '/coding/')).toBe(true);
     // The nested folder index activates the nested group (and ancestors).
     const nested = asGroup(coding).children.find(
       child => child.kind === 'group',
@@ -82,34 +78,32 @@ describe('groupHasActive', () => {
   });
 
   it('is false for unrelated groups', () => {
-    expect(groupHasActive(asGroup(loose), '/coding/alpha.html')).toBe(false);
+    expect(groupHasActive(asGroup(loose), '/coding/alpha')).toBe(false);
   });
 });
 
 describe('activeGroupKeys', () => {
   it('returns every group on the active path, outermost first', () => {
-    expect(activeGroupKeys(tree, '/coding/nested/deep.html')).toEqual([
-      '/coding/index.html',
-      '/coding/index.html/coding/nested/index.html',
+    expect(activeGroupKeys(tree, '/coding/nested/deep')).toEqual([
+      '/coding/',
+      '/coding//coding/nested/',
     ]);
   });
 
   it('keeps the folder row group on its own index route', () => {
-    expect(activeGroupKeys(tree, '/coding/index.html')).toEqual([
-      '/coding/index.html',
-    ]);
+    expect(activeGroupKeys(tree, '/coding/')).toEqual(['/coding/']);
   });
 
   it('returns nothing when the active route is outside every group', () => {
-    expect(activeGroupKeys(tree, '/index.html')).toEqual([]);
+    expect(activeGroupKeys(tree, '/')).toEqual([]);
   });
 });
 
 describe('allGroupKeys', () => {
   it('lists every group key depth-first; index-less groups key by text', () => {
     expect(allGroupKeys(tree)).toEqual([
-      '/coding/index.html',
-      '/coding/index.html/coding/nested/index.html',
+      '/coding/',
+      '/coding//coding/nested/',
       '/Loose',
     ]);
     expect(allGroupKeys([])).toEqual([]);
@@ -118,14 +112,13 @@ describe('allGroupKeys', () => {
 
 describe('isGroupLinkActive', () => {
   it('matches the folder index route tolerantly', () => {
-    expect(isGroupLinkActive(asGroup(coding), '/coding/index.html')).toBe(true);
+    // Bare and slash directory-index forms both highlight the folder row.
+    expect(isGroupLinkActive(asGroup(coding), '/coding')).toBe(true);
     expect(isGroupLinkActive(asGroup(coding), '/coding/')).toBe(true);
-    expect(isGroupLinkActive(asGroup(coding), '/coding/alpha.html')).toBe(
-      false,
-    );
+    expect(isGroupLinkActive(asGroup(coding), '/coding/alpha')).toBe(false);
   });
 
   it('is false for index-less groups', () => {
-    expect(isGroupLinkActive(asGroup(loose), '/loose/only.html')).toBe(false);
+    expect(isGroupLinkActive(asGroup(loose), '/loose/only')).toBe(false);
   });
 });

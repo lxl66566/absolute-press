@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { CollectedLink, MarkdownEnv } from '../../shared/types.ts';
+import { relativeRoute } from './pages.ts';
 import type { PageSource } from './pages.ts';
 
 /** Token prefix for asset URLs; the shell rewrites it with the per-page base. */
@@ -130,9 +131,11 @@ export class LinkResolver {
   }
 
   /**
-   * MarkdownOptions.resolveLink: `./x.md#anchor` -> `x.html#anchor` (relative).
+   * MarkdownOptions.resolveLink: `./x.md#anchor` -> `x#anchor` (relative).
    * VuePress-style resolution: the trailing slash is normalized away, then
    * `<path>.md`, `<path>/index.md`, `<path>/README.md` are tried in order.
+   * The emitted href is page-relative between the two clean routes, so any
+   * deploy base works (see relativeRoute for the directory-index shapes).
    */
   resolveLink = (href: string, env: MarkdownEnv): string | null => {
     const [pathname, anchor] = splitAnchor(href);
@@ -151,10 +154,7 @@ export class LinkResolver {
       this.deadLinks.push({ file: env.filePath, raw: href });
       return null;
     }
-    const rel = path.posix.relative(
-      path.posix.dirname(source.route),
-      target.route,
-    );
+    const rel = relativeRoute(source.route, target.route);
     return anchor ? `${rel}${anchor}` : rel;
   };
 

@@ -12,7 +12,7 @@ export function makeRenderer(
     resolveLink: href =>
       href.includes('dead')
         ? null
-        : `/resolved/${href.replace(/^\.\//, '').replace(/\.md$/, '.html')}`,
+        : `/resolved/${href.replace(/^\.\//, '').replace(/\.md$/, '')}`,
     resolveImage: src => `/assets/${src.replace(/^\.\//, '')}`,
     ...options,
   });

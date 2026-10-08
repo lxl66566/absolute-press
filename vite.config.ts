@@ -126,13 +126,13 @@ const config: UserConfig = defineConfig({
             // Route of docs/content/guide/secret.md (exact string match;
             // `match` also accepts a RegExp tested against the route —
             // see the encrypt guide).
-            match: '/guide/secret.html',
+            match: '/guide/secret',
             passwords: ['docs-demo'],
             hint: '演示密码 docs-demo（写在加密指南页里）',
           },
           {
             // English demo page; multi-rule setup also exercises first-match wins.
-            match: '/en/guide/secret.html',
+            match: '/en/guide/secret',
             passwords: ['docs-demo'],
             hint: 'Demo password docs-demo (see the encrypt guide)',
           },

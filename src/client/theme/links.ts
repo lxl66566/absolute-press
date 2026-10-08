@@ -1,17 +1,24 @@
 import type { PagePayload } from '../../shared/types';
 
-/** Join a site route ('/a/b.html') with the per-page relative base ('', '../'). */
+/**
+ * Join a site route ('/a/b') with the per-page relative base ('', '../').
+ * The home route '/' joins to the bare base; when that is '' (the current
+ * page IS the home page) emit './' — an empty href would mean the current
+ * page per HTML semantics, which is the same target, but './' also works
+ * when the link is rendered into another page's DOM (e.g. drawer chrome).
+ */
 export function withBase(base: string, route: string): string {
-  return base + route.replace(/^\/+/, '');
+  const joined = base + route.replace(/^\/+/, '');
+  return joined === '' ? './' : joined;
 }
 
 // Single shared predicate (any scheme or protocol-relative = external).
 // Re-exported here so link consumers keep one import site.
 export { isExternalHref } from '../../shared/links';
 
-/** Current-route match tolerant of `/` vs `/index.html`. */
+/** Current-route match tolerant of a trailing slash ('/guide/' vs '/guide'). */
 const normalizeRoute = (r: string): string => {
-  const stripped = r.replace(/\/index\.html$/, '/').replace(/\/+$/, '');
+  const stripped = r.replace(/\/+$/, '');
   return stripped === '' ? '/' : stripped;
 };
 
@@ -25,7 +32,7 @@ export function stripLocalePrefix(route: string, prefix: string): string {
     prefix !== '' && route.startsWith(prefix)
       ? route.slice(prefix.length)
       : route;
-  return stripped === '' || stripped === '/' ? '/index.html' : stripped;
+  return stripped === '' || stripped === '/' ? '/' : stripped;
 }
 
 /** Route prefix ('' for the default locale, '/en' etc) of the payload's locale. */
@@ -39,7 +46,7 @@ export { parseArchiveRoute, type ArchiveRoute } from '../../shared/seo.ts';
 
 /**
  * Archive page href for a category/tag chip. Archives are grouped per
- * locale (`/en/tag/x.html`), so the current page's locale prefix must ride
+ * locale (`/en/tag/x`), so the current page's locale prefix must ride
  * along or non-default-locale chips land on a foreign (often missing) page.
  */
 export function archiveHref(
@@ -48,8 +55,5 @@ export function archiveHref(
   kind: 'category' | 'tag',
   name: string,
 ): string {
-  return withBase(
-    base,
-    `${localePrefix}/${kind}/${encodeURIComponent(name)}.html`,
-  );
+  return withBase(base, `${localePrefix}/${kind}/${encodeURIComponent(name)}`);
 }

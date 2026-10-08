@@ -6,7 +6,7 @@
 
 ## 核心设计
 
-根据本人需求进行了深度定制化。导航、侧边栏、分类/标签归档、首页文章流、TOC、RSS/sitemap、评论、搜索、图片放大全部作为 builtin。站点的信息架构就是内容目录本身：目录结构决定导航，`index.md` 就是目录索引页，frontmatter 只认 `date / category / tag / icon / feed` 五个键。markdown 放进内容目录，剩下的交给构建。
+根据本人需求进行了深度定制化。导航、侧边栏、分类/标签归档、首页文章流、TOC、RSS/sitemap、评论、搜索、图片放大全部作为 builtin。站点的信息架构就是内容目录本身：目录结构决定导航，`index.md` 就是目录索引页，frontmatter 只认 `date / category / tag / icon / feed / overview` 六个键。markdown 放进内容目录，剩下的交给构建。
 
 一切能在构建期解决的都在构建期解决。markdown 经 markdown-it 管线渲染成最终 HTML，`:::` 容器（tip/warning/details/tabs/code-tabs）、KaTeX、Shiki 双主题代码高亮（行高亮、折叠、软换行）、脚注、任务列表、黑幕、img-size、相对链接死链检查、git 最后编辑时间、RSS/sitemap 都是 builtin。
 

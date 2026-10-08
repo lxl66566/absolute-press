@@ -55,7 +55,7 @@ Custom islands added by the site: PascalCase tag name → module path relative t
 ```ts
 encrypt: [
   {
-    match: '/guide/secret.html', // string equality on the route, or RegExp.test
+    match: '/guide/secret', // string equality on the route, or RegExp.test
     passwords: ['docs-demo'],
     hint: 'optional hint text',
   },
@@ -200,7 +200,22 @@ archive: {
 }
 ```
 
-Archive page options: the page size of each category/tag archive page (`/category/*.html`, `/tag/*.html`); client-side pagination, must be an integer no less than 1; only written into the page payload when non-default.
+Archive page options: the page size of each category/tag archive page (`/category/*`, `/tag/*`); client-side pagination, must be an integer no less than 1; only written into the page payload when non-default.
+
+## urls
+
+```ts
+urls: {
+  directoryIndex: 'slash', // 'slash' | 'bare', default 'slash'
+}
+```
+
+URL shape options. One key for now: the canonical route of a directory index page (`guide/index.md`).
+
+- `'slash'` (default): `/guide/`. The native GitHub Pages form — zero redirects
+- `'bare'`: `/guide`. The native Cloudflare Pages form (CF 308s `/guide/` to `/guide`)
+
+Each platform redirects the other's form once (GH 301s `/guide` to `/guide/`, CF the reverse); no shape is redirect-free on both, so pick by hosting platform. Emitted file names are unaffected — always `guide/index.html`.
 
 ## feed
 
@@ -228,7 +243,7 @@ Footer: on desktop a single two-column row, with a fixed "Powered by absolute-pr
 strictLinks: 'warn', // 'off' | 'warn' | 'error', default 'warn'
 ```
 
-Policy for bare relative links: an internal markdown link in content that lacks the `./` `../` prefix (e.g. `guide/a.md`) is neither rewritten to `.html` nor covered by dead-link checking — it is emitted as-is pointing at `.md`, which is almost always a forgotten prefix.
+Policy for bare relative links: an internal markdown link in content that lacks the `./` `../` prefix (e.g. `guide/a.md`) is neither rewritten to a route nor covered by dead-link checking — it is emitted as-is pointing at `.md`, which is almost always a forgotten prefix.
 
 - `'warn'` (default): lists file, line number, and link at build time; the build still passes
 - `'error'`: fails the build like a dead link; suited for strict CI

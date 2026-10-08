@@ -23,7 +23,7 @@ const rssConfig = {
 
 function article(n: number, html = '<p>Body text.</p>'): FeedArticle {
   return {
-    route: `/a${n}.html`,
+    route: `/a${n}`,
     title: `Article ${n}`,
     createdAt: '2024-06-01T12:30:00+08:00',
     updatedAt: null,
@@ -40,15 +40,15 @@ describe('renderRss', () => {
       Array.from({ length: 25 }, (_, i) => article(i + 1)),
     );
     expect(xml.match(/<item>/g)).toHaveLength(20);
-    expect(xml).toContain('https://example.com/a20.html');
-    expect(xml).not.toContain('https://example.com/a21.html');
+    expect(xml).toContain('https://example.com/a20');
+    expect(xml).not.toContain('https://example.com/a21');
     const bigger = renderRss(
       { ...rssConfig, feed: { rssLimit: 3 } },
       Array.from({ length: 25 }, (_, i) => article(i + 1)),
     );
     expect(bigger.match(/<item>/g)).toHaveLength(3);
-    expect(bigger).toContain('https://example.com/a3.html');
-    expect(bigger).not.toContain('https://example.com/a4.html');
+    expect(bigger).toContain('https://example.com/a3');
+    expect(bigger).not.toContain('https://example.com/a4');
   });
 
   it('formats pubDate as RFC 822 GMT', () => {
@@ -105,60 +105,56 @@ describe('renderRss', () => {
 describe('renderSitemap', () => {
   it('emits lastmod normalized to W3C UTC datetime', () => {
     const xml = renderSitemap(config, [
-      { route: '/a.html', lastmod: '2024-06-01T12:30:00+08:00' },
+      { route: '/a', lastmod: '2024-06-01T12:30:00+08:00' },
     ]);
     expect(xml).toContain(
-      '<url><loc>https://example.com/a.html</loc>' +
+      '<url><loc>https://example.com/a</loc>' +
         '<lastmod>2024-06-01T04:30:00.000Z</lastmod></url>',
     );
   });
 
   it('omits lastmod for entries without a git time', () => {
-    const xml = renderSitemap(config, [
-      { route: '/tag/x.html', lastmod: null },
-    ]);
-    expect(xml).toContain(
-      '<url><loc>https://example.com/tag/x.html</loc></url>',
-    );
+    const xml = renderSitemap(config, [{ route: '/tag/x', lastmod: null }]);
+    expect(xml).toContain('<url><loc>https://example.com/tag/x</loc></url>');
     expect(xml).not.toContain('lastmod');
   });
 
   it('escapes the loc and keeps urlset order', () => {
     const xml = renderSitemap(config, [
-      { route: '/a&b.html', lastmod: null },
-      { route: '/z.html', lastmod: null },
+      { route: '/a&b', lastmod: null },
+      { route: '/z', lastmod: null },
     ]);
-    expect(xml).toContain('<loc>https://example.com/a&amp;b.html</loc>');
+    expect(xml).toContain('<loc>https://example.com/a&amp;b</loc>');
     expect(xml.indexOf('/a&b') === -1).toBe(true);
-    expect(xml.indexOf('a&amp;b.html')).toBeLessThan(xml.indexOf('/z.html'));
+    expect(xml.indexOf('a&amp;b')).toBeLessThan(xml.indexOf('/z'));
   });
 
   it('declares the xhtml namespace and hreflang alternates with x-default', () => {
     const xml = renderSitemap(config, [
       {
-        route: '/guide/a.html',
+        route: '/guide/a',
         lastmod: null,
         alternates: [
-          { lang: 'zh-CN', route: '/guide/a.html' },
-          { lang: 'en', route: '/en/guide/a.html' },
+          { lang: 'zh-CN', route: '/guide/a' },
+          { lang: 'en', route: '/en/guide/a' },
         ],
       },
     ]);
     expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
     expect(xml).toContain(
-      '<xhtml:link rel="alternate" hreflang="zh-CN" href="https://example.com/guide/a.html"/>',
+      '<xhtml:link rel="alternate" hreflang="zh-CN" href="https://example.com/guide/a"/>',
     );
     expect(xml).toContain(
-      '<xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/guide/a.html"/>',
+      '<xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/guide/a"/>',
     );
     expect(xml).toContain(
-      '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/guide/a.html"/>',
+      '<xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/guide/a"/>',
     );
   });
 
   it('emits plain url rows without alternate links when alternates are absent', () => {
-    const xml = renderSitemap(config, [{ route: '/a.html', lastmod: null }]);
+    const xml = renderSitemap(config, [{ route: '/a', lastmod: null }]);
     expect(xml).not.toContain('xhtml:link');
-    expect(xml).toContain('<loc>https://example.com/a.html</loc>');
+    expect(xml).toContain('<loc>https://example.com/a</loc>');
   });
 });

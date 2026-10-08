@@ -27,8 +27,8 @@ dist/
 └── robots.txt
 ```
 
-- 路由保持 `<path>.html` 后缀，`index.md` 产出所在目录的索引页
-- 中文等非 ASCII 路由段按 URL 编码生成链接（如归档页 `/tag/主题.html` 的编码形式），但**磁盘文件名是解码后的原文**：静态主机会先把请求路径 percent-decode 再查找文件，两边恰好对上，中文归档路由开箱可用，不需要重写规则
+- 路由是无扩展名的 clean URL：`guide/foo.md` → `/guide/foo`，`index.md` 产出所在目录的索引页（默认 `/guide/` 形态，可用 `urls.directoryIndex` 切换为 `/guide`）；落盘文件名始终带 `.html`，任何静态托管都能直接服务
+- 中文等非 ASCII 路由段按 URL 编码生成链接（如归档页 `/tag/主题` 的编码形式），但**磁盘文件名是解码后的原文**：静态主机会先把请求路径 percent-decode 再查找文件，两边恰好对上，中文归档路由开箱可用，不需要重写规则
 - KaTeX 样式表与按需加载的 island chunk（Mermaid / G2Plot / DocSearch / photoSwipe）同样在 `assets/` 下，随页面自动按相对路径引用，无需额外配置
 
 ## hostname 与子路径
@@ -45,8 +45,8 @@ defineSiteConfig({ hostname: 'https://absolute-docs.pages.dev' });
 
 产物没有服务器端要求，主流平台都是零配置或近零配置：
 
-- **Cloudflare Pages / Netlify / Vercel**：构建命令 `pnpm build`，输出目录填 `build.outDir`；不需要 SPA rewrite（没有 `index.html` 回退的需求，每页都是真实文件）
-- **GitHub Pages**：直接发布产物目录即可；`https://user.github.io/repo/` 这类子路径部署依赖上面的相对前缀机制，无需任何 base 配置
+- **Cloudflare Pages / Netlify / Vercel**：构建命令 `pnpm build`，输出目录填 `build.outDir`；不需要 SPA rewrite（没有 `index.html` 回退的需求，每页都是真实文件）。部署到 Cloudflare Pages 时建议 `urls.directoryIndex: 'bare'`（CF 会把 `/guide/` 308 到 `/guide`，bare 是它的原生形态）
+- **GitHub Pages**：直接发布产物目录即可；`https://user.github.io/repo/` 这类子路径部署依赖上面的相对前缀机制，无需任何 base 配置。默认的 `'slash'` 形态就是 GH 的原生形态（`/guide` 会被 301 到 `/guide/`），无需调整
 - **nginx / Caddy**：`root`（或 `file_server`）指向产物目录即可，不要配 `try_files ... /index.html` 之类的 SPA 回退
 
 缓存策略建议：`assets/` 内的文件名带内容 hash（图片是 `名称.8位hash.扩展名`），可以放心长缓存；`.html` 与 `rss.xml` / `sitemap.xml` 用短缓存或协商缓存，保证发布后立即生效。

@@ -21,75 +21,79 @@ describe('sha256Hex', () => {
 
 describe('matchesRoute', () => {
   it('string matches exactly', () => {
-    expect(matchesRoute('/a/b.html', '/a/b.html')).toBe(true);
-    // Trailing/duplicate slashes are match-normalized on both sides.
-    expect(matchesRoute('/a/b.html', '/a/b.html/')).toBe(true);
-    expect(matchesRoute('/a//b.html', '/a/b.html')).toBe(true);
-    expect(matchesRoute('/a/b', '/a/b.html')).toBe(false);
+    expect(matchesRoute('/a/b', '/a/b')).toBe(true);
+    // Trailing/duplicate slashes are match-normalized on both sides, so a
+    // pattern matches a directory index in either directoryIndex mode.
+    expect(matchesRoute('/a/b', '/a/b/')).toBe(true);
+    expect(matchesRoute('/a//b', '/a/b')).toBe(true);
+    expect(matchesRoute('/a/b', '/a/c')).toBe(false);
+  });
+
+  it('does not match legacy .html patterns against clean routes', () => {
+    // Migration guard: pre-clean-URL match strings must be rewritten.
+    expect(matchesRoute('/a/b.html', '/a/b')).toBe(false);
   });
 
   it('regexp tests against the route', () => {
-    expect(matchesRoute(/^\/hide\//, '/hide/x.html')).toBe(true);
-    expect(matchesRoute(/^\/hide\//, '/show/x.html')).toBe(false);
-    expect(matchesRoute(/\.html$/, '/a.html')).toBe(true);
+    expect(matchesRoute(/^\/hide\//, '/hide/x')).toBe(true);
+    expect(matchesRoute(/^\/hide\//, '/show/x')).toBe(false);
+    expect(matchesRoute(/\/a$/, '/a')).toBe(true);
   });
 
   it('matches CJK routes written unencoded against encoded routes', () => {
     // Routes are emitted percent-encoded (see routeOf).
-    const encoded = `/${encodeURIComponent('私密')}/x.html`;
-    expect(matchesRoute('/私密/x.html', encoded)).toBe(true);
+    const encoded = `/${encodeURIComponent('私密')}/x`;
+    expect(matchesRoute('/私密/x', encoded)).toBe(true);
     expect(matchesRoute(/私密/, encoded)).toBe(true);
-    expect(matchesRoute('/其他/x.html', encoded)).toBe(false);
+    expect(matchesRoute('/其他/x', encoded)).toBe(false);
   });
 
   it('stays compatible with legacy percent-encoded string patterns', () => {
-    const encoded = `/${encodeURIComponent('私密')}/x.html`;
+    const encoded = `/${encodeURIComponent('私密')}/x`;
     expect(matchesRoute(encoded, encoded)).toBe(true);
   });
 
   it('tolerates malformed percent sequences instead of throwing', () => {
-    expect(matchesRoute('/100%.html', '/100%.html')).toBe(true);
-    expect(matchesRoute(/^\/100/, '/100%.html')).toBe(true);
+    expect(matchesRoute('/100%', '/100%')).toBe(true);
+    expect(matchesRoute(/^\/100/, '/100%')).toBe(true);
   });
 });
 
 describe('encryptRuleFor', () => {
   const rules = [
-    { match: '/a.html', passwords: ['pw1'], hint: 'hint-a' },
+    { match: '/a', passwords: ['pw1'], hint: 'hint-a' },
     { match: /^\/b\//, passwords: ['pw2', 'pw3'] },
   ];
 
   it('returns hashes and hint for a matching rule', () => {
-    expect(encryptRuleFor('/a.html', rules)).toEqual({
+    expect(encryptRuleFor('/a', rules)).toEqual({
       hashes: [sha256Hex('pw1')],
       hint: 'hint-a',
     });
   });
 
   it('hashes every password of the rule', () => {
-    expect(encryptRuleFor('/b/x.html', rules)).toEqual({
+    expect(encryptRuleFor('/b/x', rules)).toEqual({
       hashes: [sha256Hex('pw2'), sha256Hex('pw3')],
     });
   });
 
   it('omits hint when absent', () => {
-    expect(encryptRuleFor('/b/x.html', rules)).not.toHaveProperty('hint');
+    expect(encryptRuleFor('/b/x', rules)).not.toHaveProperty('hint');
   });
 
   it('returns null for ungated routes or empty rules', () => {
-    expect(encryptRuleFor('/other.html', rules)).toBeNull();
-    expect(encryptRuleFor('/a.html', undefined)).toBeNull();
-    expect(encryptRuleFor('/a.html', [])).toBeNull();
+    expect(encryptRuleFor('/other', rules)).toBeNull();
+    expect(encryptRuleFor('/a', undefined)).toBeNull();
+    expect(encryptRuleFor('/a', [])).toBeNull();
   });
 
   it('hashes identically across repeated calls (memoized per password)', () => {
-    expect(encryptRuleFor('/a.html', rules)).toEqual(
-      encryptRuleFor('/a.html', rules),
-    );
+    expect(encryptRuleFor('/a', rules)).toEqual(encryptRuleFor('/a', rules));
   });
 
   it('never emits plaintext passwords', () => {
-    const payload = encryptRuleFor('/a.html', rules);
+    const payload = encryptRuleFor('/a', rules);
     expect(JSON.stringify(payload)).not.toContain('pw1');
   });
 });

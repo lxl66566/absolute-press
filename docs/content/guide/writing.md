@@ -13,14 +13,16 @@ icon: pen
 
 ## 文件即页面
 
-`contentDir` 下每个 `**/*.md` 都是一个页面，路由为 `<相对路径>.html`，`index.md` 是所在目录的索引页：
+`contentDir` 下每个 `**/*.md` 都是一个页面，路由为无扩展名的 `<相对路径>`，`index.md` 是所在目录的索引页：
 
 ```text
 content/
-├── index.md              # 首页 /index.html
-├── notes/foo.md          # /notes/foo.html
-└── notes/index.md        # /notes/index.html，目录行指向它
+├── index.md              # 首页 /
+├── notes/foo.md          # /notes/foo
+└── notes/index.md        # /notes/，目录行指向它
 ```
+
+落盘文件形态不变：`/notes/foo` 写入 `notes/foo.html`，任何静态托管都能直接服务。目录索引页默认以 `/` 结尾，可用 `urls.directoryIndex` 切换（见[配置参考](./configuration.md#urls)与[部署](./deploy.md)）。
 
 目录即分类：sidebar 按目录自动生成，文件夹行直接是该目录 `index.md` 的链接，行名取 `index.md` 的首个 h1（没有索引页时回退目录名），索引页不会在子项里重复出现。因此「移动一个文件」就是「移动一个页面」，导航、归档、关联图全部自动跟随。生成顺序是字母序，可用 `sidebar.order` / `sidebar.tweaks` 调整（见[配置参考](./configuration.md#sidebar)）。
 

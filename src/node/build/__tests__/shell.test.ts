@@ -64,32 +64,34 @@ function inlineGaScript(html: string): string {
 
 describe('baseOf route depth', () => {
   it('maps depth 0 routes to the empty base', () => {
-    expect(baseOf('/x.html')).toBe('');
-    expect(baseOf('/index.html')).toBe('');
+    expect(baseOf('/x')).toBe('');
+    expect(baseOf('/')).toBe('');
   });
 
-  it('maps one-segment folders and locale roots to ../', () => {
-    expect(baseOf('/guide/x.html')).toBe('../');
-    expect(baseOf('/en/x.html')).toBe('../');
-    expect(baseOf('/en/index.html')).toBe('../');
+  it('maps one-segment routes, locale homes and directory indexes to ../', () => {
+    expect(baseOf('/guide/x')).toBe('../');
+    expect(baseOf('/en/x')).toBe('../');
+    expect(baseOf('/en/')).toBe('../');
+    expect(baseOf('/guide/')).toBe('../');
   });
 
   it('stacks one ../ per additional path segment', () => {
-    expect(baseOf('/en/guide/x.html')).toBe('../../');
-    expect(baseOf('/a/b/c/d.html')).toBe('../../../');
+    expect(baseOf('/en/guide/x')).toBe('../../');
+    expect(baseOf('/a/b/c/d')).toBe('../../../');
+    expect(baseOf('/a/b/')).toBe('../../');
   });
 });
 
 describe('renderShell head ordering', () => {
   it('emits the anti-FOUC script before any stylesheet link', () => {
-    const html = shell('/a/b.html');
+    const html = shell('/a/b');
     const fouc = indexOf(html, 'localStorage.getItem("ap-theme")');
     const firstCss = indexOf(html, '<link rel="stylesheet"');
     expect(fouc).toBeLessThan(firstCss);
   });
 
   it('emits stylesheet links before third-party and payload scripts', () => {
-    const html = shell('/a.html', { gaId: 'G-TEST' });
+    const html = shell('/a', { gaId: 'G-TEST' });
     const lastCss = html.lastIndexOf('<link rel="stylesheet"');
     expect(lastCss).toBeLessThan(indexOf(html, 'googletagmanager.com'));
     expect(lastCss).toBeLessThan(indexOf(html, 'id="__AP_DATA__"'));
@@ -97,7 +99,7 @@ describe('renderShell head ordering', () => {
   });
 
   it('emits the speculation rules script after stylesheets, last in head', () => {
-    const html = shell('/a.html', {
+    const html = shell('/a', {
       gaId: 'G-TEST',
       speculationRules: true,
     });
@@ -108,18 +110,18 @@ describe('renderShell head ordering', () => {
   });
 
   it('omits the speculation rules script when not requested (dev)', () => {
-    expect(shell('/a.html')).not.toContain('speculationrules');
+    expect(shell('/a')).not.toContain('speculationrules');
   });
 });
 
 describe('renderShell stylesheet links', () => {
   it('base-prefixes stylesheet hrefs by page depth', () => {
-    const deep = stylesheetLinks(shell('/a/b.html'));
+    const deep = stylesheetLinks(shell('/a/b'));
     expect(deep).toEqual([
       '<link rel="stylesheet" href="../assets/katex/katex.min.css">',
       '<link rel="stylesheet" href="../assets/entry-1.css">',
     ]);
-    const root = stylesheetLinks(shell('/a.html'));
+    const root = stylesheetLinks(shell('/a'));
     expect(root).toEqual([
       '<link rel="stylesheet" href="assets/katex/katex.min.css">',
       '<link rel="stylesheet" href="assets/entry-1.css">',
@@ -127,7 +129,7 @@ describe('renderShell stylesheet links', () => {
   });
 
   it('omits the katex link entirely when katexHref is unset', () => {
-    const html = shell('/a/b.html', { katexHref: undefined });
+    const html = shell('/a/b', { katexHref: undefined });
     expect(html).not.toContain('katex');
     expect(stylesheetLinks(html)).toEqual([
       '<link rel="stylesheet" href="../assets/entry-1.css">',
@@ -135,9 +137,7 @@ describe('renderShell stylesheet links', () => {
   });
 
   it('keeps links render-blocking: no media/onload/disabled async hacks', () => {
-    const links = stylesheetLinks(
-      shell('/a/b.html', { speculationRules: true }),
-    );
+    const links = stylesheetLinks(shell('/a/b', { speculationRules: true }));
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) {
       expect(link).not.toMatch(/\bmedia=/);
@@ -150,7 +150,7 @@ describe('renderShell stylesheet links', () => {
 
 describe('renderShell speculation rules payload', () => {
   it('contains a valid same-site prerender document rule', () => {
-    const html = shell('/a.html', { speculationRules: true });
+    const html = shell('/a', { speculationRules: true });
     const match = html.match(
       /<script type="speculationrules">(.*?)<\/script>/s,
     );
@@ -179,51 +179,49 @@ describe('renderShell speculation rules payload', () => {
 describe('renderShell ga id embedding', () => {
   it('embeds an id with quotes and ampersands as an intact JSON string', () => {
     const gaId = "G-A'B&C";
-    const inline = inlineGaScript(shell('/a.html', { gaId }));
+    const inline = inlineGaScript(shell('/a', { gaId }));
     expect(inline).toContain(`gtag('config',"G-A'B&C")`);
     expect(inline).not.toContain('&amp;');
   });
 
   it('escapes a script-closing id so the inline script stays intact', () => {
-    const inline = inlineGaScript(shell('/a.html', { gaId: 'G-</script>' }));
+    const inline = inlineGaScript(shell('/a', { gaId: 'G-</script>' }));
     expect(inline).toContain('G-\\u003c/script>');
     expect(inline.endsWith('</script>')).toBe(true);
   });
 
   it('keeps attribute-escaping the id in the loader query string', () => {
-    const html = shell('/a.html', { gaId: 'G-A&B"' });
+    const html = shell('/a', { gaId: 'G-A&B"' });
     expect(html).toContain('gtag/js?id=G-A&amp;B&quot;');
   });
 });
 
 describe('renderShell title composition', () => {
   it('suffixes a distinct page title with the site title', () => {
-    expect(shell('/a.html')).toContain('<title>Hello | Site</title>');
+    expect(shell('/a')).toContain('<title>Hello | Site</title>');
   });
 
   it('keeps the bare site title when the page title equals it', () => {
-    const same = payload('/a.html');
+    const same = payload('/a');
     same.page.title = 'Site';
-    const html = shell('/a.html', { payload: same });
+    const html = shell('/a', { payload: same });
     expect(html).toContain('<title>Site</title>');
     expect(html).not.toContain('Site | Site');
     expect(html).toContain('<meta property="og:title" content="Site">');
   });
 
   it('keeps the bare site title when the page has no h1 title', () => {
-    const untitled = payload('/a.html');
+    const untitled = payload('/a');
     untitled.page.title = '';
-    expect(shell('/a.html', { payload: untitled })).toContain(
-      '<title>Site</title>',
-    );
+    expect(shell('/a', { payload: untitled })).toContain('<title>Site</title>');
   });
 });
 
 describe('renderShell per-page description', () => {
   it('uses the payload excerpt for meta and og description', () => {
-    const withExcerpt = payload('/a.html');
+    const withExcerpt = payload('/a');
     withExcerpt.page.excerpt = 'Page summary from the rendered body.';
-    const html = shell('/a.html', { payload: withExcerpt });
+    const html = shell('/a', { payload: withExcerpt });
     expect(html).toContain(
       '<meta name="description" content="Page summary from the rendered body.">',
     );
@@ -233,7 +231,7 @@ describe('renderShell per-page description', () => {
   });
 
   it('falls back to the site description without an excerpt', () => {
-    const html = shell('/a.html');
+    const html = shell('/a');
     expect(html).toContain('<meta name="description" content="desc">');
     expect(html).toContain('<meta property="og:description" content="desc">');
   });
@@ -241,27 +239,27 @@ describe('renderShell per-page description', () => {
 
 describe('renderShell og:type', () => {
   it('emits website for the locale home and archives, article otherwise', () => {
-    const home = payload('/index.html');
-    expect(shell('/index.html', { payload: home })).toContain(
+    const home = payload('/');
+    expect(shell('/', { payload: home })).toContain(
       '<meta property="og:type" content="website">',
     );
-    const archive = payload('/tag/alpha.html');
-    expect(shell('/tag/alpha.html', { payload: archive })).toContain(
+    const archive = payload('/tag/alpha');
+    expect(shell('/tag/alpha', { payload: archive })).toContain(
       '<meta property="og:type" content="website">',
     );
-    expect(shell('/a/b.html')).toContain(
+    expect(shell('/a/b')).toContain(
       '<meta property="og:type" content="article">',
     );
   });
 
   it('resolves the home route against the payload locale prefix', () => {
-    const enHome = payload('/en/index.html');
+    const enHome = payload('/en/');
     enHome.site.locale = 'en';
     enHome.site.locales = [
       ...enHome.site.locales,
       { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
     ];
-    expect(shell('/en/index.html', { payload: enHome })).toContain(
+    expect(shell('/en/', { payload: enHome })).toContain(
       '<meta property="og:type" content="website">',
     );
   });
@@ -269,13 +267,13 @@ describe('renderShell og:type', () => {
 
 describe('renderShell og:image / twitter:card', () => {
   it('emits summary card without og:image when unset', () => {
-    const html = shell('/a.html');
+    const html = shell('/a');
     expect(html).not.toContain('og:image');
     expect(html).toContain('<meta name="twitter:card" content="summary">');
   });
 
   it('resolves a public-root path against the hostname', () => {
-    const html = shell('/a.html', { ogImage: '/og.png' });
+    const html = shell('/a', { ogImage: '/og.png' });
     expect(html).toContain(
       '<meta property="og:image" content="https://example.com/og.png">',
     );
@@ -285,18 +283,18 @@ describe('renderShell og:image / twitter:card', () => {
   });
 
   it('normalizes a bare path and passes absolute URLs through', () => {
-    expect(shell('/a.html', { ogImage: 'img/og.png' })).toContain(
+    expect(shell('/a', { ogImage: 'img/og.png' })).toContain(
       '<meta property="og:image" content="https://example.com/img/og.png">',
     );
     expect(
-      shell('/a.html', { ogImage: 'https://cdn.example.com/og.png' }),
+      shell('/a', { ogImage: 'https://cdn.example.com/og.png' }),
     ).toContain(
       '<meta property="og:image" content="https://cdn.example.com/og.png">',
     );
   });
 
   it('escapes hostile image values', () => {
-    const html = shell('/a.html', { ogImage: '/o"g><script>' });
+    const html = shell('/a', { ogImage: '/o"g><script>' });
     expect(html).toContain(
       '<meta property="og:image" content="https://example.com/o&quot;g&gt;&lt;script&gt;">',
     );
@@ -307,7 +305,7 @@ describe('renderShell og:image / twitter:card', () => {
 
 describe('renderShell rss autodiscovery', () => {
   it('links the always-generated feed with the site title', () => {
-    expect(shell('/a/b.html')).toContain(
+    expect(shell('/a/b')).toContain(
       '<link rel="alternate" type="application/rss+xml" title="Site" href="https://example.com/rss.xml">',
     );
   });
@@ -315,31 +313,31 @@ describe('renderShell rss autodiscovery', () => {
 
 describe('renderShell hreflang alternates', () => {
   it('emits one link per counterpart plus x-default on the first entry', () => {
-    const multi = payload('/guide/a.html');
+    const multi = payload('/guide/a');
     multi.page.alternates = [
-      { lang: 'zh-CN', route: '/guide/a.html' },
-      { lang: 'en', route: '/en/guide/a.html' },
+      { lang: 'zh-CN', route: '/guide/a' },
+      { lang: 'en', route: '/en/guide/a' },
     ];
-    const html = shell('/guide/a.html', { payload: multi });
+    const html = shell('/guide/a', { payload: multi });
     expect(html).toContain(
-      '<link rel="alternate" hreflang="zh-CN" href="https://example.com/guide/a.html">',
+      '<link rel="alternate" hreflang="zh-CN" href="https://example.com/guide/a">',
     );
     expect(html).toContain(
-      '<link rel="alternate" hreflang="en" href="https://example.com/en/guide/a.html">',
+      '<link rel="alternate" hreflang="en" href="https://example.com/en/guide/a">',
     );
     expect(html).toContain(
-      '<link rel="alternate" hreflang="x-default" href="https://example.com/guide/a.html">',
+      '<link rel="alternate" hreflang="x-default" href="https://example.com/guide/a">',
     );
   });
 
   it('emits no hreflang links without payload alternates', () => {
-    expect(shell('/a.html')).not.toContain('hreflang');
+    expect(shell('/a')).not.toContain('hreflang');
   });
 
   it('keeps alternates right after the canonical link', () => {
-    const multi = payload('/a.html');
-    multi.page.alternates = [{ lang: 'en', route: '/en/a.html' }];
-    const html = shell('/a.html', { payload: multi });
+    const multi = payload('/a');
+    multi.page.alternates = [{ lang: 'en', route: '/en/a' }];
+    const html = shell('/a', { payload: multi });
     const canonical = indexOf(html, '<link rel="canonical"');
     const first = indexOf(html, 'hreflang="en"');
     expect(canonical).toBeLessThan(first);
@@ -348,7 +346,7 @@ describe('renderShell hreflang alternates', () => {
 
 describe('renderShell payload contract', () => {
   it('keeps SEO meta and the serialized payload intact', () => {
-    const html = shell('/a/b.html');
+    const html = shell('/a/b');
     expect(html).toContain('<meta property="og:url"');
     expect(html).toContain('<link rel="canonical"');
     const data = html.match(
@@ -356,7 +354,7 @@ describe('renderShell payload contract', () => {
     );
     expect(data).not.toBeNull();
     const parsed = JSON.parse(data![1]!) as PagePayload;
-    expect(parsed.page.route).toBe('/a/b.html');
+    expect(parsed.page.route).toBe('/a/b');
     expect(parsed.site.base).toBe('../');
   });
 });
@@ -394,10 +392,10 @@ describe('serializeInlineJson script-safety', () => {
 
 describe('renderShell hostile payload embedding', () => {
   it('cannot break out of the payload script tag', () => {
-    const hostile = payload('/x.html');
+    const hostile = payload('/x');
     hostile.site.description = '</script><!-- "-->';
     hostile.page.title = '<script>"&';
-    const html = shell('/x.html', { payload: hostile });
+    const html = shell('/x', { payload: hostile });
     const data = html.match(
       /<script type="application\/json" id="__AP_DATA__">(.*?)<\/script>/s,
     );
@@ -409,9 +407,9 @@ describe('renderShell hostile payload embedding', () => {
   });
 
   it('round-trips U+2028/U+2029 inside embedded strings', () => {
-    const payload2028 = payload('/x.html');
+    const payload2028 = payload('/x');
     payload2028.page.title = 'a\u2028b\u2029c';
-    const html = shell('/x.html', { payload: payload2028 });
+    const html = shell('/x', { payload: payload2028 });
     const data = html.match(
       /<script type="application\/json" id="__AP_DATA__">(.*?)<\/script>/s,
     );
@@ -422,11 +420,11 @@ describe('renderShell hostile payload embedding', () => {
 
 describe('renderShell meta attribute escaping', () => {
   it('entity-escapes <, >, & and " in title and description', () => {
-    const hostile = payload('/x.html');
+    const hostile = payload('/x');
     hostile.page.title = 'T>&"';
     hostile.site.title = 'S<b>';
     hostile.site.description = 'D<!--"-->';
-    const html = shell('/x.html', { payload: hostile });
+    const html = shell('/x', { payload: hostile });
     // Composed title "T>&\" | S<b>" must land entity-escaped.
     const escapedTitle = 'T&gt;&amp;&quot; | S&lt;b&gt;';
     expect(html).toContain(`<title>${escapedTitle}</title>`);

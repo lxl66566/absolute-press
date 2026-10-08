@@ -51,29 +51,25 @@ describe('groupArchiveArticles', () => {
   it('merges names differing only in case and dedupes articles', () => {
     const groups = groupArchiveArticles(
       [
-        article('/a.html', ['Linux']),
-        article('/b.html', ['linux']),
+        article('/a', ['Linux']),
+        article('/b', ['linux']),
         // Both casings on one article: counted per variant, listed once.
-        article('/c.html', ['Linux', 'linux']),
+        article('/c', ['Linux', 'linux']),
       ],
       'tag',
     );
     expect(groups).toHaveLength(1);
     // `Linux` appears twice, `linux` twice -> tie, first seen wins.
     expect(groups[0]?.name).toBe('Linux');
-    expect(groups[0]?.articles.map(a => a.route)).toEqual([
-      '/a.html',
-      '/b.html',
-      '/c.html',
-    ]);
+    expect(groups[0]?.articles.map(a => a.route)).toEqual(['/a', '/b', '/c']);
   });
 
   it('picks the most frequent casing as the display name', () => {
     const groups = groupArchiveArticles(
       [
-        article('/a.html', ['linux']),
-        article('/b.html', ['Linux']),
-        article('/c.html', ['Linux']),
+        article('/a', ['linux']),
+        article('/b', ['Linux']),
+        article('/c', ['Linux']),
       ],
       'tag',
     );
@@ -83,7 +79,7 @@ describe('groupArchiveArticles', () => {
 
   it('keeps distinct names as separate groups in deterministic order', () => {
     const groups = groupArchiveArticles(
-      [article('/a.html', ['Rust', 'Linux']), article('/b.html', ['linux'])],
+      [article('/a', ['Rust', 'Linux']), article('/b', ['linux'])],
       'tag',
     );
     expect(groups.map(g => g.name)).toEqual(['Linux', 'Rust']);
@@ -91,7 +87,7 @@ describe('groupArchiveArticles', () => {
 
   it('groups categories the same way', () => {
     const groups = groupArchiveArticles(
-      [article('/a.html', [], ['Coding']), article('/b.html', [], ['coding'])],
+      [article('/a', [], ['Coding']), article('/b', [], ['coding'])],
       'category',
     );
     expect(groups).toHaveLength(1);
@@ -103,11 +99,11 @@ describe('assertNoArchiveCollisions', () => {
   it('fails when an archive route collides with a page route', () => {
     expect(() =>
       assertNoArchiveCollisions(
-        [page('/category/foo.html', 'category/foo.md')],
-        [archive('/category/foo.html', 'category', 'foo')],
+        [page('/category/foo', 'category/foo.md')],
+        [archive('/category/foo', 'category', 'foo')],
       ),
     ).toThrow(
-      /duplicate route \/category\/foo\.html: category archive "foo" and page \/content\/category\/foo\.md both map to it/,
+      /duplicate route \/category\/foo: category archive "foo" and page \/content\/category\/foo\.md both map to it/,
     );
   });
 
@@ -115,23 +111,20 @@ describe('assertNoArchiveCollisions', () => {
     expect(() =>
       assertNoArchiveCollisions(
         [],
-        [
-          archive('/tag/x.html', 'tag', 'x'),
-          archive('/tag/x.html', 'tag', 'X'),
-        ],
+        [archive('/tag/x', 'tag', 'x'), archive('/tag/x', 'tag', 'X')],
       ),
     ).toThrow(
-      /duplicate route \/tag\/x\.html: tag archive "x" and tag archive "X" both map to it/,
+      /duplicate route \/tag\/x: tag archive "x" and tag archive "X" both map to it/,
     );
   });
 
   it('passes on distinct routes', () => {
     expect(() =>
       assertNoArchiveCollisions(
-        [page('/blog/foo.html', 'blog/foo.md')],
+        [page('/blog/foo', 'blog/foo.md')],
         [
-          archive('/category/foo.html', 'category', 'foo'),
-          archive('/tag/foo.html', 'tag', 'foo'),
+          archive('/category/foo', 'category', 'foo'),
+          archive('/tag/foo', 'tag', 'foo'),
         ],
       ),
     ).not.toThrow();
@@ -142,8 +135,8 @@ describe('assertNoArchiveCollisions', () => {
   it('treats routes differing only in case as distinct', () => {
     expect(() =>
       assertNoArchiveCollisions(
-        [page('/category/foo.html', 'category/foo.md')],
-        [archive('/category/Foo.html', 'category', 'Foo')],
+        [page('/category/foo', 'category/foo.md')],
+        [archive('/category/Foo', 'category', 'Foo')],
       ),
     ).not.toThrow();
   });

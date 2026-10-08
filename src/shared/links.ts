@@ -18,7 +18,7 @@ export function hasUriScheme(href: string): boolean {
  * True for any href that is not a site-internal path: it carries a URI
  * scheme (any of them — the old mailto/tel whitelist is subsumed) or is
  * protocol-relative (`//host/x`). Internal shapes never match: anchors
- * (`#f`), site-absolute (`/a/b.html`), relative (`./x`, `../x`, `a/b`) and
+ * (`#f`), site-absolute (`/a/b`), relative (`./x`, `../x`, `a/b`) and
  * query-only (`?x`).
  *
  * Callers lean on exactly this semantic:

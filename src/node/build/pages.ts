@@ -3,7 +3,12 @@ import path from 'node:path';
 
 import { glob } from 'tinyglobby';
 
-import type { ArticleInfo, LocaleInfo, PageMeta } from '../../shared/types.ts';
+import type {
+  ArticleInfo,
+  DirectoryIndex,
+  LocaleInfo,
+  PageMeta,
+} from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
 import { normalizeRouteForMatch } from './route-match.ts';
 
@@ -14,7 +19,7 @@ export interface PageSource {
   locale: LocaleInfo;
   /** Path relative to the locale content root, posix separators. */
   relPath: string;
-  /** Locale-prefixed route, e.g. `/guide/a.html`, `/en/index.html`. */
+  /** Locale-prefixed clean route, e.g. `/guide/a`, `/guide/`, `/en/`. */
   route: string;
 }
 
@@ -27,33 +32,91 @@ export interface RenderedPage extends PageSource {
 export const INDEX_STEMS: ReadonlySet<string> = new Set(['index', 'README']);
 
 /**
- * `guide/getting-started.md` -> `/guide/getting-started.html`; `index.md`
- * and `README.md` both map to their directory's `index.html` (VuePress
- * semantics, mirrored by LinkResolver's index/README candidates).
+ * `guide/getting-started.md` -> `/guide/getting-started`; `index.md` and
+ * `README.md` map to their directory's index route (VuePress semantics,
+ * mirrored by LinkResolver's index/README candidates): `/guide/` in
+ * `directoryIndex: 'slash'` mode, `/guide` in 'bare' mode; the root index
+ * is `/` in both.
  */
-export function routeOf(relPath: string, prefix: string): string {
+export function routeOf(
+  relPath: string,
+  prefix: string,
+  directoryIndex: DirectoryIndex,
+): string {
   const noExt = relPath.replace(/\.md$/, '');
   const slash = noExt.lastIndexOf('/');
   const stem = noExt.slice(slash + 1);
-  const leaf = INDEX_STEMS.has(stem) ? 'index.html' : `${stem}.html`;
+  const dir = noExt.slice(0, slash + 1); // '' or a trailing-slash directory
+  const routePath = INDEX_STEMS.has(stem)
+    ? directoryIndex === 'bare' && dir !== ''
+      ? dir.slice(0, -1)
+      : dir
+    : noExt;
   // Segments are URL-encoded so routes match request URLs in dev and in hrefs.
-  return `${prefix}/${noExt.slice(0, slash + 1)}${leaf}`
+  return `${prefix}/${routePath}`
     .split('/')
     .map(seg => encodeURIComponent(seg))
     .join('/');
 }
 
 /**
+ * Page-relative href from one route to another, resolved by the browser
+ * against the source page's URL directory (the route up to its last '/').
+ * Trailing slashes of slash-mode directory indexes must survive — `/guide/`
+ * and `/guide` are different routes there — and the source's own directory
+ * index is `./` in slash mode but `../<dir>` in bare mode ('./' would cost a
+ * Cloudflare Pages redirect to the bare canonical).
+ */
+export function relativeRoute(fromRoute: string, toRoute: string): string {
+  const base = fromRoute.slice(0, fromRoute.lastIndexOf('/') + 1);
+  // `base` ends with '/', so a prefix match is always segment-aligned.
+  if (toRoute.startsWith(base)) {
+    const down = toRoute.slice(base.length);
+    return down === '' ? './' : down;
+  }
+  const baseSegs = base.split('/').filter(Boolean);
+  const trailing = toRoute.endsWith('/');
+  const toSegs = toRoute.split('/').filter(Boolean);
+  let common = 0;
+  while (
+    common < baseSegs.length &&
+    common < toSegs.length &&
+    baseSegs[common] === toSegs[common]
+  ) {
+    common++;
+  }
+  const ups = '../'.repeat(baseSegs.length - common);
+  const down = toSegs.slice(common).join('/');
+  if (down !== '') return `${ups}${down}${trailing ? '/' : ''}`;
+  if (ups !== '') return ups;
+  // The target is the source's own directory: slash mode's `/guide/` is
+  // './'; bare mode's `/guide` needs '../guide' ('./' resolves to '/guide/').
+  return toRoute === base ? './' : `../${baseSegs[baseSegs.length - 1] ?? ''}`;
+}
+
+/**
  * Route (URL-encoded) -> emitted file name. Static hosts decode the request
  * path before file lookup, so files must be written with decoded segment
  * names: `tag/%E4%B8%BB%E9%A2%98.html` on disk would 404 for the URL
- * `/tag/%E4%B8%BB%E9%A2%98.html` (lookup key `tag/主题.html`).
+ * `/tag/%E4%B8%BB%E9%A2%98` (lookup key `tag/主题.html`).
+ *
+ * Bare-mode directory indexes (`/guide`) share the extensionless route form
+ * with leaf pages, so callers pass `index: true` for directory-index routes
+ * to pick the `index.html` file shape. (Both mapping to one route is a
+ * build error — see assertUniqueRoutes — so the flag can never pick wrong.)
  */
-export function routeToFileName(route: string): string {
-  return route
+export function routeToFileName(
+  route: string,
+  directoryIndex: DirectoryIndex,
+  index = false,
+): string {
+  const decoded = route
     .split('/')
     .map(seg => decodeURIComponent(seg))
     .join('/');
+  if (decoded.endsWith('/')) return `${decoded}index.html`;
+  if (directoryIndex === 'bare' && index) return `${decoded}/index.html`;
+  return `${decoded}.html`;
 }
 
 /** Last segment of a content-relative path without the `.md` extension. */
@@ -96,7 +159,7 @@ export async function scanPages(config: ResolvedConfig): Promise<PageSource[]> {
         filePath: path.join(dir, relPath),
         locale,
         relPath,
-        route: routeOf(relPath, locale.prefix),
+        route: routeOf(relPath, locale.prefix, config.urls.directoryIndex),
       }));
     }),
   );

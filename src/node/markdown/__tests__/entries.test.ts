@@ -286,7 +286,7 @@ describe('ExpandableList rendering', () => {
     ].join('\n');
     const html = xlist(src);
     expect(html).toContain(
-      '<td class="ap-xlist__item-meta"><a href="/resolved/target.html">资源</a></td>',
+      '<td class="ap-xlist__item-meta"><a href="/resolved/target">资源</a></td>',
     );
   });
 
