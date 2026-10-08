@@ -18,6 +18,8 @@ import { SiteStore } from './site.ts';
 
 const VIRTUAL_ISLANDS_ID = 'virtual:absolute-press/islands';
 const RESOLVED_ISLANDS_ID = '\0virtual:absolute-press/islands';
+const VIRTUAL_SITE_DATA_ID = 'virtual:absolute-press/site-data';
+const RESOLVED_SITE_DATA_ID = '\0virtual:absolute-press/site-data';
 /** Posix prefix of the framework's client sources: /@fs/ dev URLs of app
  * modules must land here (root-relative `/src/` when root == package root). */
 const APP_SRC_PREFIX = `${toPosix(path.resolve(packageRoot(), 'src'))}/`;
@@ -53,6 +55,9 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
   // Vitest loads the vite config too; stay inert there.
   const inert = Boolean(process.env.VITEST);
   let isBuild = false;
+  // First store sync (build buildStart / dev configureServer); the site-data
+  // module's load awaits it so its default export never serves pre-sync.
+  let syncDone: Promise<void> | null = null;
 
   const islandsModule = (): string => {
     const entries = Object.entries(config.islands);
@@ -64,6 +69,22 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       .map(([tag], i) => `${JSON.stringify(tag)}: I${i}`)
       .join(', ');
     return `${imports.join('\n')}\nexport default { ${body} };\n`;
+  };
+
+  /** Source of `virtual:absolute-press/site-data`: the serialized onScan
+   * hook result. Async because load must wait for the first store sync. */
+  const siteDataModule = async (): Promise<string> => {
+    await syncDone;
+    if (!config.onScan) {
+      throw new Error(
+        '[absolute-press] "virtual:absolute-press/site-data" is imported but no onScan hook is configured; add an onScan hook to the site config to provide site data',
+      );
+    }
+    const data = store.siteData;
+    // JSON.stringify(undefined) yields no source text; emit the literal.
+    return data === undefined
+      ? 'export default undefined;\n'
+      : `export default ${JSON.stringify(data)};\n`;
   };
 
   return {
@@ -107,18 +128,23 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       store = new SiteStore(config);
     },
     resolveId(id) {
-      if (!inert && id === VIRTUAL_ISLANDS_ID) return RESOLVED_ISLANDS_ID;
+      if (inert) return null;
+      if (id === VIRTUAL_ISLANDS_ID) return RESOLVED_ISLANDS_ID;
+      if (id === VIRTUAL_SITE_DATA_ID) return RESOLVED_SITE_DATA_ID;
       return null;
     },
     load(id) {
-      if (!inert && id === RESOLVED_ISLANDS_ID) return islandsModule();
+      if (inert) return null;
+      if (id === RESOLVED_ISLANDS_ID) return islandsModule();
+      if (id === RESOLVED_SITE_DATA_ID) return siteDataModule();
       return null;
     },
     async buildStart() {
       // rolldown-vite also runs buildStart for the dev server; only the
       // actual build may flip the link resolver into asset-copy mode.
       if (inert || !isBuild) return;
-      await store.sync('build');
+      syncDone = store.sync('build');
+      await syncDone;
     },
     configurePreviewServer(server) {
       if (inert) return;
@@ -252,7 +278,10 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       // page opens the HMR websocket and the full-reload broadcasts above
       // (md edits, structure changes) arrive nowhere.
       const hmrClientTag = `<script type="module" src="${path.posix.join(server.config.base, '@vite/client')}"></script>`;
-      const ready = store.sync('dev');
+      // The middleware and the site-data module load gate on the same
+      // first-sync promise.
+      syncDone = store.sync('dev');
+      const ready = syncDone;
       // Dev FOUC fix: vite serves CSS as JS modules (the style tag only
       // exists after the entry executes), so every MPA navigation paints
       // the raw HTML first. Inject the entry's static CSS as render-blocking

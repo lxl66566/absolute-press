@@ -382,6 +382,70 @@ describe('absolutePress virtual islands module', () => {
   });
 });
 
+// -- virtual site-data module ------------------------------------------------
+
+describe('absolutePress virtual site-data module', () => {
+  const VIRTUAL_ID = 'virtual:absolute-press/site-data';
+  const RESOLVED_ID = '\0virtual:absolute-press/site-data';
+
+  it('maps the virtual id even without an onScan hook', async () => {
+    await makeTmp('ap-sitedata-');
+    const plugin = livePlugin(userConfig());
+    expect(callHook(plugin.resolveId, {}, VIRTUAL_ID)).toBe(RESOLVED_ID);
+    expect(callHook(plugin.resolveId, {}, './other.ts')).toBeNull();
+  });
+
+  it('serializes the onScan result after the build sync', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(
+      root,
+      userConfig({ onScan: () => ({ pages: 1 }) }),
+    );
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default {"pages":1};\n',
+    );
+  });
+
+  it('emits the undefined literal when the hook returns nothing', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(
+      root,
+      userConfig({ onScan: () => undefined }),
+    );
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default undefined;\n',
+    );
+  });
+
+  it('fails the load with guidance when no onScan hook is configured', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(root);
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).rejects.toThrowError(
+      /virtual:absolute-press\/site-data[\s\S]*onScan/,
+    );
+  });
+
+  it('gates load on the first dev sync', async () => {
+    const { plugin } = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ onScan: () => ({ ready: true }) }),
+    );
+    // configureServer starts the sync; only its side effects matter here.
+    stubServer(plugin);
+    // Called while the initial sync is still in flight: without the gate
+    // siteData is still undefined and the module would emit `undefined`.
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default {"ready":true};\n',
+    );
+  });
+});
+
 // -- dev server --------------------------------------------------------------
 
 interface WsMessage {
@@ -525,6 +589,7 @@ async function waitHandled(handled: Handled): Promise<void> {
 
 async function devFixture(
   files: Record<string, string>,
+  cfg: AbsolutePressConfig = userConfig(),
 ): Promise<{ plugin: Plugin; root: string }> {
   const root = await makeTmp('ap-dev-');
   await Promise.all(
@@ -535,7 +600,7 @@ async function devFixture(
       await writeFile(path.join(root, 'content', rel), body);
     }),
   );
-  const plugin = livePlugin(userConfig());
+  const plugin = livePlugin(cfg);
   runConfig(plugin, { root }, hookEnv('serve'));
   callHook(plugin.configResolved, {}, { root });
   return { plugin, root };
