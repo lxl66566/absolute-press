@@ -1,20 +1,10 @@
+import { isExternalHref, withBase } from '../../shared/links';
 import type { PagePayload } from '../../shared/types';
 
-/**
- * Join a site route ('/a/b') with the per-page relative base ('', '../').
- * The home route '/' joins to the bare base; when that is '' (the current
- * page IS the home page) emit './' — an empty href would mean the current
- * page per HTML semantics, which is the same target, but './' also works
- * when the link is rendered into another page's DOM (e.g. drawer chrome).
- */
-export function withBase(base: string, route: string): string {
-  const joined = base + route.replace(/^\/+/, '');
-  return joined === '' ? './' : joined;
-}
-
-// Single shared predicate (any scheme or protocol-relative = external).
-// Re-exported here so link consumers keep one import site.
-export { isExternalHref } from '../../shared/links';
+// Single shared predicate (any scheme or protocol-relative = external) and
+// the base join, both defined in shared/links (node build components consume
+// them too); re-exported here so link consumers keep one import site.
+export { isExternalHref, withBase };
 
 /** Current-route match tolerant of a trailing slash ('/guide/' vs '/guide'). */
 const normalizeRoute = (r: string): string => {

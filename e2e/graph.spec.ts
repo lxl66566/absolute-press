@@ -42,13 +42,14 @@ test.describe('related articles graph', () => {
     await mountGraph(page);
     const svg = page.locator('#ap-related .ap-graph-svg');
     await expect(svg).toBeVisible();
-    // deploy + its five neighbors as dots; star edges plus the induced
-    // member-member edges (payload RelatedLink.links).
+    // deploy + its four neighbors as dots; star edges plus the induced
+    // member-member edges (payload RelatedLink.links). Counts track the
+    // current docs cross-links (guide index / faq / seo / writing -> deploy).
     await expect(svg.locator('g.ap-graph-node:not(.is-current)')).toHaveCount(
-      5,
+      4,
     );
     await expect(svg.locator('g.ap-graph-node.is-current')).toHaveCount(1);
-    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(12);
+    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(7);
   });
 
   test('wheel zoom changes the canvas transform', async ({ page }) => {

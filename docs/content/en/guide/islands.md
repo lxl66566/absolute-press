@@ -12,6 +12,8 @@ icon: puzzle
 
 Content is fully static by default and takes no part in client-side activation; all interactivity is concentrated in islands: at build time a component is pre-rendered into a `<div data-ap-island>` placeholder, and only these nodes execute code in the browser — the rest of the content stays pure HTML. The built-in list lives in `src/shared/islands.ts`, and the runtime registry has a compile-time coverage check (it must cover exactly the built-in list).
 
+A sibling capability with the same tag syntax is [build components](./markdown.md#build-components) (e.g. `<RecentArticles />`): they produce their final static HTML at build time, with zero client JS.
+
 ## Syntax
 
 Write PascalCase tags directly in markdown:

@@ -51,6 +51,16 @@ islands: {
 
 站点追加的自定义 island：PascalCase 标签名 → 相对项目根的模块路径。内置名单（Giscus/PasswordGate/ZoomedImg/Mermaid/G2Plot/ExpandableList）之外的能力入口，详见[Islands](./islands.md)。
 
+## buildComponents
+
+```ts
+buildComponents: {
+  disable: ['RecentArticles'],
+}
+```
+
+内置构建组件的总开关：构建组件是构建期渲染为最终静态 HTML 的 markdown 标签（清单与用法见 [Markdown 扩展](./markdown.md#构建组件)）。`disable` 按标签名关闭内置组件——被关闭的标签渲染为空并输出构建警告；未知名字在配置解析时报错并列出全部可用名。
+
 ## encrypt
 
 ```ts

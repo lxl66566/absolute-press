@@ -39,6 +39,7 @@ import { heimuRule } from './heimu.ts';
 import {
   extractIslands,
   islandPlaceholder,
+  renderBuildComponentMarker,
   renderIslandDiv,
   resolveZoomedImgSrc,
 } from './islands.ts';
@@ -115,9 +116,12 @@ export async function createMarkdownRenderer(
   // Raw-HTML <img> tags bypass the image renderer rule; size them here.
   if (options.imageSize) installRawHtmlImageSizes(md, options.imageSize);
 
-  const islandNames = new Set(
-    (options.islands ?? []).map(island => island.name),
-  );
+  // Build component names are extraction-registered too — they flow
+  // through the same tag pipeline, then branch to a transient marker
+  // instead of a hydration div.
+  const buildComponents = options.buildComponents ?? new Set<string>();
+  const islandNames = new Set<string>(buildComponents);
+  for (const island of options.islands ?? []) islandNames.add(island.name);
   // Site islands opted into the `@@@` entry-list pipeline (data-backed
   // xlist pages): the build renders the static table skeleton, the island
   // fills meta cells client-side.
@@ -126,6 +130,8 @@ export async function createMarkdownRenderer(
       .filter(island => island.entryList === true)
       .map(island => island.name),
   );
+  // Inner-markdown misuse of a build component warned once per file+tag.
+  const warnedBuildInner = new Set<string>();
 
   /** Render a markdown fragment; island inner md recurses through here. */
   function renderFragment(
@@ -152,6 +158,22 @@ export async function createMarkdownRenderer(
     }
     let html = md.render(text, env);
     islands.forEach((spec, index) => {
+      if (buildComponents.has(spec.name)) {
+        // Build components take no children — their content derives from
+        // site data. Stray inner markdown is ignored, warned once per file.
+        if (spec.inner.trim() !== '') {
+          const key = `${ctx.env.filePath}:${spec.name}`;
+          if (!warnedBuildInner.has(key)) {
+            warnedBuildInner.add(key);
+            console.warn(
+              `[absolute-press] build component <${spec.name}> takes no children; inner markdown ignored in ${ctx.env.filePath}`,
+            );
+          }
+        }
+        const marker = renderBuildComponentMarker(spec);
+        html = html.replace(islandPlaceholder(index), () => marker);
+        return;
+      }
       if (options.resolveImage) {
         resolveZoomedImgSrc(spec, ctx.env, options.resolveImage);
       }

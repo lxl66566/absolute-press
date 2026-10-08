@@ -557,3 +557,39 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 ```md
 `html: true`，未知 HTML 原样透传：<span style="color: var(--c-accent)">行内 HTML 片段</span>。`<template #xxx>` 与 vue 组件语法也按未知 HTML 透传（迁移时需逐页改造，见[迁移指南](./migration.md)）。
 ```
+
+## 构建组件
+
+构建组件（build component）与 [islands](./islands.md) 共用同一套 PascalCase 标签语法，但产物是构建期渲染好的最终静态 HTML：没有水合占位、没有客户端 JS，内容对 SEO 与无 JS 环境完全可见。适合内容完全由站点数据推导的挂件；需要交互的组件仍然走 islands。
+
+内置清单（唯一事实源是 `src/shared/components.ts`）：
+
+| 标签             | 说明                        |
+| ---------------- | --------------------------- |
+| `RecentArticles` | 最新文章 + 最近更新双栏列表 |
+
+### RecentArticles
+
+```md
+<RecentArticles :latest="5" :updated="5" />
+```
+
+- `:latest` / `:updated`：两栏各自条数，须为非负整数，默认各 5；`0` 隐藏该栏，两栏全 0 时整个组件不产出
+- 「最新」按 frontmatter `date` 降序；「最近更新」按 git 最后提交时间降序，排除没有 git 时间与从未单独提交过的页面（`updatedAt === createdAt`）
+- 条目来自本 locale 的文章列表（locale 首页不算文章；frontmatter `feed: false` 的页面仍在列，与首页文章流口径一致）
+- 链接是页面相对地址（与正文 markdown 链接同构），行首图标取 frontmatter `icon` 注册的 svg
+- 列标题按页面 `<html lang>` 解析文案（中/英），空栏整体省略；组件不进 TOC
+
+样式钩子（站点 CSS 可整体重绘）：`ap-recent`、`ap-recent__col`、`ap-recent__title`、`ap-recent__list`、`ap-recent__item`、`ap-recent__link`、`ap-recent__name`、`ap-recent__date`。
+
+标签只能自闭合空用：构建组件没有 children 槽，写了内部 markdown 会收到构建警告并被忽略。
+
+### 关闭内置组件
+
+```ts
+buildComponents: {
+  disable: ['RecentArticles'],
+}
+```
+
+被禁用的标签渲染为空并输出构建警告；未知名字在配置解析时报错并列出全部可用组件，详见[配置参考](./configuration.md#buildcomponents)。

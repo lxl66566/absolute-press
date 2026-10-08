@@ -58,7 +58,10 @@ function pngBytes(width: number, height: number): Buffer {
   return buf;
 }
 
-async function contentFixture(files: Record<string, string>): Promise<Fixture> {
+async function contentFixture(
+  files: Record<string, string>,
+  configOverrides: Partial<Parameters<typeof resolveConfig>[0]> = {},
+): Promise<Fixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ap-store-'));
   tmpDirs.push(root);
   await Promise.all(
@@ -75,6 +78,7 @@ async function contentFixture(files: Record<string, string>): Promise<Fixture> {
       title: 'Site',
       description: 'desc',
       hostname: 'https://test.example.com',
+      ...configOverrides,
     },
     root,
   );
@@ -887,5 +891,54 @@ describe('SiteStore onScan', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     expect(store.siteData).toBeUndefined();
+  });
+
+  it('renders the RecentArticles build component into final static html', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n\n<RecentArticles :latest="2" />\n',
+      'a.md': '---\ndate: 2026-01-02\n---\n\n# A\n',
+      'b.md': '---\ndate: 2026-01-01\n---\n\n# B\n',
+      'c.md': '---\ndate: 2025-12-31\n---\n\n# C\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+    const html = store.devHtml('/') ?? '';
+    // Marker fully swapped, columns rendered newest-first, md-link href
+    // shapes on the home base. Tmpdir has no git history, so the updated
+    // column (all-null git times) is omitted entirely.
+    expect(html).not.toContain('data-ap-build');
+    expect(html).toContain('class="ap-recent"');
+    expect(html).toContain('最新文章');
+    expect(html).not.toContain('最近更新');
+    expect(html).toContain('href="a"');
+    expect(html).toContain('href="b"');
+    expect(html).not.toContain('href="c"');
+    expect(html).toContain('>A</span>');
+    expect(html).toContain('2026-01-02');
+  });
+
+  it('renders a disabled build component as nothing, warning once', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n\n<RecentArticles />\n',
+        'a.md': '---\ndate: 2026-01-02\n---\n\n# A\n',
+      },
+      { buildComponents: { disable: ['RecentArticles'] } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const html = store.devHtml('/') ?? '';
+      expect(html).not.toContain('ap-recent');
+      expect(html).not.toContain('data-ap-build');
+      store.devHtml('/');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /RecentArticles.*disabled.*buildComponents\.disable/,
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

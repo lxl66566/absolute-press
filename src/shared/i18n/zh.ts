@@ -31,6 +31,11 @@ export const zh = {
   feed: {
     empty: '暂无文章',
   },
+  recent: {
+    /** Column headings of the RecentArticles build component. */
+    latest: '最新文章',
+    updated: '最近更新',
+  },
   archive: {
     categoryTitle: '分类：{name}',
     tagTitle: '标签：{name}',

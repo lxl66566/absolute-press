@@ -310,6 +310,19 @@ export function renderIslandDiv(spec: IslandSpec, innerHtml: string): string {
 }
 
 /**
+ * Transient marker for a build component (no inner html — these components
+ * derive their content from site data, not markdown children). Survives the
+ * markdown render as a plain div; the build layer (site.ts decorateContent)
+ * swaps it for the component's final static HTML once the site-wide page
+ * data exists. Props are URI-encoded, not entity-escaped: the node-side
+ * round trip decodes them without needing an entity-unescape map.
+ */
+export function renderBuildComponentMarker(spec: IslandSpec): string {
+  const props = encodeURIComponent(JSON.stringify(spec.props));
+  return `<div data-ap-build="${escapeHtml(spec.name)}" data-props="${props}"></div>`;
+}
+
+/**
  * Resolve a ZoomedImg `src` prop through the image pipeline so relative
  * (./ ../) paths behave exactly like markdown images (asset copy + base
  * token). Absolute (/...), protocol-relative and remote URLs stay untouched.

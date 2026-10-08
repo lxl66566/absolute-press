@@ -28,6 +28,8 @@ pnpm install && pnpm dev
 - 从 vuepress-theme-hope 迁移：[迁移指南](./guide/migration.md)，正文语法逐字兼容
 - 面向 SSG 开发者的设计取舍与实现细节：[设计与实现](./guide/design/index.md)
 
+<RecentArticles />
+
 ## License
 
 MIT

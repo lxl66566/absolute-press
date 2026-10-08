@@ -28,6 +28,8 @@ pnpm install && pnpm dev
 - Migrating from vuepress-theme-hope: [Migration guide](./guide/migration.md); content syntax is character-for-character compatible
 - Design trade-offs and implementation details for SSG developers: [Design and implementation](./guide/design/index.md)
 
+<RecentArticles />
+
 ## License
 
 MIT

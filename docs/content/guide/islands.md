@@ -12,6 +12,8 @@ icon: puzzle
 
 正文默认纯静态、不参与客户端激活；交互能力全部收敛在 island 上：构建期把组件预渲染成 `<div data-ap-island>` 占位，浏览器端只有这些节点会执行代码，正文其余部分始终是纯 HTML。内置名单在 `src/shared/islands.ts`，runtime 注册表有编译期覆盖检查（必须恰好覆盖内置名单）。
 
+另一类同语法的能力是[构建组件](./markdown.md#构建组件)（如 `<RecentArticles />`）：构建期直接产出最终静态 HTML，全程零客户端 JS。
+
 ## 语法
 
 在 markdown 里直接写 PascalCase 标签：

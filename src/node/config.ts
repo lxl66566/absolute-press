@@ -1,5 +1,9 @@
 import path from 'node:path';
 
+import {
+  BUILD_COMPONENT_NAMES,
+  isBuildComponentName,
+} from '../shared/components.ts';
 import type {
   CuratedNavItem,
   DirectoryIndex,
@@ -344,6 +348,8 @@ export interface ResolvedConfig {
   islands: Record<string, string>;
   /** Site islands opted into the `@@@` entry-list children pipeline. */
   entryListIslands: string[];
+  /** Built-in build components disabled via config (validated tag names). */
+  buildComponents: { disabled: string[] };
   /** Normalized code block options. */
   code: ResolvedCodeOptions;
   /** Estimated reading time in the article meta row. */
@@ -452,6 +458,16 @@ export function resolveConfig(
     order: config.sidebar?.order ?? [],
     tweaks: config.sidebar?.tweaks ?? {},
   };
+  // Runtime guard for the compile-time disable union (JS config files).
+  // Listing the valid names in the error doubles as the discoverability
+  // surface for site authors.
+  const disabled = config.buildComponents?.disable ?? [];
+  const unknownComponent = disabled.find(name => !isBuildComponentName(name));
+  if (unknownComponent !== undefined) {
+    throw new Error(
+      `[absolute-press] buildComponents.disable: unknown build component '${unknownComponent}'; available: ${BUILD_COMPONENT_NAMES.join(', ')}`,
+    );
+  }
   return {
     root,
     publicDir: publicDir || null,
@@ -471,6 +487,7 @@ export function resolveConfig(
       ]),
     ),
     entryListIslands: config.entryListIslands ?? [],
+    buildComponents: { disabled },
     code,
     readingTime: config.readingTime ?? true,
     home: {

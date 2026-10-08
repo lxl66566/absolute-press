@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { BUILD_COMPONENT_NAMES } from '../../shared/components.ts';
 import { BUILTIN_ISLAND_NAMES } from '../../shared/islands.ts';
 import { seoPageType } from '../../shared/seo.ts';
 import type {
@@ -31,6 +32,10 @@ import {
 } from './assets.ts';
 import type { DeadLink } from './assets.ts';
 import { clientEntry } from './clientEntry.ts';
+import {
+  BUILD_COMPONENT_RENDERERS,
+  type BuildComponentContext,
+} from './components.ts';
 import { renderCloudflareHeaders } from './deploy.ts';
 import { encryptRuleFor } from './encrypt.ts';
 import { renderRobots, renderRss, renderSitemap } from './feeds.ts';
@@ -155,6 +160,11 @@ export interface EmittedFile {
 const GATE_STYLE =
   '<style>[data-ap-island="PasswordGate"]>:not(.ap-gate){display:none}</style>';
 
+// Transient build component marker (markdown/islands.ts emits it after the
+// md render; the props value is URI-encoded so it never holds a raw quote).
+const BUILD_MARKER_RE =
+  /<div data-ap-build="(\w+)" data-props="([^"]*)"><\/div>/g;
+
 /**
  * Owns the whole site state: scan -> render (cached) -> nav/sidebar/payload
  * -> shell HTML. Shared by the dev middleware and the build emitter.
@@ -242,6 +252,10 @@ export class SiteStore {
           ? { entryList: true }
           : {}),
       })),
+      // Build component tags always resolve for extraction; the disable
+      // policy is applied at the marker swap, so disabling never makes the
+      // tag fall back to literal text.
+      buildComponents: new Set(BUILD_COMPONENT_NAMES),
     });
     this.rendererPromise = promise;
     this.renderer = await promise;
@@ -733,16 +747,19 @@ export class SiteStore {
   }
 
   /**
-   * Page-body decorations around the static markdown HTML: gated pages are
-   * wrapped in a PasswordGate island placeholder (content hidden until the
-   * client gate unlocks it); article pages get the Giscus island appended.
+   * Page-body decorations around the static markdown HTML: build component
+   * markers resolve to their final HTML (gated pages keep them inside the
+   * gate), gated pages are wrapped in a PasswordGate island placeholder
+   * (content hidden until the client gate unlocks it); article pages get the
+   * Giscus island appended.
    */
   private decorateContent(
     page: PageSource,
     payload: PagePayload,
     html: string,
+    ctx: RenderContext,
   ): string {
-    let content = html;
+    let content = this.swapBuildComponents(page, ctx, html);
     const encrypted = payload.encrypted;
     if (encrypted) {
       // PasswordGate derives its messages from the page language client-side;
@@ -765,6 +782,48 @@ export class SiteStore {
       content += `<div data-ap-island="Giscus" data-props="${props}"></div>`;
     }
     return content;
+  }
+
+  /** Marker div emitted by the markdown renderer for a build component tag;
+   * the props attribute is URI-encoded (see renderBuildComponentMarker). */
+  private swapBuildComponents(
+    page: PageSource,
+    ctx: RenderContext,
+    html: string,
+  ): string {
+    if (!html.includes('data-ap-build=')) return html;
+    const buildCtx: BuildComponentContext = {
+      config: this.config,
+      // Locale-scoped article list; titles exist because this runs after the
+      // full render pass (chromeOf derives from RenderedPages).
+      articles: this.chromeOf(ctx, page.locale.key).articles,
+      base: baseOf(page.route),
+      icons: this.config.icons,
+      lang: page.locale.lang,
+      route: page.route,
+      filePath: page.filePath,
+    };
+    return html.replace(
+      BUILD_MARKER_RE,
+      (_match, name: string, encoded: string) => {
+        if (this.config.buildComponents.disabled.includes(name)) {
+          this.warnOnce(
+            `build-component:${page.filePath}:${name}`,
+            `[absolute-press] build component <${name}> is disabled (config buildComponents.disable); the tag in ${page.filePath} renders nothing`,
+          );
+          return '';
+        }
+        const render = BUILD_COMPONENT_RENDERERS[name];
+        // Extraction only registers registry names, so a miss is registry
+        // drift between shared/components.ts and here — render nothing rather
+        // than leaking a transient marker into the page.
+        if (render === undefined) return '';
+        const props: Record<string, unknown> = JSON.parse(
+          decodeURIComponent(encoded),
+        );
+        return render(props, buildCtx);
+      },
+    );
   }
 
   /** Frontmatter icons missing from the config icons map (build error). */
@@ -897,7 +956,7 @@ export class SiteStore {
         ? { katexHref: this.katexHref(assets.isBuild) }
         : {}),
       payload,
-      content: this.decorateContent(page, payload, rendered.html),
+      content: this.decorateContent(page, payload, rendered.html, ctx),
     });
   }
 

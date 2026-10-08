@@ -2,6 +2,7 @@
  * Data contracts shared between build-time (node) and client runtime.
  * Single source of truth — changes require architect approval.
  */
+import type { BuiltinBuildComponentName } from './components.ts';
 
 /** Frontmatter keys actually used by the framework. */
 export interface PageFrontmatter {
@@ -296,6 +297,20 @@ export interface SiteConfig {
   /** Canonical site URL (origin + optional base path) for SEO/sitemap/RSS, e.g. `https://user.github.io/repo`. */
   hostname: string;
   /**
+   * Built-in build component options. Build components are markdown tags
+   * rendered to final static HTML at build time (no client JS) — the
+   * inventory lives in shared/components.ts and the guide's build-component
+   * section.
+   */
+  buildComponents?: {
+    /**
+     * Built-in build components disabled by tag name: a disabled tag in
+     * markdown renders nothing and warns at build time. Unknown names fail
+     * config resolution with the list of available components.
+     */
+    disable?: BuiltinBuildComponentName[];
+  };
+  /**
    * Site favicon in the public root (same resolution as `nav.logo`):
    * '/favicon.svg' -> public/favicon.svg. The shell emits one
    * `<link rel="icon">` with the MIME type derived from the extension
@@ -519,6 +534,12 @@ export interface MarkdownOptions {
   resolveImage?: (src: string, env: MarkdownEnv) => string;
   /** Islands whose tags may appear in markdown. */
   islands?: MarkdownIsland[];
+  /**
+   * Build component tag names recognized by the markdown extraction. These
+   * tags render as transient markers that the build layer swaps for final
+   * static HTML after the render (see src/node/build/components.ts).
+   */
+  buildComponents?: ReadonlySet<string>;
   /** Code block presentation defaults. */
   code?: MarkdownCodeOptions;
 }

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { MarkdownRenderer } from '../../../shared/types.ts';
 import { ENV, makeRenderer } from './helpers.ts';
@@ -184,5 +184,62 @@ describe('islands', () => {
     expect(result.html).toContain(
       '&quot;src&quot;:&quot;https://example.com/x.png&quot;',
     );
+  });
+});
+
+describe('build component markers', () => {
+  let bmd: MarkdownRenderer;
+  beforeAll(async () => {
+    bmd = await makeRenderer({ buildComponents: new Set(['RecentArticles']) });
+  });
+
+  it('renders a transient marker instead of a hydration div', () => {
+    const result = bmd.render(
+      '<RecentArticles :latest="5" :updated="3" />',
+      ENV,
+    );
+    // Props are URI-encoded for the lossless node-side round trip.
+    expect(result.html).toContain(
+      `<div data-ap-build="RecentArticles" data-props="${encodeURIComponent(JSON.stringify({ latest: 5, updated: 3 }))}"></div>`,
+    );
+    expect(result.html).not.toContain('data-ap-island');
+  });
+
+  it('extracts fenced usage examples without emitting a second marker', () => {
+    const src = [
+      '<RecentArticles :latest="2" />',
+      '',
+      '```md',
+      '<RecentArticles :latest="2" />',
+      '```',
+    ].join('\n');
+    const result = bmd.render(src, ENV);
+    expect(result.html.match(/data-ap-build=/g)).toHaveLength(1);
+    // The fenced copy stays code, not a live tag.
+    expect(result.html).toContain('&lt;RecentArticles');
+  });
+
+  it('warns once for stray inner markdown and drops it', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const src = '<RecentArticles :latest="2">inner **bold**</RecentArticles>';
+      const first = bmd.render(src, ENV);
+      bmd.render(src, ENV);
+      expect(first.html).not.toContain('bold');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /RecentArticles.*no children.*\/content\/post\.md/,
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('leaves unregistered component tags as plain markdown', () => {
+    // No buildComponents option: the tag is not an island either, so the
+    // raw tag passes through as unknown html.
+    const plain = md.render('<RecentArticles />', ENV);
+    expect(plain.html).toContain('<RecentArticles');
+    expect(plain.html).not.toContain('data-ap-build');
   });
 });

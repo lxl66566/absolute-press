@@ -32,3 +32,15 @@ export function hasUriScheme(href: string): boolean {
 export function isExternalHref(href: string): boolean {
   return SCHEME_RE.test(href) || href.startsWith('//');
 }
+
+/**
+ * Join a site route ('/a/b') with the per-page relative base ('', '../').
+ * The home route '/' joins to the bare base; when that is '' (the current
+ * page IS the home page) emit './' — an empty href would mean the current
+ * page per HTML semantics, which is the same target, but './' also works
+ * when the link is rendered into another page's DOM (e.g. drawer chrome).
+ */
+export function withBase(base: string, route: string): string {
+  const joined = base + route.replace(/^\/+/, '');
+  return joined === '' ? './' : joined;
+}

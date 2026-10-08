@@ -31,6 +31,11 @@ export const en = {
   feed: {
     empty: 'No articles yet',
   },
+  recent: {
+    /** Column headings of the RecentArticles build component. */
+    latest: 'Latest articles',
+    updated: 'Recently updated',
+  },
   archive: {
     categoryTitle: 'Category: {name}',
     tagTitle: 'Tag: {name}',

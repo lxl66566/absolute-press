@@ -213,6 +213,20 @@ test.describe('docs: every page loads cleanly', () => {
     await expect(page.locator('#ap-content h1')).toContainText('分类：指南');
     await expect(page.locator('#ap-content ul li').first()).toBeVisible();
   });
+
+  test('homepage renders the RecentArticles build component statically', async ({
+    page,
+  }) => {
+    // Build components emit final static HTML: the columns and links are in
+    // the DOM before any client JS mounts (no data-ap-build residue).
+    await page.goto(`${DOCS}/`);
+    const widget = page.locator('#ap-content .ap-recent');
+    await expect(widget).toBeAttached();
+    await expect(widget.locator('.ap-recent__col')).toHaveCount(2);
+    await expect(widget.getByRole('link').first()).toHaveAttribute('href');
+    expect(await widget.locator('.ap-recent__item').count()).toBe(10);
+    await expect(page.locator('[data-ap-build]')).toHaveCount(0);
+  });
 });
 
 test.describe('docs: theme toggle', () => {

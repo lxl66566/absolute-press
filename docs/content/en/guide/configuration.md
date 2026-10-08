@@ -51,6 +51,16 @@ islands: {
 
 Custom islands added by the site: PascalCase tag name → module path relative to the project root. This is the extension point beyond the built-in list (Giscus/PasswordGate/ZoomedImg/Mermaid/G2Plot/ExpandableList). See [Islands](./islands.md).
 
+## buildComponents
+
+```ts
+buildComponents: {
+  disable: ['RecentArticles'],
+}
+```
+
+Master switch over the built-in build components — markdown tags rendered to final static HTML at build time (inventory and usage under [Markdown extensions](./markdown.md#build-components)). `disable` turns built-ins off by tag name: a disabled tag renders nothing and warns at build time; an unknown name fails config resolution listing every available component.
+
 ## encrypt
 
 ```ts

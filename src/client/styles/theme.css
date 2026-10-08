@@ -671,6 +671,88 @@ html[data-theme='dark'] .ap-code pre.shiki span {
   list-style: none;
 }
 
+/* RecentArticles build component: build-time static HTML (no JS), two
+ * article columns stacked into one on narrow screens. Site CSS can restyle
+ * through the ap-recent* hooks; color-only hover, no motion. */
+#ap-content .ap-recent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 2.5rem;
+  margin: 2rem 0;
+}
+
+#ap-content .ap-recent__title {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--c-text-2);
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* Same disc reset as .ap-cards above: rows are links, not prose bullets. */
+#ap-content .ap-recent__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#ap-content .ap-recent__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#ap-content .ap-recent__item + .ap-recent__item {
+  border-top: 1px solid var(--c-border);
+}
+
+/* Content-wide anchors are accent-colored; the widget reads better with
+ * text-colored titles that highlight on hover instead. */
+#ap-content .ap-recent__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.45rem 0;
+  color: var(--c-text);
+  text-decoration: none;
+  transition: color 140ms ease-out;
+}
+
+#ap-content .ap-recent__link:hover {
+  color: var(--c-accent);
+  text-decoration: none;
+}
+
+#ap-content .ap-recent__link svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  color: var(--c-text-2);
+}
+
+#ap-content .ap-recent__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#ap-content .ap-recent__date {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-2);
+}
+
+@media (max-width: 640px) {
+  #ap-content .ap-recent {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
 /* Task lists (@mdit/plugin-tasklist): the checkbox is the marker; keeping
  * the disc would show a "• ☑" double marker. */
 #ap-content ul.task-list-container {

@@ -557,3 +557,39 @@ Bare relative links (no `./` prefix, e.g. `[x](guide/a.md)`) take no part in thi
 ```md
 `html: true`: unknown HTML passes through as-is — <span style="color: var(--c-accent)">an inline HTML fragment</span>. `<template #xxx>` and vue component syntax also pass through as unknown HTML (migrate page by page; see the [Migration guide](./migration.md)).
 ```
+
+## Build components
+
+Build components share the [islands](./islands.md) PascalCase tag syntax, but their output is final static HTML rendered at build time: no hydration placeholder, no client JS, and the content is fully visible to SEO and no-JS visitors. They fit widgets whose content derives entirely from site data; interactive components still go through islands.
+
+Built-in inventory (single source of truth: `src/shared/components.ts`):
+
+| Tag              | Description                                 |
+| ---------------- | ------------------------------------------- |
+| `RecentArticles` | Latest and recently updated article columns |
+
+### RecentArticles
+
+```md
+<RecentArticles :latest="5" :updated="5" />
+```
+
+- `:latest` / `:updated`: per-column entry counts, non-negative integers, both defaulting to 5; `0` hides the column, and zero for both renders nothing at all
+- "Latest" sorts by frontmatter `date`, newest first; "Recently updated" sorts by the git last-commit time, newest first, skipping pages without a git time and pages never committed separately (`updatedAt === createdAt`)
+- Entries come from the host locale's article list (locale homes are not articles; pages with frontmatter `feed: false` stay listed, matching the home feed)
+- Links are page-relative (same shape as body markdown links); the leading icon is the frontmatter `icon` registered svg
+- Column headings resolve by the page's `<html lang>` (zh/en); an empty column is omitted entirely, and the component never enters the TOC
+
+Style hooks (site CSS can restyle the whole widget): `ap-recent`, `ap-recent__col`, `ap-recent__title`, `ap-recent__list`, `ap-recent__item`, `ap-recent__link`, `ap-recent__name`, `ap-recent__date`.
+
+The tag is empty/self-closing only: build components have no children slot, and stray inner markdown triggers a build warning and is ignored.
+
+### Disabling built-ins
+
+```ts
+buildComponents: {
+  disable: ['RecentArticles'],
+}
+```
+
+A disabled tag renders nothing and warns at build time; an unknown name fails config resolution listing every available component — see the [Configuration reference](./configuration.md#buildcomponents).
