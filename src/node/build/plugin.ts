@@ -26,6 +26,18 @@ const APP_SRC_PREFIX = `${toPosix(path.resolve(packageRoot(), 'src'))}/`;
  * editor atomic saves) into one trailing resync. */
 const STRUCTURE_DEBOUNCE_MS = 100;
 
+/** Static imports of the graph chart, loaded from lazy island code the dev
+ * dep scanner cannot reach through the virtual island registry. */
+const GRAPH_DEPS = ['d3-drag', 'd3-force', 'd3-selection', 'd3-zoom'] as const;
+
+/** This package's name, read from our own manifest so forked packages keep
+ * the nested optimizeDeps.include ids below valid. */
+const PKG_NAME = (
+  JSON.parse(
+    fs.readFileSync(path.join(packageRoot(), 'package.json'), 'utf8'),
+  ) as { name: string }
+).name;
+
 /**
  * `vite.config.ts`: `plugins: [..., absolutePress(defineSiteConfig({...}))]`.
  *
@@ -66,6 +78,14 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       return {
         // No index.html SPA fallback; the middleware serves pages itself.
         appType: 'custom',
+        // Pre-bundle GRAPH_DEPS with nested ids ('<pkg> > d3-force'): they
+        // resolve through this package's install dir, so consumer sites
+        // never declare d3-*, and runtime bare imports match these chunks
+        // via the '> dep' suffix — no mid-session re-optimize + full reload
+        // on the first article page.
+        optimizeDeps: {
+          include: GRAPH_DEPS.map(dep => `${PKG_NAME} > ${dep}`),
+        },
         resolve: {
           // Dev picks the browser dev build, build the prod one.
           alias: solidWebAlias(env.command === 'serve', root),
