@@ -163,6 +163,8 @@ export class SiteStore {
   private pages: PageSource[] = [];
   /** Latest site scan: page sources plus the single-read file cache. */
   private scan: SiteScan = { sources: [], files: new Map() };
+  /** Config onScan hook, absent when unconfigured. */
+  private readonly onScan?: (ctx: SiteScanContext) => unknown;
   /** Latest onScan hook result; undefined while no hook is configured. */
   private siteDataValue: unknown;
   private rendered = new Map<string, RenderedEntry>();
@@ -192,8 +194,12 @@ export class SiteStore {
   // sync() alongside the resolver's fresh dead-link record round.
   private devWarned = new Set<string>();
 
-  constructor(config: ResolvedConfig) {
+  constructor(
+    config: ResolvedConfig,
+    onScan?: (ctx: SiteScanContext) => unknown,
+  ) {
     this.config = config;
+    this.onScan = onScan;
     this.links = new LinkResolver('build');
   }
 
@@ -288,7 +294,7 @@ export class SiteStore {
    * site-data module stays fresh without a restart.
    */
   async refreshScanContext(): Promise<void> {
-    if (!this.config.onScan) {
+    if (!this.onScan) {
       this.siteDataValue = undefined;
       return;
     }
@@ -297,7 +303,7 @@ export class SiteStore {
       this.scan,
       this.gitTimes,
     );
-    this.siteDataValue = await this.config.onScan(ctx);
+    this.siteDataValue = await this.onScan(ctx);
   }
 
   /** Dev: drop one file's render cache (watcher paths may differ in separators). */

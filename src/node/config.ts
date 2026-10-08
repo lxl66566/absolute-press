@@ -376,8 +376,6 @@ export interface ResolvedConfig {
   googleAnalytics?: string;
   /** Registered icon map (empty when unconfigured). */
   icons: Record<string, string>;
-  /** Site-data hook from AbsolutePressConfig, absent when unconfigured. */
-  onScan?: AbsolutePressConfig['onScan'];
 }
 
 /**
@@ -515,6 +513,5 @@ export function resolveConfig(
       ? { googleAnalytics: config.googleAnalytics }
       : {}),
     icons: config.icons ?? {},
-    ...(config.onScan ? { onScan: config.onScan } : {}),
   };
 }

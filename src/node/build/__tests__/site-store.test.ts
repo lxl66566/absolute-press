@@ -5,7 +5,11 @@ import path from 'node:path';
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-import { resolveConfig, type ResolvedConfig } from '../../config.ts';
+import {
+  resolveConfig,
+  type ResolvedConfig,
+  type SiteScanContext,
+} from '../../config.ts';
 import { devFsUrl } from '../assets.ts';
 import { clientEntry } from '../clientEntry.ts';
 import { SiteStore } from '../site.ts';
@@ -840,7 +844,7 @@ describe('SiteStore onScan', () => {
     });
     const seen: number[] = [];
     const onScan = (
-      ctx: Parameters<NonNullable<ResolvedConfig['onScan']>>[0],
+      ctx: SiteScanContext,
     ): { pages: number; categories: Record<string, number> } => {
       seen.push(ctx.pages.length);
       const categories: Record<string, number> = {};
@@ -851,7 +855,7 @@ describe('SiteStore onScan', () => {
       }
       return { pages: ctx.pages.length, categories };
     };
-    const store = new SiteStore({ ...fx.config, onScan });
+    const store = new SiteStore(fx.config, onScan);
     expect(store.siteData).toBeUndefined();
     await store.sync('dev');
     expect(seen).toEqual([3]);
@@ -868,7 +872,7 @@ describe('SiteStore onScan', () => {
     });
     let calls = 0;
     const onScan = (): number => ++calls;
-    const store = new SiteStore({ ...fx.config, onScan });
+    const store = new SiteStore(fx.config, onScan);
     await store.sync('dev');
     expect(store.siteData).toBe(1);
 

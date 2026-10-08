@@ -75,7 +75,7 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
    * hook result. Async because load must wait for the first store sync. */
   const siteDataModule = async (): Promise<string> => {
     await syncDone;
-    if (!config.onScan) {
+    if (!userConfig.onScan) {
       throw new Error(
         '[absolute-press] "virtual:absolute-press/site-data" is imported but no onScan hook is configured; add an onScan hook to the site config to provide site data',
       );
@@ -125,7 +125,7 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         // vite leaves publicDir '' when disabled via `publicDir: false`.
         viteConfig.publicDir || false,
       );
-      store = new SiteStore(config);
+      store = new SiteStore(config, userConfig.onScan);
     },
     resolveId(id) {
       if (inert) return null;

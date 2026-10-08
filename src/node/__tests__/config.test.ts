@@ -399,17 +399,16 @@ describe('resolveConfig related', () => {
 });
 
 describe('resolveConfig onScan', () => {
-  it('keeps the hook absent when unconfigured', () => {
-    const config = resolveConfig(baseConfig(), '/root');
-    expect(config.onScan).toBeUndefined();
-  });
-
-  it('passes the hook through verbatim', () => {
-    const config = resolveConfig(
-      { ...baseConfig(), onScan: scanHook },
-      '/root',
-    );
-    expect(config.onScan).toBe(scanHook);
+  // The hook travels to SiteStore as a constructor argument (wired by the
+  // plugin), never through ResolvedConfig: its SiteScanContext signature
+  // mentions ResolvedConfig, and embedding that self-referential function
+  // type in the resolved shape blows up deep type comparisons at consumer
+  // vite-config boundaries.
+  it('keeps onScan out of the resolved config', () => {
+    expect('onScan' in resolveConfig(baseConfig(), '/root')).toBe(false);
+    expect(
+      'onScan' in resolveConfig({ ...baseConfig(), onScan: scanHook }, '/root'),
+    ).toBe(false);
   });
 });
 
