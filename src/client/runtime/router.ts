@@ -22,6 +22,7 @@ import { hydrateIslands } from './islands';
 import type { RouterEntryState, ScrollDecision } from './scroll-restore';
 import { resolveScrollTarget } from './scroll-restore';
 import { initTabsPersistence } from './tabs';
+import { hideTermPopover } from './terms';
 
 /**
  * Client-side navigation over the static MPA pages: intercept same-site
@@ -68,6 +69,9 @@ function applyPage(
   // Islands and per-page graphs under the body die with it; the chrome
   // slot is excluded (remountPageChrome rebuilds it).
   disposeRootsUnder(content, chrome);
+  // The term popover points into the outgoing body — drop it before the
+  // swap leaves it detached (the next show re-creates it).
+  hideTermPopover();
   // Drop the previous body, then insert the new one (archive shells carry
   // only a bare no-JS fallback; ArchiveView owns the page).
   removeStaticBody(content);

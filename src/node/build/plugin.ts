@@ -14,6 +14,7 @@ import type { AbsolutePressConfig } from '../config.ts';
 import { resolveConfig, type ResolvedConfig } from '../config.ts';
 import { devFsUrl } from './assets.ts';
 import { clientEntry, packageRoot } from './clientEntry.ts';
+import { isRefFile } from './refs.ts';
 import { SiteStore } from './site.ts';
 
 const VIRTUAL_ISLANDS_ID = 'virtual:absolute-press/islands';
@@ -255,6 +256,14 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         if (mod) server.moduleGraph.invalidateModule(mod);
       };
       server.watcher.on('change', (file: string) => {
+        // Ref-article edits bypass the page pipeline: the refs scan entry
+        // and its render cache refresh in place, then the reload ships the
+        // re-embedded popover html (no page html changed shape).
+        if (isRefFile(config, file) && file.endsWith('.md')) {
+          store.invalidateRef(file);
+          server.ws.send({ type: 'full-reload' });
+          return;
+        }
         if (!isContent(file)) return;
         store.invalidate(file);
         // Single-file edits rerun onScan from the refreshed scan entry before

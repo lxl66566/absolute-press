@@ -368,6 +368,75 @@ heimu *::selection {
 }
 
 /* --------------------------------------------------------------------------
+ * Term references (`[[id]]`, runtime/terms.ts): dotted underline marks the
+ * term; hover/focus opens the popover with the referenced article's body.
+ * ------------------------------------------------------------------------ */
+.ap-term {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.ap-term:hover {
+  text-decoration-color: var(--c-accent);
+}
+
+.ap-term:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Hosted inside #ap-content (see terms.ts) so the scoped prose rules style
+ * the markdown body; document-coordinate absolute placement tracks the term
+ * through scrolling. z-index sits above the desktop sidebar rail (30) and
+ * below the navbar/drawer overlays (45). */
+.ap-term-popover {
+  position: absolute;
+  z-index: 44;
+  box-sizing: border-box;
+  width: min(26rem, calc(100vw - 1rem));
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  background-color: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 0.5rem;
+  box-shadow: var(--c-shadow);
+  display: none;
+}
+
+.ap-term-popover[data-open] {
+  display: block;
+  animation: ap-term-in 140ms ease-out;
+}
+
+/* The prose margin rules (#ap-content :where(p, …)) hit the popover body
+ * too; the outermost margins would double with the popover padding. */
+.ap-term-popover > :first-child {
+  margin-top: 0;
+}
+
+.ap-term-popover > :last-child {
+  margin-bottom: 0;
+}
+
+@keyframes ap-term-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-term-popover[data-open] {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
  * ::: containers
  * ------------------------------------------------------------------------ */
 .ap-container {

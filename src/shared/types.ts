@@ -540,10 +540,38 @@ export interface MarkdownOptions {
    * static HTML after the render (see src/node/build/components.ts).
    */
   buildComponents?: ReadonlySet<string>;
+  /**
+   * Term-reference hooks; their presence activates the `[[id]]` / `[[id|text]]`
+   * inline syntax (see src/node/markdown/term.ts). Sites without a refs
+   * directory pass nothing and the double brackets stay literal.
+   */
+  terms?: TermHooks;
   /** Code block presentation defaults. */
   code?: MarkdownCodeOptions;
 }
 
+/**
+ * Term-reference resolution for the `[[id]]` inline syntax. The build layer
+ * implements both members against the scanned refs directory (locale-aware
+ * lookup with default-locale fallback).
+ */
+export interface TermHooks {
+  /**
+   * Plain display title of one ref id for the host page's locale (frontmatter
+   * `title`, falling back to the id's last path segment). Null = no such ref:
+   * the span degrades to plain text.
+   */
+  titleOf: (id: string, env: MarkdownEnv) => string | null;
+  /** A referenced id that resolved to nothing; the caller warns (build passes). */
+  onMiss: (id: string, env: MarkdownEnv) => void;
+}
+
 export interface MarkdownRenderer {
   render: (src: string, env: MarkdownEnv) => RenderResult;
+  /**
+   * Render one term-reference article body (frontmatter stripped, islands
+   * disabled — popover content is static HTML) for the build layer to embed
+   * as a `<template data-ap-term>` payload.
+   */
+  renderRef: (src: string, env: MarkdownEnv) => string;
 }

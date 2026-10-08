@@ -61,6 +61,19 @@ buildComponents: {
 
 Master switch over the built-in build components — markdown tags rendered to final static HTML at build time (inventory and usage under [Markdown extensions](./markdown.md#build-components)). `disable` turns built-ins off by tag name: a disabled tag renders nothing and warns at build time; an unknown name fails config resolution listing every available component.
 
+## refs
+
+```ts
+refs: 'reference',
+```
+
+The term-library directory (optional, string): data source of the `[[id]]` term-reference syntax, see [Markdown extensions](./markdown.md#term-references).
+
+- Resolved against each locale's content root (the default locale reads `<contentDir>/refs`, others `<contentDir>/<key>/refs`, falling back to the default locale's terms on a miss)
+- `.md` files inside never become routes; an id is the extension-less posix path relative to that directory, and frontmatter recognizes `title` only (the id's last segment is the fallback term text)
+- The library often lives in its own repository (a nested git repo): a missing directory warns once, every `[[...]]` degrades to plain text, and the build still passes
+- Relative links inside term articles resolve against the locale content root (same semantics as pages), so terms embedded at any page depth never break
+
 ## encrypt
 
 ```ts

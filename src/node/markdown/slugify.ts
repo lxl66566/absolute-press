@@ -35,13 +35,19 @@ export function slugify(str: string): string {
 /**
  * Per-render dedupe with markdown-it-anchor semantics: the first heading
  * keeps the base slug, repeats get `-1`, `-2`, ... Shared across island
- * fragments of one page so ids never collide.
+ * fragments of one page so ids never collide. Term-ref renders pass a
+ * prefix so popover heading ids cannot collide with the host page's.
  */
 export class Slugger {
   readonly #seen = new Set<string>();
+  readonly #prefix: string;
+
+  constructor(prefix = '') {
+    this.#prefix = prefix;
+  }
 
   slug(str: string): string {
-    const base = slugify(str);
+    const base = this.#prefix + slugify(str);
     let slug = base;
     let i = 1;
     while (this.#seen.has(slug)) {

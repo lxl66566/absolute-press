@@ -155,6 +155,11 @@ export async function scanPages(config: ResolvedConfig): Promise<PageSource[]> {
           f => !extraKeys.some(k => f === `${k}.md` || f.startsWith(`${k}/`)),
         );
       }
+      // The term-refs directory holds popover articles, not pages (the refs
+      // scan owns it); excluded from every locale's walk.
+      if (config.refs) {
+        files = files.filter(f => !f.startsWith(`${config.refs}/`));
+      }
       return files.toSorted().map(relPath => ({
         filePath: path.join(dir, relPath),
         locale,

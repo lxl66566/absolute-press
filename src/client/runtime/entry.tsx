@@ -13,6 +13,7 @@ import { pagePayload } from './payload';
 import { initLightbox } from './photoswipe';
 import { initRouter } from './router';
 import { initTabsPersistence } from './tabs';
+import { initTerms } from './terms';
 
 function main(): void {
   const payload = pagePayload();
@@ -24,6 +25,7 @@ function main(): void {
   initAnchorHighlight();
   initLightbox();
   initCodeTools();
+  initTerms();
   initRouter();
 }
 if (document.readyState === 'loading') {

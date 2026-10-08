@@ -61,6 +61,19 @@ buildComponents: {
 
 内置构建组件的总开关：构建组件是构建期渲染为最终静态 HTML 的 markdown 标签（清单与用法见 [Markdown 扩展](./markdown.md#构建组件)）。`disable` 按标签名关闭内置组件——被关闭的标签渲染为空并输出构建警告；未知名字在配置解析时报错并列出全部可用名。
 
+## refs
+
+```ts
+refs: 'reference',
+```
+
+术语库目录（可选，string）：`[[id]]` 术语引用语法的数据源，详见 [Markdown 扩展](./markdown.md#术语引用)。
+
+- 相对每个 locale 的内容根解析（默认 locale 在 `<contentDir>/refs`，其余在 `<contentDir>/<key>/refs`，未命中时回退默认 locale 的术语）
+- 目录内 `.md` 不参与路由；id 是相对该目录、去扩展名的 posix 路径，frontmatter 只认 `title`（缺省用 id 末段做术语文字）
+- 术语库常独立成仓（git 嵌套仓）：目录不存在时只打一次 warning，`[[...]]` 全部降级为纯文本，构建照常通过
+- 术语文章内的相对链接按 locale 内容根解析（与页面同语义），任意页面深度引用都不断链
+
 ## encrypt
 
 ```ts

@@ -11,6 +11,7 @@ import type {
   PageMeta,
   PagePayload,
   RelatedLink,
+  TermHooks,
 } from '../../shared/types.ts';
 import { ARCHIVE_PER_PAGE, HOME_FEED_PER_PAGE } from '../../shared/types.ts';
 import type { MarkdownRenderer, RenderResult } from '../../shared/types.ts';
@@ -54,6 +55,17 @@ import {
   stemOf,
 } from './pages.ts';
 import type { PageSource, RenderedPage } from './pages.ts';
+import {
+  isRefFile,
+  localeContentRoot,
+  localeKeyOf,
+  lookupRef,
+  refTitle,
+  scanRefEntry,
+  scanRefs,
+  type RefsScan,
+  type ScannedRef,
+} from './refs.ts';
 import { buildRelatedMap } from './related.ts';
 import {
   createdAtOf,
@@ -178,6 +190,13 @@ export class SiteStore {
   /** Latest onScan hook result; undefined while no hook is configured. */
   private siteDataValue: unknown;
   private rendered = new Map<string, RenderedEntry>();
+  /** Term-refs scan (null when the site configures no refs directory). */
+  private refs: RefsScan | null = null;
+  /** Ref renders keyed `<locale>/<id>`; freshness mirrors `rendered`. */
+  private refRendered = new Map<string, { mtimeMs: number; html: string }>();
+  // Sync-time "refs directory missing" notice fires once per process; a
+  // per-id follow-up would only repeat it (see termHooks.onMiss).
+  private refsMissingWarned = false;
   private gitTimes = new Map<string, string>();
   private relatedCache: Map<string, RelatedLink[]> | null = null;
   private renderer: MarkdownRenderer | null = null;
@@ -237,6 +256,10 @@ export class SiteStore {
       // Build-time intrinsic sizes: local images render CLS-safe with
       // width/height attributes (see image-size.ts).
       imageSize: localImageSize,
+      // The [[id]] term syntax resolves against the refs scan; the hooks
+      // read the live scan at render time, so they stay fresh across
+      // syncs without rebuilding the renderer.
+      ...(this.config.refs ? { terms: this.termHooks() } : {}),
       // Site-wide code options flow in explicitly (resolveConfig already
       // merged the defaults), instead of a module-level ambient state.
       code: this.config.code,
@@ -263,11 +286,19 @@ export class SiteStore {
   }
 
   /** Union of fence languages over the scan cache (raw strings; the
-   * renderer drops entries shiki cannot load — see isBundledLang). */
+   * renderer drops entries shiki cannot load — see isBundledLang). Term-ref
+   * articles render through the same renderer, so their fences join the set. */
   private scannedLangs(): Iterable<string> {
     const langs = new Set<string>();
     for (const file of this.scan.files.values()) {
       for (const lang of file.fenceLangs) langs.add(lang);
+    }
+    if (this.refs) {
+      for (const refs of this.refs.byLocale.values()) {
+        for (const ref of refs.values()) {
+          for (const lang of ref.fenceLangs) langs.add(lang);
+        }
+      }
     }
     return langs;
   }
@@ -280,6 +311,27 @@ export class SiteStore {
     this.scan = await scanSite(this.config);
     this.pages = this.scan.sources;
     this.links.setPages(this.pages);
+    if (this.config.refs) {
+      this.refs = await scanRefs(this.config);
+      if (!this.refs.present && !this.refsMissingWarned) {
+        this.refsMissingWarned = true;
+        console.warn(
+          `[absolute-press] no refs directory "${this.config.refs}" found under ${this.config.contentDir}; [[...]] term references render as plain text (clone the refs repository, or unset config refs)`,
+        );
+      }
+      // Ref markdown links resolve against the locale content root (see
+      // LinkResolver.refRoots), not the ref file's own directory.
+      this.links.setRefs(
+        [...this.refs.byLocale.values()].flatMap(refs =>
+          [...refs.values()].map(ref => ({
+            filePath: ref.filePath,
+            root: localeContentRoot(this.config, ref.locale),
+          })),
+        ),
+      );
+    } else {
+      this.refs = null;
+    }
     await this.ensureRenderer();
     // The renderer set is now disk-fresh; a stale invalidate flag would
     // only buy one redundant refresh.
@@ -318,6 +370,39 @@ export class SiteStore {
       this.gitTimes,
     );
     this.siteDataValue = await this.onScan(ctx);
+  }
+
+  /**
+   * Dev: re-read one edited ref file (single read) into the refs scan and
+   * drop its cached render; the next page render re-renders the popover
+   * html from the fresh source. Page caches stay untouched — ref edits do
+   * not change page html beyond the embedded templates. Watcher paths may
+   * differ in separators (same as invalidate).
+   */
+  invalidateRef(file: string): void {
+    if (!this.refs) return;
+    const posix = file.split(path.sep).join('/');
+    for (const refs of this.refs.byLocale.values()) {
+      for (const [id, ref] of refs) {
+        if (ref.filePath.split(path.sep).join('/') !== posix) continue;
+        const fresh = scanRefEntry(this.config, ref.locale, id);
+        if (fresh) {
+          refs.set(id, fresh);
+          this.refRendered.delete(`${fresh.locale}/${fresh.id}`);
+          // Same renderer-warm-up concern as invalidate(): an edit adding a
+          // fence language outside the live shiki set must rebuild.
+          for (const lang of fresh.fenceLangs) {
+            if (!this.rendererLangs.has(lang)) {
+              this.langsDirty = true;
+              break;
+            }
+          }
+        } else {
+          refs.delete(id);
+        }
+        return;
+      }
+    }
   }
 
   /** Dev: drop one file's render cache (watcher paths may differ in separators). */
@@ -377,12 +462,14 @@ export class SiteStore {
     this.langsDirty = false;
     await this.ensureRenderer();
     this.rendered.clear();
+    this.refRendered.clear();
     this.relatedCache = null;
   }
 
   /** Dev: structural change (add/unlink) — rescan and clear all caches. */
   async resync(mode: 'dev' | 'build'): Promise<void> {
     this.rendered.clear();
+    this.refRendered.clear();
     // Drop the git-times cache too: sync() re-pulls it only when empty, and
     // commits landing mid-dev-session must surface as fresh lastmod values.
     this.gitTimes.clear();
@@ -747,6 +834,108 @@ export class SiteStore {
   }
 
   /**
+   * Term-ref hooks wired to the refs scan: title lookup for the inline rule,
+   * one warning per unknown id. The closures read the live scan at render
+   * time, so renderer reuse across syncs stays correct.
+   */
+  private termHooks(): TermHooks {
+    return {
+      titleOf: (id, env) => {
+        const ref = this.termRefOf(id, env.filePath);
+        return ref === null ? null : refTitle(ref);
+      },
+      onMiss: (id, env) => {
+        // The whole refs tree may be absent (nested repo not cloned): the
+        // sync-time notice already covers it, per-id noise adds nothing.
+        if (this.refs?.present === false) return;
+        this.warnOnce(
+          `term:${id}`,
+          `[absolute-press] unknown term reference [[${id}]] in ${env.filePath}: no such article in the refs directory; renders as plain text`,
+        );
+      },
+    };
+  }
+
+  /** Ref lookup for a `[[id]]` in a file: the file's own locale first, then
+   * the default locale's fallback set. */
+  private termRefOf(id: string, filePath: string): ScannedRef | null {
+    if (!this.refs) return null;
+    return lookupRef(
+      this.refs,
+      id,
+      localeKeyOf(this.config, filePath),
+      this.config,
+    );
+  }
+
+  /** `<html lang>` of a locale key (ref entries carry only the key). */
+  private langOf(localeKey: string): string | undefined {
+    return this.config.locales.find(l => l.key === localeKey)?.lang;
+  }
+
+  /** Cached render of one ref article, keyed `<locale>/<id>`. Freshness
+   * mirrors renderPage: dev trusts the watcher (invalidateRef), build
+   * compares the scan's mtime. */
+  private refHtml(ref: ScannedRef): string {
+    const renderer = this.renderer;
+    if (!renderer) throw new Error('SiteStore.sync() not awaited');
+    const key = `${ref.locale}/${ref.id}`;
+    const cached = this.refRendered.get(key);
+    if (cached && (this.trustWatcher || cached.mtimeMs === ref.mtimeMs)) {
+      return cached.html;
+    }
+    const html = renderer.renderRef(ref.source, {
+      filePath: ref.filePath,
+      lang: this.langOf(ref.locale),
+    });
+    this.refRendered.set(key, { mtimeMs: ref.mtimeMs, html });
+    return html;
+  }
+
+  /**
+   * Append `<template class="ap-term-def">` bodies for every term id the
+   * html references (the client popover clones them on demand). One pass
+   * over the appended templates picks up ids nested inside ref articles
+   * themselves — a popover inside a popover — with the done set bounding
+   * the walk (an id renders at most once per page).
+   */
+  private injectTermDefs(page: PageSource, html: string): string {
+    if (!this.refs || !html.includes('data-term=')) return html;
+    const done = new Set<string>();
+    const parts: string[] = [];
+    let scan = html;
+    for (;;) {
+      const round: string[] = [];
+      for (const match of scan.matchAll(/data-term="([^"]+)"/g)) {
+        const id = match[1]!;
+        if (done.has(id)) continue;
+        done.add(id);
+        // Unresolved ids already warned at render time (onMiss); their
+        // spans degraded to plain text, so nothing to embed.
+        const ref = lookupRef(this.refs, id, page.locale.key, this.config);
+        if (!ref) continue;
+        const def = `<template class="ap-term-def" data-term="${escapeHtml(id)}">${this.refHtml(ref)}</template>`;
+        parts.push(def);
+        round.push(def);
+      }
+      if (round.length === 0) break;
+      scan = round.join('');
+    }
+    // Dev parity for dead links inside ref articles: they surface here per
+    // request; the build reports the same records through deadLinks().
+    if (this.trustWatcher) {
+      for (const dead of this.links.deadLinks) {
+        if (!isRefFile(this.config, dead.file)) continue;
+        this.warnOnce(
+          `term-dead:${dead.file}:${dead.raw}`,
+          `[absolute-press] dev: dead link in ref article ${dead.file} -> ${dead.raw} (build will fail)`,
+        );
+      }
+    }
+    return parts.length === 0 ? html : html + parts.join('');
+  }
+
+  /**
    * Page-body decorations around the static markdown HTML: build component
    * markers resolve to their final HTML (gated pages keep them inside the
    * gate), gated pages are wrapped in a PasswordGate island placeholder
@@ -760,6 +949,9 @@ export class SiteStore {
     ctx: RenderContext,
   ): string {
     let content = this.swapBuildComponents(page, ctx, html);
+    // Term templates ride inside the same gate wrap: a gated page must not
+    // leak its reference bodies before the client unlocks it.
+    content = this.injectTermDefs(page, content);
     const encrypted = payload.encrypted;
     if (encrypted) {
       // PasswordGate derives its messages from the page language client-side;
@@ -948,15 +1140,18 @@ export class SiteStore {
     // Dev-only feedback; the build emit path reports through generateBundle.
     if (this.trustWatcher) this.warnDevPageIssues(page, rendered);
     const payload = this.payloadFor(rendered, ctx);
+    const content = this.decorateContent(page, payload, rendered.html, ctx);
     return renderShell({
       ...this.shellArgs(assets, page.locale),
-      // Only math pages carry the katex stylesheet; the decision re-reads
-      // the cached render html each pass, so it can never go stale.
-      ...(pageUsesKatex(rendered.html)
+      // Only math pages carry the katex stylesheet; the check runs on the
+      // decorated content, so math living solely inside term-ref popover
+      // templates is covered too. The decision re-reads the cached html
+      // each pass, so it can never go stale.
+      ...(pageUsesKatex(content)
         ? { katexHref: this.katexHref(assets.isBuild) }
         : {}),
       payload,
-      content: this.decorateContent(page, payload, rendered.html, ctx),
+      content,
     });
   }
 
@@ -1106,7 +1301,12 @@ export class SiteStore {
     }
     // KaTeX css + woff2 fonts ship only when at least one page rendered
     // math; a math-free site carries neither (same check the shell uses).
-    if (ctx.pages.some(p => pageUsesKatex(p.html))) {
+    // Ref articles render lazily during the page loop above, so their math
+    // is covered by the refRendered pass.
+    if (
+      ctx.pages.some(p => pageUsesKatex(p.html)) ||
+      [...this.refRendered.values()].some(r => pageUsesKatex(r.html))
+    ) {
       out.push(...katexAssets());
     }
     // Static hosts serve /404.html for unknown paths; a content page

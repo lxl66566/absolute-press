@@ -86,6 +86,34 @@ async function contentFixture(
 }
 
 describe('SiteStore', () => {
+  it('embeds term templates for referenced refs and degrades misses', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\nsee [[island]] and [[gone|kept text]].\n',
+        'reference/island.md':
+          '---\ntitle: 岛屿\n---\n**bold** body, also [[island]] self\n',
+      },
+      { refs: 'reference' },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+
+    const html = store.devHtml('/');
+    // Known id: span with the ref title, template appended after the body
+    // (md.render leaves a trailing newline before </template>).
+    expect(html).toContain(
+      '<span class="ap-term" data-term="island" tabindex="0">岛屿</span>',
+    );
+    expect(html).toContain(
+      '<template class="ap-term-def" data-term="island"><p><strong>bold</strong> body, also <span class="ap-term" data-term="island" tabindex="0">岛屿</span> self</p>\n</template>',
+    );
+    // Unknown id: plain text, no template (warned at render time).
+    expect(html).toContain('kept text');
+    expect(html?.match(/<template class="ap-term-def"/g)).toHaveLength(1);
+    // Ref html rides inside the page content, not the head/payload.
+    expect(html).not.toContain('"term');
+  });
+
   it('serves page html for url routes and null for unknown ones', async () => {
     const fx = await contentFixture({
       'index.md': '# Home\n',

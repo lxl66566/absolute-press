@@ -141,6 +141,16 @@ export interface AbsolutePressConfig extends SiteConfig {
    * @default []
    */
   entryListIslands?: string[];
+  /**
+   * Term-reference directory, relative to each locale's content root
+   * (default locale: `<contentDir>/<refs>`, extra locales:
+   * `<contentDir>/<key>/<refs>` with default-locale fallback). Markdown
+   * files there are excluded from routing; the inline `[[id]]` / `[[id|text]]`
+   * syntax turns them into hover popovers (see the markdown guide). The
+   * directory may be an independently-maintained nested git repository —
+   * a missing directory only downgrades the syntax to plain text (warn).
+   */
+  refs?: string;
   /** `<html lang>` of the default locale. @default 'zh-CN' */
   lang?: string;
   /** Default-locale label for the locale switcher. @default '简体中文' */
@@ -327,6 +337,12 @@ export interface ResolvedConfig {
   publicDir: string | null;
   /** Content root of the default locale (absolute). */
   contentDir: string;
+  /**
+   * Term-reference directory relative to each locale's content root (posix
+   * separators, no leading/trailing slash); absent when the site configures
+   * no refs.
+   */
+  refs?: string;
   title: string;
   description: string;
   /** Canonical site URL without trailing slash. */
@@ -401,6 +417,31 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
   };
 }
 
+/**
+ * Validate the term-refs directory option: a blank value would silently
+ * disable the feature, an absolute path or `..` escape would read outside
+ * the content tree. Returns the normalized posix-relative form.
+ */
+function resolveRefs(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (trimmed === undefined || trimmed === '') return undefined;
+  const posix = trimmed
+    .split(path.sep)
+    .join('/')
+    .replace(/^\/+|\/+$/g, '');
+  if (
+    posix === '' ||
+    posix.startsWith('/') ||
+    path.isAbsolute(trimmed) ||
+    posix.split('/').includes('..')
+  ) {
+    throw new Error(
+      `[absolute-press] refs must be a relative directory name inside the content root, got '${value}'`,
+    );
+  }
+  return posix;
+}
+
 export function resolveConfig(
   config: AbsolutePressConfig,
   root: string,
@@ -468,10 +509,12 @@ export function resolveConfig(
       `[absolute-press] buildComponents.disable: unknown build component '${unknownComponent}'; available: ${BUILD_COMPONENT_NAMES.join(', ')}`,
     );
   }
+  const refs = resolveRefs(config.refs);
   return {
     root,
     publicDir: publicDir || null,
     contentDir: path.resolve(root, config.contentDir),
+    ...(refs ? { refs } : {}),
     title: config.title,
     description: config.description,
     hostname: resolveHostname(config.hostname),

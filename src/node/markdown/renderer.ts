@@ -20,6 +20,7 @@ import type {
   MarkdownEnv,
   MarkdownRenderer,
   RenderResult,
+  TermHooks,
 } from '../../shared/types.ts';
 import {
   CODE_META_KEY,
@@ -53,18 +54,23 @@ import { installRawHtmlImageSizes } from './raw-html-images.ts';
 import { readingMinutes } from './reading-time.ts';
 import { Slugger } from './slugify.ts';
 import { normalizeTabMarkers, registerTabs } from './tabs.ts';
+import { termRule } from './term.ts';
 
 /**
  * Inline-syntax plugins shared by every renderer: core markdown-it already
  * covers emphasis/links/code; these add the framework's inline syntaxes
- * (`$katex$`, `==mark==`, both img-size forms, `!!heimu!!`).
+ * (`$katex$`, `==mark==`, both img-size forms, `!!heimu!!`). The term-ref
+ * `[[id]]` syntax needs site-provided resolution (TermHooks) and only
+ * registers for renderers that pass it — the standalone inline renderer
+ * (data strings) keeps double brackets literal.
  */
-function useInlinePlugins(md: MarkdownItType): void {
+function useInlinePlugins(md: MarkdownItType, terms?: TermHooks): void {
   md.use(katex);
   md.use(mark);
   md.use(legacyImgSize);
   md.use(imgSize);
   md.inline.ruler.before('emphasis', 'heimu', heimuRule);
+  if (terms) md.inline.ruler.before('emphasis', 'ap-term', termRule(terms));
 }
 
 /**
@@ -77,7 +83,7 @@ export async function createMarkdownRenderer(
 ): Promise<MarkdownRenderer> {
   const md = new MarkdownIt({ html: true });
 
-  useInlinePlugins(md);
+  useInlinePlugins(md, options.terms);
   md.use(footnote);
   md.use(tasklist);
   md.use(figure);
@@ -234,7 +240,43 @@ export async function createMarkdownRenderer(
     };
   }
 
-  return { render };
+  // Ref-article renders below. Their HTML is embedded into host pages as
+  // popover templates, so every per-render id (heading anchors, tab radio
+  // groups, code-fold checkboxes, footnote anchors) must never collide with
+  // the host's: counters are seeded past any page's range with a monotonic
+  // per-ref offset, headings and footnotes get ref-unique prefixes.
+  let refSeq = 0;
+  const REF_SEQ_OFFSET = 1_000_000;
+
+  function renderRef(src: string, env: MarkdownEnv): string {
+    const { content } = parseFrontmatter(src);
+    refSeq += 1;
+    const seed = refSeq * REF_SEQ_OFFSET;
+    const ctx: AbsCtx = {
+      env,
+      slugger: new Slugger(`ap-term-${refSeq}-`),
+      title: null,
+      headings: [],
+      links: [],
+      seq: {
+        tabGroup: seed,
+        tabInput: seed,
+        fragment: seed,
+        codeFold: seed,
+      },
+      tabGroupStack: [],
+    };
+    const menv: Env = {};
+    setCtx(menv, ctx);
+    // Footnote docId prefixes the plugin's ids; distinct from the page's
+    // `f<n>` fragment ids.
+    menv['docId'] = `t${refSeq}`;
+    // No island extraction: island/build-component tags could never hydrate
+    // or swap inside a popover template, so they stay literal HTML.
+    return md.render(normalizeTabMarkers(content), menv);
+  }
+
+  return { render, renderRef };
 }
 
 /** Options for `createInlineMarkdownRenderer`. */

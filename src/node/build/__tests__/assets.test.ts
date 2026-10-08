@@ -306,6 +306,42 @@ describe('applyAssetBase', () => {
   });
 });
 
+describe('LinkResolver.resolveLink with registered refs', () => {
+  const REF = file('reference/term.md');
+
+  beforeEach(() => {
+    resolver.setRefs([{ filePath: REF, root: path.resolve('/content') }]);
+  });
+
+  it('emits the absasset token rooted at the locale content root', () => {
+    // Ref html embeds at any page depth, so hrefs cannot be page-relative:
+    // the token gets the host page's base prefix via applyAssetBase.
+    expect(resolver.resolveLink('./blog/log.md', { filePath: REF })).toBe(
+      `${ASSET_TOKEN}blog/log`,
+    );
+    expect(
+      resolver.resolveLink('./articles/linux#anchor', { filePath: REF }),
+    ).toBe(`${ASSET_TOKEN}articles/linux/#anchor`);
+  });
+
+  it('resolves from a nested ref against the content root, not its own dir', () => {
+    const nested = file('reference/nested/deep.md');
+    resolver.setRefs([{ filePath: nested, root: path.resolve('/content') }]);
+    expect(resolver.resolveLink('./blog/log.md', { filePath: nested })).toBe(
+      `${ASSET_TOKEN}blog/log`,
+    );
+  });
+
+  it('still records dead links against the ref file', () => {
+    expect(
+      resolver.resolveLink('./dead-target.md', { filePath: REF }),
+    ).toBeNull();
+    expect(resolver.deadLinks).toEqual([
+      { file: REF, raw: './dead-target.md' },
+    ]);
+  });
+});
+
 describe('LinkResolver state across sync rounds', () => {
   it('drops dead links recorded in a previous round', () => {
     resolver.resolveLink('./missing', ENV_A);

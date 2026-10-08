@@ -101,6 +101,14 @@ export class LinkResolver {
   readonly deadLinks: DeadLink[] = [];
   private readonly byFile = new Map<string, PageSource>();
   private readonly byRoute = new Map<string, PageSource>();
+  /**
+   * Term-ref file path -> its locale's content root. Ref markdown renders
+   * once and embeds into pages at any depth, so relative links cannot become
+   * page-relative hrefs; they resolve against the locale content root and
+   * emit the `absasset:` token, which the shell rewrites per host page base
+   * (the same mechanism copied images use).
+   */
+  private readonly refRoots = new Map<string, string>();
 
   private mode: 'dev' | 'build';
 
@@ -120,10 +128,16 @@ export class LinkResolver {
     this.images.clear();
     this.byFile.clear();
     this.byRoute.clear();
+    this.refRoots.clear();
     for (const p of pages) {
       this.byFile.set(p.filePath, p);
       this.byRoute.set(p.route, p);
     }
+  }
+
+  /** Register the refs scan's files with their locale content roots. */
+  setRefs(entries: { filePath: string; root: string }[]): void {
+    for (const entry of entries) this.refRoots.set(entry.filePath, entry.root);
   }
 
   pageForRoute(route: string): PageSource | undefined {
@@ -139,8 +153,11 @@ export class LinkResolver {
    */
   resolveLink = (href: string, env: MarkdownEnv): string | null => {
     const [pathname, anchor] = splitAnchor(href);
+    const refRoot = this.refRoots.get(env.filePath);
     const source = this.byFile.get(env.filePath);
-    const dir = path.dirname(env.filePath);
+    // Ref links resolve against the locale content root (refs are not pages;
+    // their hrefs must work from any embedding depth — see refRoots).
+    const dir = refRoot ?? path.dirname(env.filePath);
     const bare = pathname.replace(/\/+$/, '');
     const candidates = bare.endsWith('.md')
       ? [bare]
@@ -150,11 +167,20 @@ export class LinkResolver {
       target = this.byFile.get(path.resolve(dir, candidate));
       if (target) break;
     }
-    if (!source || !target) {
+    if (!source && refRoot === undefined) {
       this.deadLinks.push({ file: env.filePath, raw: href });
       return null;
     }
-    const rel = relativeRoute(source.route, target.route);
+    if (!target) {
+      this.deadLinks.push({ file: env.filePath, raw: href });
+      return null;
+    }
+    if (refRoot !== undefined) {
+      // Root-relative token; applyAssetBase (shell) swaps in the host page's
+      // base prefix, so the same ref html works at every depth.
+      return `${ASSET_TOKEN}${target.route.replace(/^\/+/, '')}${anchor}`;
+    }
+    const rel = relativeRoute(source!.route, target.route);
     return anchor ? `${rel}${anchor}` : rel;
   };
 
