@@ -233,10 +233,37 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       server.watcher.add(config.contentDir);
       const isContent = (file: string): boolean =>
         isContentFile(file, config.contentDir);
+      /** Dev error surface of the async watcher chains (resync, site-data
+       * refresh): without it a failure (invalid frontmatter, fs error, an
+       * onScan throw...) becomes an unhandled rejection and kills the dev
+       * server process (Node 15+). Keep the server alive but loud: console
+       * plus the ws error overlay. */
+      const reportDevError = (label: string, e: unknown): void => {
+        console.error(`[absolute-press] ${label} failed`, e);
+        const err = e instanceof Error ? e : new Error(String(e));
+        server.ws.send({
+          type: 'error',
+          // vite's ErrorPayload requires a stack string; the message is the
+          // best fallback when Error.stack is unavailable.
+          err: { message: err.message, stack: err.stack ?? err.message },
+        });
+      };
+      /** Drop the cached transform of the site-data virtual module so the
+       * next import re-runs load() against the refreshed onScan result. */
+      const invalidateSiteData = (): void => {
+        const mod = server.moduleGraph.getModuleById(RESOLVED_SITE_DATA_ID);
+        if (mod) server.moduleGraph.invalidateModule(mod);
+      };
       server.watcher.on('change', (file: string) => {
         if (!isContent(file)) return;
         store.invalidate(file);
-        server.ws.send({ type: 'full-reload' });
+        // Single-file edits rerun onScan from the refreshed scan entry before
+        // the reload broadcasts, so the reloaded page imports fresh data.
+        void (async () => {
+          await store.refreshScanContext();
+          invalidateSiteData();
+          server.ws.send({ type: 'full-reload' });
+        })().catch(e => reportDevError('dev site-data refresh', e));
       });
       // add/unlink events arrive in bursts (git checkout, bulk moves, editor
       // atomic saves); each resync rescans the whole tree, so only the
@@ -247,19 +274,10 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         () =>
           void (async () => {
             await store.resync('dev');
+            invalidateSiteData();
             server.ws.send({ type: 'full-reload' });
           })().catch((e: unknown) => {
-            // Without the catch, a resync failure (invalid frontmatter, fs
-            // error...) becomes an unhandled rejection and kills the dev
-            // server process (Node 15+).
-            console.error('[absolute-press] dev resync failed', e);
-            const err = e instanceof Error ? e : new Error(String(e));
-            server.ws.send({
-              type: 'error',
-              // vite's ErrorPayload requires a stack string; the message is
-              // the best fallback when Error.stack is unavailable.
-              err: { message: err.message, stack: err.stack ?? err.message },
-            });
+            reportDevError('dev resync', e);
           }),
       );
       const onStructure = (file: string): void => {
