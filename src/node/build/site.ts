@@ -331,7 +331,15 @@ export class SiteStore {
   private refreshScanEntry(file: string): ScannedFile | null {
     try {
       const fresh = scanFile(file);
-      this.scan.files.set(file, fresh);
+      // Watcher paths may differ in separators from the walk keys; replace
+      // under the existing key so the onScan context keeps one entry per
+      // file instead of forking a second stale one.
+      const posix = file.split(path.sep).join('/');
+      const key =
+        [...this.scan.files.keys()].find(
+          k => k.split(path.sep).join('/') === posix,
+        ) ?? file;
+      this.scan.files.set(key, fresh);
       return fresh;
     } catch {
       return null;
