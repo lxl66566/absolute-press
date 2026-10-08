@@ -278,6 +278,8 @@ export interface ResolvedNav {
 export interface ResolvedConfig {
   /** Vite project root (absolute). */
   root: string;
+  /** Vite public dir (absolute; null when disabled via vite `publicDir: false`). */
+  publicDir: string | null;
   /** Content root of the default locale (absolute). */
   contentDir: string;
   title: string;
@@ -331,11 +333,6 @@ export interface ResolvedConfig {
   giscus?: SiteConfig['giscus'];
   encrypt?: SiteConfig['encrypt'];
   googleAnalytics?: string;
-  /** Deployment-target options (host-specific build artifacts). */
-  deploy: {
-    /** Emit a Cloudflare Pages `_headers` file. */
-    cloudflare: boolean;
-  };
   /** Registered icon map (empty when unconfigured). */
   icons: Record<string, string>;
 }
@@ -360,6 +357,8 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
 export function resolveConfig(
   config: AbsolutePressConfig,
   root: string,
+  /** Vite public dir; false = disabled. Defaults to `<root>/public` (vite's default). */
+  publicDir: string | false = path.join(root, 'public'),
 ): ResolvedConfig {
   const locales: LocaleInfo[] = [
     {
@@ -414,6 +413,7 @@ export function resolveConfig(
   };
   return {
     root,
+    publicDir: publicDir || null,
     contentDir: path.resolve(root, config.contentDir),
     title: config.title,
     description: config.description,
@@ -471,7 +471,6 @@ export function resolveConfig(
     ...(config.googleAnalytics
       ? { googleAnalytics: config.googleAnalytics }
       : {}),
-    deploy: { cloudflare: config.deploy?.cloudflare ?? false },
     icons: config.icons ?? {},
   };
 }

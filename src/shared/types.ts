@@ -419,21 +419,6 @@ export interface SiteConfig {
      */
     depth?: RelatedDepth;
   };
-
-  // -- Deployment-target artifacts (all opt-in) ------------------------------
-
-  /** Deployment-target options; each key opts into host-specific artifacts. */
-  deploy?: {
-    /**
-     * Emit a Cloudflare Pages `_headers` file: immutable year-long caching
-     * for the content-hashed `/assets/*`, plus a `Link: <entry>;
-     * rel=modulepreload` header on `/` (only Cloudflare consumes it, for
-     * Early Hints). Mutually exclusive with a handwritten `public/_headers`
-     * — pick one; the public copy clashes with the emitted file.
-     * @default false
-     */
-    cloudflare?: boolean;
-  };
 }
 
 /** Policy for bare relative markdown links (see `SiteConfig.strictLinks`). */

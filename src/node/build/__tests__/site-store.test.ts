@@ -536,7 +536,7 @@ describe('SiteStore', () => {
     expect(robots).toContain('Disallow: /hide');
   });
 
-  it('emits a Cloudflare Pages _headers only when deploy.cloudflare is on', async () => {
+  it('emits a Cloudflare Pages _headers by default; public/_headers wins', async () => {
     const fx = await contentFixture({ 'index.md': '# Home\n' });
     const assets = {
       isBuild: true,
@@ -546,22 +546,7 @@ describe('SiteStore', () => {
 
     const plain = new SiteStore(fx.config);
     await plain.sync('build');
-    const plainNames = plain.emitAll(assets).map(f => f.fileName);
-    expect(plainNames).not.toContain('_headers');
-
-    const cfConfig = resolveConfig(
-      {
-        contentDir: 'content',
-        title: 'Site',
-        description: 'desc',
-        hostname: 'https://test.example.com',
-        deploy: { cloudflare: true },
-      },
-      fx.root,
-    );
-    const cf = new SiteStore(cfConfig);
-    await cf.sync('build');
-    const files = cf.emitAll(assets);
+    const files = plain.emitAll(assets);
     const headers = String(
       files.find(f => f.fileName === '_headers')?.source ?? '',
     );
@@ -577,6 +562,19 @@ describe('SiteStore', () => {
     expect(headers).toContain(
       'Link: </assets/entry-a1b2.js>; rel=modulepreload',
     );
+
+    // A user-provided public/_headers takes over; the build must not emit
+    // a second file at the same output path.
+    await mkdir(path.join(fx.root, 'public'), { recursive: true });
+    await writeFile(path.join(fx.root, 'public', '_headers'), '/\n  X: y\n');
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const custom = new SiteStore(fx.config);
+    await custom.sync('build');
+    expect(custom.emitAll(assets).map(f => f.fileName)).not.toContain(
+      '_headers',
+    );
+    expect(warned).toHaveBeenCalledTimes(1);
+    warned.mockRestore();
   });
 
   it('injects the katex stylesheet on math pages only (dev)', async () => {

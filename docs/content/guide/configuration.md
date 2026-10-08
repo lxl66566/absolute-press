@@ -240,16 +240,6 @@ footer: {
 
 页脚：桌面端一行两栏，右侧固定「Powered by absolute-press」链接指向框架仓库。左侧署名行（桌面页脚与移动端抽屉底部共用）默认是 CC 图标 + 框架名；配置后整段替换为自定义纯文本（组件不解析 HTML，需要图标请走站点 CSS 或自定义 island）。留白字符串视为未配置。
 
-## deploy
-
-```ts
-deploy: {
-  cloudflare: true, // 默认 false
-}
-```
-
-部署目标产物开关。`cloudflare: true` 时构建额外产出 Cloudflare Pages 的 `_headers` 文件：`/assets/*`（全是内容 hash 命名的文件）获得一年 immutable 缓存头，`/` 带一条指向客户端 entry chunk 的 `Link: </assets/entry-xxx.js>; rel=modulepreload` 头（只有 Cloudflare 会消费它，用于 Early Hints）。与在 `public/` 自带 `_headers` 互斥（会产出同名文件，选一种）。详见[部署指南](./deploy.md)。
-
 ## strictLinks
 
 ```ts

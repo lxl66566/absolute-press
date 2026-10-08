@@ -1022,8 +1022,18 @@ export class SiteStore {
       source: renderSitemap(this.config, sitemapEntries),
     });
     out.push({ fileName: 'robots.txt', source: renderRobots(this.config) });
-    // Host-specific artifacts opt in via config.deploy (dev never sees them).
-    if (this.config.deploy.cloudflare) {
+    // `_headers` ships by default: Cloudflare Pages / Netlify apply it,
+    // every other host serves it as an inert file. A site's own
+    // public/_headers takes over — skipping avoids writing the same output
+    // path twice (vite copies public files next to the emitted assets).
+    const userHeaders =
+      this.config.publicDir !== null &&
+      fs.existsSync(path.join(this.config.publicDir, '_headers'));
+    if (userHeaders) {
+      console.warn(
+        '[absolute-press] public/_headers found; keeping it instead of emitting the default _headers',
+      );
+    } else {
       out.push({
         fileName: '_headers',
         source: renderCloudflareHeaders(assets.scriptFile),

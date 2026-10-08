@@ -78,7 +78,12 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
     },
     configResolved(viteConfig) {
       if (inert) return;
-      config = resolveConfig(userConfig, viteConfig.root);
+      config = resolveConfig(
+        userConfig,
+        viteConfig.root,
+        // vite leaves publicDir '' when disabled via `publicDir: false`.
+        viteConfig.publicDir || false,
+      );
       store = new SiteStore(config);
     },
     resolveId(id) {
