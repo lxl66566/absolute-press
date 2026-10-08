@@ -55,3 +55,19 @@ export function encryptRuleFor(
     ...(rule.hint !== undefined ? { hint: rule.hint } : {}),
   };
 }
+
+/**
+ * robots.txt Disallow paths of the string rules, match-normalized (decoded,
+ * like the matching side, so CJK paths ship in plain form). robots patterns
+ * are plain path prefixes, so RegExp rules have no faithful encoding and are
+ * skipped (documented). Duplicated paths collapse to one line.
+ */
+export function encryptDisallowPaths(rules: EncryptRules): string[] {
+  const paths = new Set<string>();
+  for (const rule of rules ?? []) {
+    if (typeof rule.match === 'string') {
+      paths.add(normalizeRouteForMatch(rule.match));
+    }
+  }
+  return [...paths];
+}

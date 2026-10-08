@@ -1,6 +1,7 @@
 import type { ArticleInfo, PageAlternate } from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
 import { FEED_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
+import { encryptDisallowPaths } from './encrypt.ts';
 
 function escapeXml(s: string): string {
   return s
@@ -115,6 +116,9 @@ export function renderRobots(config: ResolvedConfig): string {
   return [
     'User-agent: *',
     'Allow: /',
+    // String encrypt rules double as crawl exclusions; RegExp rules cannot
+    // be expressed as robots patterns and stay unlisted (see encrypt docs).
+    ...encryptDisallowPaths(config.encrypt).map(p => `Disallow: ${p}`),
     '',
     `Sitemap: ${config.hostname}/sitemap.xml`,
     '',

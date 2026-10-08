@@ -38,7 +38,7 @@ encrypt: [
 
 This is a **client-side password gate, not real encryption**: the content ships in full with the HTML and is merely hidden by CSS, so a technical reader can read it straight from the page source. It fits "keep out casual visitors" scenarios, not genuinely confidential content — a deliberate design tradeoff. If you need real encryption, split the content out before building.
 
-Also: give protected pages frontmatter `feed: false` to leave RSS, so titles and links do not leak into the feed.
+Also: pages hit by a rule leave the sitemap automatically, and string rules append their match path as a robots.txt `Disallow` (RegExp rules cannot be expressed as robots patterns and stay unlisted). Give protected pages frontmatter `feed: false` to leave RSS too, so titles and links do not leak into the feed.
 
 ## Demo
 

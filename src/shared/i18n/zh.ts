@@ -84,6 +84,12 @@ export const zh = {
     error: '密码错误，请重试',
     remember: '记住密码',
   },
+  notFound: {
+    /** Standalone 404 page copy; emitted with the default locale. */
+    title: '页面不存在',
+    message: '你要找的页面不存在，或已被移动。',
+    backHome: '返回首页',
+  },
 };
 
 export type Messages = typeof zh;

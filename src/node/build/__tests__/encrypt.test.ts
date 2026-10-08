@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { encryptRuleFor, matchesRoute, sha256Hex } from '../encrypt.ts';
+import {
+  encryptDisallowPaths,
+  encryptRuleFor,
+  matchesRoute,
+  sha256Hex,
+} from '../encrypt.ts';
 
 describe('sha256Hex', () => {
   it('matches known sha256 vectors', () => {
@@ -95,5 +100,34 @@ describe('encryptRuleFor', () => {
   it('never emits plaintext passwords', () => {
     const payload = encryptRuleFor('/a', rules);
     expect(JSON.stringify(payload)).not.toContain('pw1');
+  });
+});
+
+describe('encryptDisallowPaths', () => {
+  it('normalizes string rules and skips regexps', () => {
+    expect(
+      encryptDisallowPaths([
+        { match: '/guide/secret', passwords: ['x'] },
+        { match: /^\/hide\//, passwords: ['x'] },
+        { match: '私密//a', passwords: ['x'] },
+      ]),
+    ).toEqual(['/guide/secret', '/私密/a']);
+  });
+
+  it('collapses duplicated paths and dedupes nothing else', () => {
+    expect(
+      encryptDisallowPaths([
+        { match: '/a.html', passwords: ['x'] },
+        { match: 'a.html', passwords: ['y'] },
+      ]),
+    ).toEqual(['/a.html']);
+  });
+
+  it('returns empty for absent or all-regexp rules', () => {
+    expect(encryptDisallowPaths(undefined)).toEqual([]);
+    expect(encryptDisallowPaths([])).toEqual([]);
+    expect(encryptDisallowPaths([{ match: /x/, passwords: ['p'] }])).toEqual(
+      [],
+    );
   });
 });

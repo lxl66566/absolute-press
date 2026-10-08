@@ -345,6 +345,7 @@ describe('SiteStore', () => {
         'rss.xml',
         'sitemap.xml',
         'robots.txt',
+        '404.html',
       ]),
     );
     // No math in the fixture: no katex css link and no katex assets at all.
@@ -406,6 +407,95 @@ describe('SiteStore', () => {
     expect(leaf).toContain(
       '<link rel="canonical" href="https://test.example.com/guide/a">',
     );
+  });
+  it('emitAll ships a standalone noindex 404 page in the default locale', async () => {
+    const fx = await contentFixture({ 'index.md': '# Home\n' });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const html = String(
+      files.find(f => f.fileName === '404.html')?.source ?? '',
+    );
+    expect(html).toContain('<html lang="zh-CN">');
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain('prefers-color-scheme');
+    expect(html).toContain('href="/"');
+    // Fully inline: served at any URL depth, so no external references.
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('<link');
+    // The fallback URL set is open-ended; it never enters the sitemap.
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).not.toContain('404');
+  });
+
+  it('a content 404.md wins over the generated fallback page', async () => {
+    const fx = await contentFixture({ '404.md': '# Lost\n' });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const own = files.filter(f => f.fileName === '404.html');
+    expect(own).toHaveLength(1);
+    // The real page shell (payload script), not the standalone fallback.
+    expect(String(own[0]?.source ?? '')).toContain('id="__AP_DATA__"');
+    // The override page keeps its open-ended URL set out of the sitemap.
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).not.toContain('404');
+  });
+
+  it('keeps gated pages out of the sitemap and disallows string rules in robots.txt', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'secret.md': '# S\n',
+      're/x.md': '# X\n',
+    });
+    const config = resolveConfig(
+      {
+        contentDir: 'content',
+        title: 'Site',
+        description: 'desc',
+        hostname: 'https://test.example.com',
+        encrypt: [
+          { match: '/secret', passwords: ['pw'] },
+          { match: /^\/re\//, passwords: ['pw'] },
+        ],
+      },
+      fx.root,
+    );
+    const store = new SiteStore(config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    // The pages still build (the gate is client-side) but leave the sitemap.
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('secret.html');
+    expect(names).toContain('re/x.html');
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).toContain('<loc>https://test.example.com/</loc>');
+    expect(sitemap).not.toContain('secret');
+    expect(sitemap).not.toContain('re/x');
+    const robots = String(
+      files.find(f => f.fileName === 'robots.txt')?.source ?? '',
+    );
+    expect(robots).toContain('Disallow: /secret');
+    // RegExp rules cannot be expressed as robots patterns.
+    expect(robots).not.toContain('re/');
   });
 
   it('injects the katex stylesheet on math pages only (dev)', async () => {

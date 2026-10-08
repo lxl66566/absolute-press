@@ -7,10 +7,10 @@ import { expect, test } from 'playwright/test';
  */
 
 const ORIGIN = 'http://127.0.0.1:4173';
-// Graph fixture page: guide/deploy has exactly two neighbors (faq and
-// the site home) that also reference each other, so the payload carries the
-// star edges plus one induced edge. Counts below are pinned to the docs'
-// current link structure.
+// Graph fixture page: guide/deploy links to five pages (the guide index,
+// configuration, faq, seo, writing), whose own cross-links induce seven
+// member-member edges. Counts below are pinned to the docs' current link
+// structure.
 const TARGET = `${ORIGIN}/guide/deploy`;
 
 /** Center the graph section in the viewport (bypasses actionability checks:
@@ -42,13 +42,13 @@ test.describe('related articles graph', () => {
     await mountGraph(page);
     const svg = page.locator('#ap-related .ap-graph-svg');
     await expect(svg).toBeVisible();
-    // deploy + faq + home as dots; star edges plus the induced faq--home
-    // edge (payload RelatedLink.links).
+    // deploy + its five neighbors as dots; star edges plus the induced
+    // member-member edges (payload RelatedLink.links).
     await expect(svg.locator('g.ap-graph-node:not(.is-current)')).toHaveCount(
-      2,
+      5,
     );
     await expect(svg.locator('g.ap-graph-node.is-current')).toHaveCount(1);
-    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(3);
+    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(12);
   });
 
   test('wheel zoom changes the canvas transform', async ({ page }) => {

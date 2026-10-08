@@ -38,6 +38,7 @@ import { getGitTimes } from './git.ts';
 import { katexAssets, katexDevHref, pageUsesKatex } from './katex-assets.ts';
 import { createMarkdownRenderer } from './markdown-adapter.ts';
 import { buildChrome } from './nav-tree.ts';
+import { isNotFoundRoute, renderNotFound } from './not-found.ts';
 import {
   buildArticles,
   INDEX_STEMS,
@@ -977,15 +978,28 @@ export class SiteStore {
     if (ctx.pages.some(p => pageUsesKatex(p.html))) {
       out.push(...katexAssets());
     }
+    // Static hosts serve /404.html for unknown paths; a content page
+    // occupying the route (a 404.md at the content root) wins.
+    if (!ctx.byRoute.has('/404')) {
+      out.push({ fileName: '404.html', source: renderNotFound(this.config) });
+    }
     // Pages carry their git last-commit time as lastmod; synthetic archive
     // pages have no source file and stay lastmod-less. Both carry their
-    // hreflang alternates when cross-locale counterparts exist.
+    // hreflang alternates when cross-locale counterparts exist. Gated pages
+    // and the 404 override stay out: a sitemap entry advertises the URL to
+    // crawlers, defeating the gate's unlisted posture.
     const sitemapEntries: SitemapEntry[] = [
-      ...ctx.pages.map(p => ({
-        route: p.route,
-        lastmod: p.meta.updatedAt,
-        alternates: this.alternatesOf(ctx, p),
-      })),
+      ...ctx.pages
+        .filter(
+          p =>
+            !encryptRuleFor(p.route, this.config.encrypt) &&
+            !isNotFoundRoute(p.route),
+        )
+        .map(p => ({
+          route: p.route,
+          lastmod: p.meta.updatedAt,
+          alternates: this.alternatesOf(ctx, p),
+        })),
       ...archives.map(a => ({
         route: a.route,
         lastmod: null,

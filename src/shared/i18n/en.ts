@@ -83,4 +83,10 @@ export const en = {
     error: 'Incorrect password, please try again',
     remember: 'Remember password',
   },
+  notFound: {
+    /** Standalone 404 page copy; emitted with the default locale. */
+    title: 'Page not found',
+    message: 'The page you are looking for does not exist or has been moved.',
+    backHome: 'Back to home',
+  },
 } satisfies Messages;

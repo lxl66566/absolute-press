@@ -24,12 +24,14 @@ dist/
 │   └── img/                   # 正文图片，内容 hash 命名
 ├── rss.xml                    # 最新 20 篇文章的订阅源
 ├── sitemap.xml                # 全部路由
-└── robots.txt
+├── robots.txt
+└── 404.html                   # 未命中路径的回退页（完全内联、noindex）
 ```
 
 - 路由是无扩展名的 clean URL：`guide/foo.md` → `/guide/foo`，`index.md` 产出所在目录的索引页（默认 `/guide/` 形态，可用 `urls.directoryIndex` 切换为 `/guide`）；落盘文件名始终带 `.html`，任何静态托管都能直接服务
 - 中文等非 ASCII 路由段按 URL 编码生成链接（如归档页 `/tag/主题` 的编码形式），但**磁盘文件名是解码后的原文**：静态主机会先把请求路径 percent-decode 再查找文件，两边恰好对上，中文归档路由开箱可用，不需要重写规则
 - KaTeX 样式表与按需加载的 island chunk（Mermaid / G2Plot / DocSearch / photoSwipe）同样在 `assets/` 下，随页面自动按相对路径引用，无需额外配置
+- `404.html` 由构建生成（Cloudflare Pages / GitHub Pages 等主机用它响应未知路径，避免软 404），内容根的 `404.md` 可覆盖它；细节与限制见 [SEO](./seo.md#_404-页面)
 
 ## hostname 与子路径
 

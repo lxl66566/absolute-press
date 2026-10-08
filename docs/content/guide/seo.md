@@ -48,10 +48,19 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 
 ## sitemap 与 robots.txt
 
-- `sitemap.xml`：全部页面路由（含归档页、各 locale），每条 `<loc>` 用 `hostname` 拼成绝对地址；内容页带 `<lastmod>`（取该文件 git 最后一次提交时间，W3C UTC 格式），归档页无源文件故不带；有跨 locale 镜像页的条目带 `xhtml:link` hreflang 互链（与页面 head 一致）
-- `robots.txt`：`User-agent: * / Allow: /` 加一行 `Sitemap: <hostname>/sitemap.xml`
+- `sitemap.xml`：全部页面路由（含归档页、各 locale），每条 `<loc>` 用 `hostname` 拼成绝对地址；内容页带 `<lastmod>`（取该文件 git 最后一次提交时间，W3C UTC 格式），归档页无源文件故不带；有跨 locale 镜像页的条目带 `xhtml:link` hreflang 互链（与页面 head 一致）。命中 encrypt 规则的页面不进入 sitemap——sitemap 条目等于把 URL 主动递给爬虫，与密码门的「不列出」意图相悖
+- `robots.txt`：`User-agent: * / Allow: /` 加一行 `Sitemap: <hostname>/sitemap.xml`；encrypt 的字符串规则各追加一条 `Disallow`（与匹配侧同款归一化路径，非 ASCII 路由写解码后的原文）；RegExp 规则无法表达为 robots 模式，不会写入
 
 两者都由构建层生成，换域名只改 `hostname` 配置，无需手工维护。
+
+## 404 页面
+
+构建额外产出完全内联的 `404.html`（无外部 css/js/字体），Cloudflare Pages / GitHub Pages 等静态主机会用它响应不存在的路径，避免「软 404」——任意路径返回 200 + 首页会被搜索引擎收录。页面带 `<meta name="robots" content="noindex">`，文案与 `<html lang>` 跟随默认 locale，亮暗色由内联的 `prefers-color-scheme` 媒体查询提供。
+
+两处已知边界：
+
+- 404 会在任意深度的未知 URL 下被服务，相对路径必坏，所以页面必须完全内联；同理返回首页的链接写成根绝对的 `href="/"`——框架无法感知部署子路径，子路径部署（如 `https://user.github.io/repo/`）下该链接指向域名根而非站点根
+- 内容根放一个 `404.md` 即可用自己的页面替换生成的兜底页
 
 ## 其他 head 注入
 
@@ -67,4 +76,4 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 - [ ] 每页首个 h1 就是想要的 `<title>` 前半段
 - [ ] `description` 覆盖站点定位，多 locale 站点没有「中文描述配英文页」的需求时保持中性文案
 - [ ] 敏感页（密码门保护的）已设 `feed: false`
-- [ ] `rss.xml` / `sitemap.xml` / `robots.txt` 在产物根目录存在且链接可访问
+- [ ] `rss.xml` / `sitemap.xml` / `robots.txt` / `404.html` 在产物根目录存在且链接可访问

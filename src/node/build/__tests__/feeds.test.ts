@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LocaleInfo } from '../../../shared/types.ts';
 import type { ResolvedConfig } from '../../config.ts';
-import { renderRss, renderSitemap } from '../feeds.ts';
+import { renderRobots, renderRss, renderSitemap } from '../feeds.ts';
 import type { FeedArticle } from '../feeds.ts';
 
 const config = { hostname: 'https://example.com' } as ResolvedConfig;
@@ -156,5 +156,29 @@ describe('renderSitemap', () => {
     const xml = renderSitemap(config, [{ route: '/a', lastmod: null }]);
     expect(xml).not.toContain('xhtml:link');
     expect(xml).toContain('<loc>https://example.com/a</loc>');
+  });
+});
+
+describe('renderRobots', () => {
+  it('keeps the bare allow-all form without encrypt rules', () => {
+    expect(renderRobots(config)).toBe(
+      'User-agent: *\nAllow: /\n\nSitemap: https://example.com/sitemap.xml\n',
+    );
+  });
+
+  it('disallows string encrypt rules (normalized); regexps have no encoding', () => {
+    const robots = renderRobots({
+      hostname: 'https://example.com',
+      encrypt: [
+        { match: '/guide/secret', passwords: ['x'] },
+        { match: '私密//a', passwords: ['x'] },
+        { match: /^\/hide\//, passwords: ['x'] },
+      ],
+    } as ResolvedConfig);
+    expect(robots).toContain('Disallow: /guide/secret');
+    expect(robots).toContain('Disallow: /私密/a');
+    expect(robots).not.toContain('hide');
+    expect(robots).toContain('Allow: /');
+    expect(robots).toContain('Sitemap: https://example.com/sitemap.xml');
   });
 });
