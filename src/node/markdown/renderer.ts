@@ -48,6 +48,7 @@ import {
   type MarkdownRendererOptions,
   type ResolvedCodeOptions,
 } from './options.ts';
+import { installRawHtmlImageSizes } from './raw-html-images.ts';
 import { readingMinutes } from './reading-time.ts';
 import { Slugger } from './slugify.ts';
 import { normalizeTabMarkers, registerTabs } from './tabs.ts';
@@ -111,6 +112,8 @@ export async function createMarkdownRenderer(
     options.resolveImage,
     options.imageSize,
   );
+  // Raw-HTML <img> tags bypass the image renderer rule; size them here.
+  if (options.imageSize) installRawHtmlImageSizes(md, options.imageSize);
 
   const islandNames = new Set(
     (options.islands ?? []).map(island => island.name),

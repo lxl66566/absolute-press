@@ -452,6 +452,8 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 
 相对路径图片在构建期复制到 `assets/img/` 并以内容 hash 命名，src 按页面深度重写，部署到任何子路径都不会断链。独占一段的图片会升级为 `<figure>`，alt 文本成为 figcaption；段落内混排的行内图片保持原样。
 
+本地图片（png/jpeg/gif/webp/svg）构建期自动探测固有尺寸并注入 `width`/`height` 属性，浏览器在字节到达前预留版面（防 CLS）；markdown 图片语法与 raw HTML 的 `<img>` 都生效，已显式写 `width`/`height` 的图片、外链与 public 根路径 src 保持原样。
+
 ![Absolute Press 示意图](./assets/demo.svg)
 
 **源码：**

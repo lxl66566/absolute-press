@@ -452,6 +452,8 @@ This is a sentence with a footnote[^1]. Footnote labels support Unicode — for 
 
 Relative-path images are copied to `assets/img/` at build time under content-hash names, with `src` rewritten per page depth, so deploying under any sub-path never breaks them. An image alone in a paragraph is upgraded to `<figure>` and its alt text becomes the figcaption; inline images mixed into a paragraph stay as-is.
 
+Local images (png/jpeg/gif/webp/svg) get their intrinsic size detected at build time, injected as `width`/`height` attributes so the browser reserves layout space before the bytes arrive (no CLS). This covers both the markdown image syntax and raw-HTML `<img>` tags; images with explicit `width`/`height`, external images, and public-root srcs stay untouched.
+
 ![Absolute Press diagram](./assets/demo.svg)
 
 **Source:**
