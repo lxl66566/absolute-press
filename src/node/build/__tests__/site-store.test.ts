@@ -142,7 +142,8 @@ describe('SiteStore', () => {
     const fx = await contentFixture({ 'a.md': '# A\n', 'b.md': '# B\n' });
     const store = new SiteStore(fx.config);
     await store.sync('dev');
-    // Warm the cache; only misses may stat.
+    // Warm the cache, then prove the request path stats nothing: dev
+    // freshness is the watcher's job, not a per-request stat.
     store.devHtml('/a');
     store.devHtml('/b');
 
@@ -159,25 +160,57 @@ describe('SiteStore', () => {
     }
   });
 
-  it('build keeps the per-page mtime stat even after a dev sync', async () => {
+  it('build re-renders dev cache survivors whose scanned mtime moved', async () => {
     const fx = await contentFixture({ 'a.md': '# A\n', 'b.md': '# B\n' });
     const store = new SiteStore(fx.config);
     await store.sync('dev');
-    store.devHtml('/a');
-    // Flip to build mode; sync keeps surviving cache entries, so freshness
-    // must fall back to the mtime check (no watcher during generateBundle).
-    await store.sync('build');
+    // Warm the render cache; entries survive sync(), so build freshness must
+    // come from the mtime compare (there is no watcher during generateBundle).
+    expect(store.devHtml('/a')).toContain('A');
 
-    const stat = vi.spyOn(fs, 'statSync');
+    // New content under an OLDER mtime: only the mtime key can catch it.
+    fs.writeFileSync(fx.abs('a.md'), '# A2\n');
+    fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const html = (name: string): string =>
+      String(files.find(f => f.fileName === name)?.source ?? '');
+    expect(html('a.html')).toContain('A2');
+    expect(html('b.html')).toContain('B');
+  });
+
+  it('one full build sync reads each content file exactly once', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n\n[see](./a.md)\n',
+      'a.md': '---\ndate: 2024-01-01\ncategory: news\n---\n\n# A\n',
+      'guide/b.md': '```ts\nconst x = 1;\n```\n',
+    });
+    const store = new SiteStore(fx.config);
+    const read = vi.spyOn(fs, 'readFileSync');
     try {
-      store.emitAll({
+      await store.sync('build');
+      const files = store.emitAll({
         isBuild: true,
         scriptFile: 'assets/entry.js',
         cssFiles: [],
       });
-      expect(stat.mock.calls.length).toBeGreaterThanOrEqual(2);
+      // Rendering really ran before the read count means anything.
+      expect(
+        String(files.find(f => f.fileName === 'a.html')?.source ?? ''),
+      ).toContain('<h1');
+      // The scan pass is the only reader: shiki warm-up, rendering, excerpts,
+      // related links and feeds all reuse its cache. Filter to content files:
+      // the store also reads package metadata and git times run in a
+      // subprocess, none of which touch .md paths.
+      const reads = read.mock.calls.filter(c => String(c[0]).endsWith('.md'));
+      expect(reads).toHaveLength(3);
+      expect(new Set(reads.map(c => String(c[0]))).size).toBe(3);
     } finally {
-      stat.mockRestore();
+      read.mockRestore();
     }
   });
 

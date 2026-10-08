@@ -18,7 +18,6 @@ import type { SiteScanContext } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
-import { fenceLanguages } from '../markdown/fence.ts';
 import {
   assertNoArchiveCollisions,
   groupArchiveArticles,
@@ -183,8 +182,8 @@ export class SiteStore {
   // (vite config loading), which rejects non-erasable syntax.
   private readonly config: ResolvedConfig;
   // Dev trusts the watcher's invalidate()/resync() as the sole freshness
-  // mechanism (see renderPage); build keeps the per-pass mtime stat check.
-  // Set by sync(), like LinkResolver.setMode.
+  // mechanism (see renderPage); build compares render cache entries against
+  // the scan's mtime snapshot. Set by sync(), like LinkResolver.setMode.
   private trustWatcher = false;
   // Last dev archive-collision warning; identical lists stay silent across
   // resyncs (see warnArchiveCollisions).
@@ -203,8 +202,8 @@ export class SiteStore {
    * the site only needs the languages its fences actually use, so the
    * scanned set is passed explicitly and the renderer is memoized per set —
    * a resync that changes the languages rebuilds, everything else reuses
-   * the live instance. The scan reads every source once before rendering;
-   * that extra pass is the cheap price of a small init.
+   * the live instance. The language set comes from the scan cache — part
+   * of its single read per file, no extra disk pass.
    */
   private async ensureRenderer(): Promise<MarkdownRenderer> {
     const langs = new Set(this.scannedLangs());
@@ -243,13 +242,12 @@ export class SiteStore {
     return this.renderer;
   }
 
-  /** Union of fence languages over the scanned pages (raw strings; the
+  /** Union of fence languages over the scan cache (raw strings; the
    * renderer drops entries shiki cannot load — see isBundledLang). */
   private scannedLangs(): Iterable<string> {
     const langs = new Set<string>();
-    for (const page of this.pages) {
-      const src = fs.readFileSync(page.filePath, 'utf8');
-      for (const lang of fenceLanguages(src)) langs.add(lang);
+    for (const file of this.scan.files.values()) {
+      for (const lang of file.fenceLangs) langs.add(lang);
     }
     return langs;
   }
@@ -332,8 +330,8 @@ export class SiteStore {
     try {
       const fresh = scanFile(file);
       // Watcher paths may differ in separators from the walk keys; replace
-      // under the existing key so the onScan context keeps one entry per
-      // file instead of forking a second stale one.
+      // under the existing key so renders and the onScan context keep one
+      // entry per file instead of forking a second stale one.
       const posix = file.split(path.sep).join('/');
       const key =
         [...this.scan.files.keys()].find(
@@ -410,27 +408,38 @@ export class SiteStore {
     }
   }
 
-  private renderPage(page: PageSource): RenderedEntry {
+  /** Scan entry of one page; sync() guarantees an entry per page, so a
+   * miss means a caller bypassed sync() — fail loudly. */
+  private scanOf(page: PageSource): ScannedFile {
+    const file = this.scan.files.get(page.filePath);
+    if (!file) {
+      throw new Error(`[absolute-press] scan cache miss for ${page.filePath}`);
+    }
+    return file;
+  }
+
+  /**
+   * Render one page from the scan cache (source and mtime of its single
+   * read; see scanSite). The cache key keeps its semantics: dev trusts the
+   * watcher's invalidate()/resync() as the sole freshness mechanism and
+   * skips the compare, build has no watcher and falls back to mtime — the
+   * scan re-stat'ed every file this sync, so its snapshot serves the check.
+   */
+  private renderPage(page: PageSource, file: ScannedFile): RenderedEntry {
     const renderer = this.renderer;
     if (!renderer) throw new Error('SiteStore.sync() not awaited');
     const cached = this.rendered.get(page.filePath);
-    // Dev: buildContext() runs per request (devHtml/rss), so the per-page
-    // statSync used to put N syscalls on every dev hit; the watcher's
-    // invalidate()/resync() is already the freshness mechanism there, so
-    // cache hits skip the stat entirely. Build has no watcher and keeps the
-    // mtime check as the source of truth (generateBundle path).
     if (cached) {
       if (this.trustWatcher) return cached;
-      if (cached.mtimeMs === fs.statSync(page.filePath).mtimeMs) return cached;
+      if (cached.mtimeMs === file.mtimeMs) return cached;
     }
-    const mtimeMs = fs.statSync(page.filePath).mtimeMs;
-    const result = renderer.render(fs.readFileSync(page.filePath, 'utf8'), {
+    const result = renderer.render(file.source, {
       filePath: page.filePath,
       // Build-time copy (heimu tooltip) resolves by lang, like the client.
       lang: page.locale.lang,
     });
     const entry: RenderedEntry = {
-      mtimeMs,
+      mtimeMs: file.mtimeMs,
       result,
       excerpt: plainExcerpt(result.html, META_EXCERPT_LIMIT),
     };
@@ -441,10 +450,11 @@ export class SiteStore {
   /** Render every page (cached), carrying meta and html for the emit pass. */
   private renderAll(): EmittedPage[] {
     return this.pages.map(p => {
-      const entry = this.renderPage(p);
+      const file = this.scanOf(p);
+      const entry = this.renderPage(p, file);
       return {
         ...p,
-        meta: this.metaOf(p, entry),
+        meta: this.metaOf(p, file, entry),
         html: entry.result.html,
       };
     });
@@ -513,17 +523,22 @@ export class SiteStore {
     return rendered;
   }
 
-  private metaOf(page: PageSource, entry: RenderedEntry): PageMeta {
+  private metaOf(
+    page: PageSource,
+    file: ScannedFile,
+    entry: RenderedEntry,
+  ): PageMeta {
     const { result, excerpt } = entry;
-    // Invalid dates already warned at the scan (createdAtOf with filePath);
-    // this re-derivation stays silent.
+    // Frontmatter comes from the scan pass (the single parse); invalid dates
+    // already warned there (createdAtOf with filePath), so this
+    // re-derivation stays silent.
     return {
       route: page.route,
       locale: page.locale.key,
       title: result.title ?? '',
       headings: result.headings,
-      frontmatter: result.frontmatter,
-      createdAt: createdAtOf(result.frontmatter),
+      frontmatter: file.frontmatter,
+      createdAt: createdAtOf(file.frontmatter),
       updatedAt: this.gitTimes.get(page.filePath) ?? null,
       // Omitted when the site disables it; the client hides an absent value.
       ...(this.config.readingTime ? { readingTime: result.readingTime } : {}),
@@ -561,7 +576,7 @@ export class SiteStore {
   private related(): Map<string, RelatedLink[]> {
     this.relatedCache ??= buildRelatedMap(
       this.pages.map(p => {
-        const result = this.renderPage(p).result;
+        const result = this.renderPage(p, this.scanOf(p)).result;
         return {
           route: p.route,
           locale: p.locale.key,
