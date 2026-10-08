@@ -498,6 +498,49 @@ describe('SiteStore', () => {
     expect(robots).not.toContain('re/');
   });
 
+  it('emits a Cloudflare Pages _headers only when deploy.cloudflare is on', async () => {
+    const fx = await contentFixture({ 'index.md': '# Home\n' });
+    const assets = {
+      isBuild: true,
+      scriptFile: 'assets/entry-a1b2.js',
+      cssFiles: [],
+    };
+
+    const plain = new SiteStore(fx.config);
+    await plain.sync('build');
+    const plainNames = plain.emitAll(assets).map(f => f.fileName);
+    expect(plainNames).not.toContain('_headers');
+
+    const cfConfig = resolveConfig(
+      {
+        contentDir: 'content',
+        title: 'Site',
+        description: 'desc',
+        hostname: 'https://test.example.com',
+        deploy: { cloudflare: true },
+      },
+      fx.root,
+    );
+    const cf = new SiteStore(cfConfig);
+    await cf.sync('build');
+    const files = cf.emitAll(assets);
+    const headers = String(
+      files.find(f => f.fileName === '_headers')?.source ?? '',
+    );
+    // Content-hashed assets get immutable caching; the entry file name is
+    // plumbed from the build bundle into the modulepreload Link header.
+    expect(headers).toContain('/assets/*');
+    expect(headers).toContain(
+      'Cache-Control: public, max-age=31536000, immutable',
+    );
+    // Fixed-name katex assets get a short cache instead of immutable.
+    expect(headers).toContain('/assets/katex/*');
+    expect(headers).toContain('Cache-Control: public, max-age=86400');
+    expect(headers).toContain(
+      'Link: </assets/entry-a1b2.js>; rel=modulepreload',
+    );
+  });
+
   it('injects the katex stylesheet on math pages only (dev)', async () => {
     const fx = await contentFixture({
       'math.md': '# Math\n\n$E=mc^2$\n',

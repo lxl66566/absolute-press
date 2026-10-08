@@ -31,6 +31,7 @@ import {
 } from './assets.ts';
 import type { DeadLink } from './assets.ts';
 import { clientEntry } from './clientEntry.ts';
+import { renderCloudflareHeaders } from './deploy.ts';
 import { encryptRuleFor } from './encrypt.ts';
 import { renderRobots, renderRss, renderSitemap } from './feeds.ts';
 import type { FeedArticle, SitemapEntry } from './feeds.ts';
@@ -1016,6 +1017,13 @@ export class SiteStore {
       source: renderSitemap(this.config, sitemapEntries),
     });
     out.push({ fileName: 'robots.txt', source: renderRobots(this.config) });
+    // Host-specific artifacts opt in via config.deploy (dev never sees them).
+    if (this.config.deploy.cloudflare) {
+      out.push({
+        fileName: '_headers',
+        source: renderCloudflareHeaders(assets.scriptFile),
+      });
+    }
     return out;
   }
 }

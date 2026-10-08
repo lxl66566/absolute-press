@@ -25,7 +25,8 @@ dist/
 ├── rss.xml                    # feed of the latest 20 articles
 ├── sitemap.xml                # all routes
 ├── robots.txt
-└── 404.html                   # fallback page for unmatched paths (fully inline, noindex)
+├── 404.html                   # fallback page for unmatched paths (fully inline, noindex)
+└── _headers                   # optional: emitted with deploy.cloudflare (Cloudflare Pages)
 ```
 
 - Routes are extensionless clean URLs: `guide/foo.md` → `/guide/foo`, and `index.md` produces the index page of its directory (`/guide/` by default; switch to `/guide` with `urls.directoryIndex`). Emitted file names always carry `.html`, so any static host serves them directly
@@ -48,10 +49,11 @@ All in-page resources and internal links use a relative prefix generated from pa
 The output has no server-side requirements; mainstream platforms are zero-config or near-zero-config:
 
 - **Cloudflare Pages / Netlify / Vercel**: build command `pnpm build`, output directory = `build.outDir`; no SPA rewrite needed (no `index.html` fallback requirement — every page is a real file). On Cloudflare Pages, prefer `urls.directoryIndex: 'bare'` (CF 308s `/guide/` to `/guide`; bare is its native form)
+- **Cloudflare Pages only**: site config `deploy: { cloudflare: true }` makes the build additionally emit `_headers` — `/assets/*` (content-hash named) gets a year-long immutable `Cache-Control` header, and `/` gets a modulepreload `Link` header pointing at the client entry chunk (only Cloudflare consumes it, for Early Hints; other hosts ignore the file entirely). Mutually exclusive with shipping your own `_headers` in `public/`: vite copies public files into the output where they clash with the emitted same-name file — pick one (the config option is recommended: the entry's hashed file name follows every build automatically)
 - **GitHub Pages**: publish the output directory directly; sub-path deployments like `https://user.github.io/repo/` rely on the relative-prefix mechanism above and need no base config. The default `'slash'` form is GH's native form (`/guide` gets 301ed to `/guide/`), so nothing to tune
 - **nginx / Caddy**: point `root` (or `file_server`) at the output directory; do not configure an SPA fallback like `try_files ... /index.html`
 
-Caching advice: file names under `assets/` carry a content hash (images are `name.8-char-hash.ext`), so cache them long; use short or negotiated caching for `.html` and `rss.xml` / `sitemap.xml` so publishes take effect immediately.
+Caching advice: file names under `assets/` carry a content hash (images are `name.8-char-hash.ext`), so cache them long (on Cloudflare Pages just enable `deploy.cloudflare` and `_headers` does it for you); use short or negotiated caching for `.html` and `rss.xml` / `sitemap.xml` so publishes take effect immediately.
 
 ## Build as validation
 

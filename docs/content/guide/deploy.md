@@ -25,7 +25,8 @@ dist/
 ├── rss.xml                    # 最新 20 篇文章的订阅源
 ├── sitemap.xml                # 全部路由
 ├── robots.txt
-└── 404.html                   # 未命中路径的回退页（完全内联、noindex）
+├── 404.html                   # 未命中路径的回退页（完全内联、noindex）
+└── _headers                   # 可选：deploy.cloudflare 产出（Cloudflare Pages）
 ```
 
 - 路由是无扩展名的 clean URL：`guide/foo.md` → `/guide/foo`，`index.md` 产出所在目录的索引页（默认 `/guide/` 形态，可用 `urls.directoryIndex` 切换为 `/guide`）；落盘文件名始终带 `.html`，任何静态托管都能直接服务
@@ -48,10 +49,11 @@ defineSiteConfig({ hostname: 'https://absolute-docs.pages.dev' });
 产物没有服务器端要求，主流平台都是零配置或近零配置：
 
 - **Cloudflare Pages / Netlify / Vercel**：构建命令 `pnpm build`，输出目录填 `build.outDir`；不需要 SPA rewrite（没有 `index.html` 回退的需求，每页都是真实文件）。部署到 Cloudflare Pages 时建议 `urls.directoryIndex: 'bare'`（CF 会把 `/guide/` 308 到 `/guide`，bare 是它的原生形态）
+- **Cloudflare Pages 专属**：站点配置 `deploy: { cloudflare: true }` 让构建额外产出 `_headers`——`/assets/*`（内容 hash 命名）获得一年 immutable 缓存头，`/` 带一条指向客户端 entry chunk 的 modulepreload `Link` 头（只有 Cloudflare 会消费它，用于 Early Hints；其他主机直接忽略该文件）。与在 `public/` 自带 `_headers` 互斥：vite 会把 public 文件拷进产物，与 emit 的同名文件冲突，两种方式选一种（推荐配置项——entry 的 hash 文件名每次构建自动跟随）
 - **GitHub Pages**：直接发布产物目录即可；`https://user.github.io/repo/` 这类子路径部署依赖上面的相对前缀机制，无需任何 base 配置。默认的 `'slash'` 形态就是 GH 的原生形态（`/guide` 会被 301 到 `/guide/`），无需调整
 - **nginx / Caddy**：`root`（或 `file_server`）指向产物目录即可，不要配 `try_files ... /index.html` 之类的 SPA 回退
 
-缓存策略建议：`assets/` 内的文件名带内容 hash（图片是 `名称.8位hash.扩展名`），可以放心长缓存；`.html` 与 `rss.xml` / `sitemap.xml` 用短缓存或协商缓存，保证发布后立即生效。
+缓存策略建议：`assets/` 内的文件名带内容 hash（图片是 `名称.8位hash.扩展名`），可以放心长缓存（Cloudflare Pages 直接开 `deploy.cloudflare`，由 `_headers` 自动落地）；`.html` 与 `rss.xml` / `sitemap.xml` 用短缓存或协商缓存，保证发布后立即生效。
 
 ## 构建即校验
 

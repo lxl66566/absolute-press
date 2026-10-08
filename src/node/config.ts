@@ -329,6 +329,11 @@ export interface ResolvedConfig {
   giscus?: SiteConfig['giscus'];
   encrypt?: SiteConfig['encrypt'];
   googleAnalytics?: string;
+  /** Deployment-target options (host-specific build artifacts). */
+  deploy: {
+    /** Emit a Cloudflare Pages `_headers` file. */
+    cloudflare: boolean;
+  };
   /** Registered icon map (empty when unconfigured). */
   icons: Record<string, string>;
 }
@@ -446,6 +451,7 @@ export function resolveConfig(
     ...(config.googleAnalytics
       ? { googleAnalytics: config.googleAnalytics }
       : {}),
+    deploy: { cloudflare: config.deploy?.cloudflare ?? false },
     icons: config.icons ?? {},
   };
 }

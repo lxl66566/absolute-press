@@ -237,6 +237,16 @@ footer: {
 
 Footer: on desktop a single two-column row, with a fixed "Powered by absolute-press" link to the framework repository on the right. The left credit line (shared by the desktop footer and the mobile drawer bottom) defaults to a CC icon plus the framework name; when configured, it is replaced wholesale with custom plain text (the component does not parse HTML; use site CSS or a custom island if you need icons). A whitespace-only string counts as not configured.
 
+## deploy
+
+```ts
+deploy: {
+  cloudflare: true, // default false
+}
+```
+
+Switches for deployment-target artifacts. With `cloudflare: true` the build additionally emits a Cloudflare Pages `_headers` file: `/assets/*` (all content-hash-named files) gets a year-long immutable `Cache-Control` header, and `/` gets a `Link: </assets/entry-xxx.js>; rel=modulepreload` header pointing at the client entry chunk (only Cloudflare consumes it, for Early Hints). Mutually exclusive with shipping your own `_headers` in `public/` (both would produce the same file — pick one). See the [Deployment guide](./deploy.md).
+
 ## strictLinks
 
 ```ts
