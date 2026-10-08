@@ -1,5 +1,6 @@
 import { seoPageType } from '../../shared/seo';
 import type { PagePayload } from '../../shared/types';
+import { pagePayload } from './payload';
 
 /**
  * Head sync across soft navigation: the SSG stamps every page's head meta
@@ -27,24 +28,62 @@ export interface HeadPatch {
 }
 
 /**
- * Derive the head updates a payload implies, against the serving origin.
- * The shell composes canonical/og:url from the config hostname; the client
- * reconstructs them from the live origin + the payload route (the payload
- * deliberately carries no hostname).
+ * Canonical URL prefix (origin plus any deploy subpath) for one page: its
+ * SSG canonical by construction ends with its route. Pure for tests.
+ */
+export function canonicalPrefixOf(
+  canonical: string | undefined,
+  route: string | undefined,
+  origin: string,
+): string {
+  return canonical !== undefined &&
+    route !== undefined &&
+    canonical.endsWith(route)
+    ? canonical.slice(0, canonical.length - route.length)
+    : origin;
+}
+
+let urlPrefix: string | undefined;
+
+/**
+ * Capture the canonical URL prefix from the initial page. Must run at
+ * startup: after a navigation the payload script already describes the
+ * target page while the canonical link still shows the source page. The
+ * shell composes canonical/og:url from the config hostname, which may
+ * carry a deploy subpath (`https://x.github.io/blog`) — location.origin
+ * alone would drop it (the payload deliberately carries no hostname).
+ */
+export function initCanonicalPrefix(): void {
+  urlPrefix = canonicalPrefixOf(
+    document.querySelector('link[rel="canonical"]')?.getAttribute('href') ??
+      undefined,
+    pagePayload()?.page.route,
+    location.origin,
+  );
+}
+
+/** The captured prefix; location.origin until initCanonicalPrefix runs. */
+export function canonicalPrefix(): string {
+  return urlPrefix ?? location.origin;
+}
+
+/**
+ * Derive the head updates a payload implies, against the canonical URL
+ * prefix (see initCanonicalPrefix).
  */
 export function headPatchOf(
   payload: PagePayload,
-  origin: string,
+  urlPrefix: string,
   title: string,
 ): HeadPatch {
   return {
     ogTitle: title,
     description: payload.page.excerpt ?? payload.site.description,
-    canonical: `${origin}${payload.page.route}`,
+    canonical: `${urlPrefix}${payload.page.route}`,
     ogType: seoPageType(payload),
     alternates: (payload.page.alternates ?? []).map(a => ({
       lang: a.lang,
-      href: `${origin}${a.route}`,
+      href: `${urlPrefix}${a.route}`,
     })),
   };
 }

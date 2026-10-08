@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { seoPageType } from '../../../shared/seo';
 import type { PagePayload } from '../../../shared/types';
-import { applyHead, headPatchOf } from '../head';
+import { applyHead, canonicalPrefixOf, headPatchOf } from '../head';
 
 function payload(
   route: string,
@@ -56,6 +56,32 @@ const SHELL_HEAD = `
 function doc(): Document {
   return parseHTML(SHELL_HEAD).document;
 }
+
+describe('canonicalPrefixOf', () => {
+  it('strips the initial route from its canonical, keeping a subpath', () => {
+    expect(
+      canonicalPrefixOf(
+        'https://x.github.io/blog/',
+        '/',
+        'https://x.github.io',
+      ),
+    ).toBe('https://x.github.io/blog');
+    expect(
+      canonicalPrefixOf(
+        'https://x.github.io/blog/guide/a',
+        '/guide/a',
+        'https://x.github.io',
+      ),
+    ).toBe('https://x.github.io/blog');
+  });
+
+  it('falls back to the origin when the canonical does not end with the route', () => {
+    expect(canonicalPrefixOf('https://x/', '/a', 'https://x')).toBe(
+      'https://x',
+    );
+    expect(canonicalPrefixOf(undefined, '/a', 'https://x')).toBe('https://x');
+  });
+});
 
 describe('headPatchOf', () => {
   it('prefers the page excerpt and composes canonical from the origin', () => {

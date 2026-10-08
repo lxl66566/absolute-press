@@ -12,7 +12,12 @@ import {
   upgradeMermaidFences,
 } from '../theme/mount';
 import { setClientBase, setClientRoute } from '../theme/state';
-import { applyHead, headPatchOf } from './head';
+import {
+  applyHead,
+  canonicalPrefix,
+  headPatchOf,
+  initCanonicalPrefix,
+} from './head';
 import { hydrateIslands } from './islands';
 import type { RouterEntryState, ScrollDecision } from './scroll-restore';
 import { resolveScrollTarget } from './scroll-restore';
@@ -94,7 +99,7 @@ function applyPage(
   // The SSG-composed head meta (description/canonical/og tags/hreflang)
   // must track the navigated page too, or it keeps describing the previous
   // one; applyHead only touches tags the shell emits.
-  applyHead(headPatchOf(payload, location.origin, title), document);
+  applyHead(headPatchOf(payload, canonicalPrefix(), title), document);
 
   initTabsPersistence();
   hydrateIslands(content);
@@ -240,6 +245,7 @@ function onPopState(): void {
 
 /** Runtime init: take over same-site link navigation. */
 export function initRouter(): void {
+  initCanonicalPrefix();
   document.addEventListener('click', onClick);
   window.addEventListener('popstate', onPopState);
 }
