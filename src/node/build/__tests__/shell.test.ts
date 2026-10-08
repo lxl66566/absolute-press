@@ -55,6 +55,13 @@ function indexOf(html: string, needle: string): number {
   return i;
 }
 
+/** The parsed ld+json block; fails the test when absent. */
+function jsonLd(html: string): Record<string, unknown> {
+  const m = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
+  expect(m, 'ld+json script must be present').not.toBeNull();
+  return JSON.parse(m![1]!) as Record<string, unknown>;
+}
+
 /** The inline gtag bootstrap script, for context-scoped assertions. */
 function inlineGaScript(html: string): string {
   const m = html.match(/<script>window\.dataLayer[\s\S]*?<\/script>/);
@@ -469,15 +476,6 @@ describe('renderShell modulepreload', () => {
 });
 
 describe('renderShell JSON-LD', () => {
-  /** The parsed ld+json block; fails the test when absent. */
-  function jsonLd(html: string): Record<string, unknown> {
-    const m = html.match(
-      /<script type="application\/ld\+json">(.*?)<\/script>/s,
-    );
-    expect(m, 'ld+json script must be present').not.toBeNull();
-    return JSON.parse(m![1]!) as Record<string, unknown>;
-  }
-
   it('describes the locale home as a WebSite', () => {
     const home = payload('/');
     const data = jsonLd(shell('/', { payload: home }));

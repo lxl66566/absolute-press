@@ -46,6 +46,8 @@ function page(
 const indexSrc = (front: string[], title: string): string =>
   ['---', ...front, '---', '', `# ${title}`].join('\n');
 
+const texts = (items: SidebarItem[]): string[] => items.map(i => i.text);
+
 describe('buildSidebar folder semantics', () => {
   const pages = [
     page('index.md', 'Home'),
@@ -659,7 +661,6 @@ describe('buildSidebar order', () => {
     page('coding/index.md', '编码总览'),
     page('coding/git.md', 'Git'),
   ];
-  const texts = (items: SidebarItem[]): string[] => items.map(i => i.text);
 
   it('lists order entries first (pages and dirs alike) and appends the rest', () => {
     const sidebar = buildSidebar(pages, [], {

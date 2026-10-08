@@ -14,6 +14,17 @@ import { ENV, makeRenderer } from './helpers.ts';
 const stubSize: ImageSizeResolver = src =>
   src.includes('missing') ? null : { width: 640, height: 480 };
 
+/** PNG: 8-byte signature + IHDR chunk header + width/height. */
+function pngBytes(width: number, height: number): Buffer {
+  const buf = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
+  buf.writeUInt32BE(13, 8);
+  buf.write('IHDR', 12, 'latin1');
+  buf.writeUInt32BE(width, 16);
+  buf.writeUInt32BE(height, 20);
+  return buf;
+}
+
 let md: MarkdownRenderer;
 beforeAll(async () => {
   md = await makeRenderer({ imageSize: stubSize });
@@ -108,17 +119,6 @@ describe('raw HTML img sizes with the real file resolver', () => {
       tmpDirs.map(dir => rm(dir, { recursive: true, force: true })),
     );
   });
-
-  /** PNG: 8-byte signature + IHDR chunk header + width/height. */
-  function pngBytes(width: number, height: number): Buffer {
-    const buf = Buffer.alloc(24);
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
-    buf.writeUInt32BE(13, 8);
-    buf.write('IHDR', 12, 'latin1');
-    buf.writeUInt32BE(width, 16);
-    buf.writeUInt32BE(height, 20);
-    return buf;
-  }
 
   it('reads the intrinsic size off a local file and skips externals', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'ap-rawimg-'));

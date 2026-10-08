@@ -43,7 +43,7 @@ export function canonicalPrefixOf(
     : origin;
 }
 
-let urlPrefix: string | undefined;
+let capturedPrefix: string | undefined;
 
 /**
  * Capture the canonical URL prefix from the initial page. Must run at
@@ -54,7 +54,7 @@ let urlPrefix: string | undefined;
  * alone would drop it (the payload deliberately carries no hostname).
  */
 export function initCanonicalPrefix(): void {
-  urlPrefix = canonicalPrefixOf(
+  capturedPrefix = canonicalPrefixOf(
     document.querySelector('link[rel="canonical"]')?.getAttribute('href') ??
       undefined,
     pagePayload()?.page.route,
@@ -64,7 +64,7 @@ export function initCanonicalPrefix(): void {
 
 /** The captured prefix; location.origin until initCanonicalPrefix runs. */
 export function canonicalPrefix(): string {
-  return urlPrefix ?? location.origin;
+  return capturedPrefix ?? location.origin;
 }
 
 /**
