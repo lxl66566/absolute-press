@@ -396,7 +396,10 @@ heimu *::selection {
   position: absolute;
   z-index: 44;
   box-sizing: border-box;
-  width: min(26rem, calc(100vw - 1rem));
+  /* Size to the content: a one-line ref stays small, longer bodies grow
+   * to the cap and wrap there (max-content alone never soft-wraps). */
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 1rem));
   max-height: 50vh;
   overflow-y: auto;
   padding: 0.75rem 1rem;
@@ -414,12 +417,18 @@ heimu *::selection {
   animation: ap-term-in 140ms ease-out;
 }
 
-/* The prose margin rules (#ap-content :where(p, …)) hit the popover body
- * too; the outermost margins would double with the popover padding. */
+/* The prose margin rules (#ap-content :where(p, …)) and site overrides
+ * like `html #ap-content h1` carry an ID and outrank a plain class
+ * selector — re-assert the reset at ID strength (the extra class keeps it
+ * ahead of one-class site rules; classes beat elements after the ID tie).
+ * Without this the outermost margins double with the popover padding and
+ * read as a blank strip above the first heading. */
+#ap-content .ap-term-popover > :first-child,
 .ap-term-popover > :first-child {
   margin-top: 0;
 }
 
+#ap-content .ap-term-popover > :last-child,
 .ap-term-popover > :last-child {
   margin-bottom: 0;
 }

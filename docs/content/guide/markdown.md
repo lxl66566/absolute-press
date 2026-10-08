@@ -398,14 +398,14 @@ heimu 黑幕（`!!文本!!`）是 ACG 文化圈常见的剧透遮罩：默认是
 
 ## 术语引用
 
-`[[id]]` 引用术语库（config `refs` 指定的目录，默认不启用）里的一篇 markdown：正文渲染为带虚线下划线的术语，鼠标悬停弹出悬浮窗，展示该文章渲染后的完整 markdown；触屏点按、键盘聚焦同样触发。`[[id|显示文本]]` 自定义术语文字，id 支持子目录路径。
+`[[id]]` 引用术语库（config `refs` 指定的根目录，默认不启用）里的一篇 markdown：正文渲染为带虚线下划线的术语，鼠标悬停弹出悬浮窗（尺寸随内容自适应），展示该文章渲染后的完整 markdown；触屏点按、键盘聚焦同样触发。`[[id|显示文本]]` 自定义术语文字，id 支持子目录路径。
 
-以本文档站为例（`refs: 'reference'`）：框架采用 [[island]] 架构，构建期完成 [[ssg|SSG]]，站点形态是 [[architecture/mpa|MPA]]。
+以本文档站为例（`refs: ['reference']`）：框架采用 [[island]] 架构，构建期完成 [[ssg|SSG]]，站点形态是 [[architecture/mpa|MPA]]，最小的术语只有一行：[[minimal]]。
 
 **源码：**
 
 ```md
-框架采用 [[island]] 架构，构建期完成 [[ssg|SSG]]，站点形态是 [[architecture/mpa|MPA]]。
+框架采用 [[island]] 架构，构建期完成 [[ssg|SSG]]，站点形态是 [[architecture/mpa|MPA]]，最小的术语只有一行：[[minimal]]。
 ```
 
 悬浮窗内是完整的 markdown：代码块、公式、列表照常渲染，链接照常可点，术语自身也可以再嵌套引用。未命中的 id 渲染为纯文本并打 warning，构建照常通过——术语库因此可以独立成仓（git 嵌套仓、CI 拉取），拉取失败只损失悬浮窗，不影响构建产物。目录与配置详见[配置参考](./configuration.md#refs)。

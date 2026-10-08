@@ -142,15 +142,19 @@ export interface AbsolutePressConfig extends SiteConfig {
    */
   entryListIslands?: string[];
   /**
-   * Term-reference directory, relative to each locale's content root
-   * (default locale: `<contentDir>/<refs>`, extra locales:
-   * `<contentDir>/<key>/<refs>` with default-locale fallback). Markdown
-   * files there are excluded from routing; the inline `[[id]]` / `[[id|text]]`
-   * syntax turns them into hover popovers (see the markdown guide). The
-   * directory may be an independently-maintained nested git repository —
-   * a missing directory only downgrades the syntax to plain text (warn).
+   * Term-reference roots, each relative to every locale's content root
+   * (default locale: `<contentDir>/<entry>`, extra locales:
+   * `<contentDir>/<key>/<entry>` with default-locale fallback). `..`
+   * segments may point outside the content tree (e.g. a sibling repo at
+   * the project root). Markdown files under the roots are excluded from
+   * routing; the inline `[[id]]` / `[[id|text]]` syntax turns them into
+   * hover popovers (see the markdown guide). Roots are collected in config
+   * order and ids must stay unique across them (duplicate ids fail the
+   * build). A root may be an independently-maintained nested git
+   * repository — missing roots only downgrade the syntax to plain text
+   * (warn). A single string is the one-root shorthand.
    */
-  refs?: string;
+  refs?: string | string[];
   /** `<html lang>` of the default locale. @default 'zh-CN' */
   lang?: string;
   /** Default-locale label for the locale switcher. @default '简体中文' */
@@ -338,11 +342,11 @@ export interface ResolvedConfig {
   /** Content root of the default locale (absolute). */
   contentDir: string;
   /**
-   * Term-reference directory relative to each locale's content root (posix
-   * separators, no leading/trailing slash); absent when the site configures
-   * no refs.
+   * Term-reference roots (posix separators, no leading/trailing slash), in
+   * config order; each joins onto every locale's content root at scan time.
+   * Absent when the site configures no refs.
    */
-  refs?: string;
+  refs?: string[];
   title: string;
   description: string;
   /** Canonical site URL without trailing slash. */
@@ -418,28 +422,45 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
 }
 
 /**
- * Validate the term-refs directory option: a blank value would silently
- * disable the feature, an absolute path or `..` escape would read outside
- * the content tree. Returns the normalized posix-relative form.
+ * Validate the term-refs roots: blank entries would silently disable the
+ * feature, an absolute path cannot join onto a locale content root, and a
+ * bare `.`/`..` would swallow the whole content tree (or its parent).
+ * `..` segments are otherwise allowed — a root may sit outside the content
+ * tree (e.g. a sibling repo at the project root). Returns the normalized
+ * posix-relative entries in config order.
  */
-function resolveRefs(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  if (trimmed === undefined || trimmed === '') return undefined;
-  const posix = trimmed
-    .split(path.sep)
-    .join('/')
-    .replace(/^\/+|\/+$/g, '');
-  if (
-    posix === '' ||
-    posix.startsWith('/') ||
-    path.isAbsolute(trimmed) ||
-    posix.split('/').includes('..')
-  ) {
-    throw new Error(
-      `[absolute-press] refs must be a relative directory name inside the content root, got '${value}'`,
-    );
+function resolveRefs(
+  value: string | string[] | undefined,
+): string[] | undefined {
+  const list = Array.isArray(value)
+    ? value
+    : value === undefined
+      ? []
+      : [value];
+  const cleaned: string[] = [];
+  for (const entry of list) {
+    const trimmed = entry.trim();
+    const posix = trimmed
+      .split(path.sep)
+      .join('/')
+      .replace(/^\.\//, '')
+      .replace(/^\/+|\/+$/g, '');
+    // Absolute paths must be caught on the raw value: the slash strip
+    // above already normalized them into innocent-looking relatives.
+    if (
+      posix === '.' ||
+      posix === '..' ||
+      posix.startsWith('/') ||
+      path.isAbsolute(trimmed)
+    ) {
+      throw new Error(
+        `[absolute-press] refs must be relative directory names (no absolute paths, no bare "."/".."), got '${trimmed}'`,
+      );
+    }
+    // Blank entries read as "unset" instead of failing the config.
+    if (posix !== '') cleaned.push(posix);
   }
-  return posix;
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 export function resolveConfig(

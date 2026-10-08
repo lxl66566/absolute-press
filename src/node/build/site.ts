@@ -316,7 +316,7 @@ export class SiteStore {
       if (!this.refs.present && !this.refsMissingWarned) {
         this.refsMissingWarned = true;
         console.warn(
-          `[absolute-press] no refs directory "${this.config.refs}" found under ${this.config.contentDir}; [[...]] term references render as plain text (clone the refs repository, or unset config refs)`,
+          `[absolute-press] no refs directories [${this.config.refs.join(', ')}] found under ${this.config.contentDir}; [[...]] term references render as plain text (clone the refs repository, or unset config refs)`,
         );
       }
       // Ref markdown links resolve against the locale content root (see

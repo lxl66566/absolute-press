@@ -398,14 +398,14 @@ heimu (`!!text!!`) is the spoiler mask common in ACG culture: by default a black
 
 ## Term references
 
-`[[id]]` references an article from the term library (the directory named by config `refs`, off by default): the text renders as a dotted-underline term, and hovering opens a popover showing that article's fully rendered markdown; touch taps and keyboard focus trigger it too. `[[id|display text]]` overrides the term text; ids may use subdirectory paths.
+`[[id]]` references an article from the term library (the roots named by config `refs`, off by default): the text renders as a dotted-underline term, and hovering opens a content-sized popover showing that article's fully rendered markdown; touch taps and keyboard focus trigger it too. `[[id|display text]]` overrides the term text; ids may use subdirectory paths.
 
-On this site (`refs: 'reference'`): the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]].
+On this site (`refs: ['reference']`): the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]]. The smallest term is a one-liner: [[minimal]].
 
 **Source:**
 
 ```md
-the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]].
+the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]]. The smallest term is a one-liner: [[minimal]].
 ```
 
 The popover holds full markdown: code blocks, formulas, and lists render normally, links stay clickable, and terms can nest further references. An unknown id renders as plain text with a warning while the build still passes — so the term library can live in its own repository (a nested git repo fetched by CI); a failed fetch costs the popovers only, never the build. Directory semantics and config: [configuration reference](./configuration.md#refs).

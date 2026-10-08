@@ -23,7 +23,7 @@ const config: UserConfig = defineConfig({
         contentDir: 'docs/content',
         // Term-reference articles for the `[[id]]` syntax (guide/markdown);
         // excluded from routing, rendered as hover popovers only.
-        refs: 'reference',
+        refs: ['reference'],
         title: 'Absolute Press',
         description:
           'Absolute Press：SolidJS 静态博客框架官方文档。MPA SSG + islands 架构。',

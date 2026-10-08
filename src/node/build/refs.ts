@@ -44,21 +44,27 @@ export function localeContentRoot(
     : path.join(config.contentDir, localeKey);
 }
 
-/** Locale dirs each hold their own refs folder; the default locale is the
- * fallback source for every other one (mirrors the page-tree locale layout). */
-export function refsDirOf(config: ResolvedConfig, localeKey: string): string {
-  return path.join(localeContentRoot(config, localeKey), config.refs!);
+/** Refs roots of one locale: every config entry joined onto the locale's
+ * content root, in config order (path.join normalizes `..` segments, so an
+ * entry may sit outside the content tree). */
+export function refsDirsOf(
+  config: ResolvedConfig,
+  localeKey: string,
+): string[] {
+  const base = localeContentRoot(config, localeKey);
+  return config.refs!.map(entry => path.join(base, entry));
 }
 
-/** Whether a path lies under one of the locales' refs directories (any file
- * type; extension checks belong to the callers). */
+/** Whether a path lies under one of the locales' refs roots (any file type;
+ * extension checks belong to the callers). */
 export function isRefFile(config: ResolvedConfig, file: string): boolean {
   if (!config.refs) return false;
   const posix = file.split(path.sep).join('/');
-  return config.locales.some(locale => {
-    const prefix = `${refsDirOf(config, locale.key).split(path.sep).join('/')}/`;
-    return posix.startsWith(prefix);
-  });
+  return config.locales.some(locale =>
+    refsDirsOf(config, locale.key).some(dir =>
+      posix.startsWith(`${dir.split(path.sep).join('/')}/`),
+    ),
+  );
 }
 
 /** Single-file scan pass shared by the tree walk and the dev watcher path. */
@@ -80,50 +86,72 @@ function readRef(dir: string, localeKey: string, rel: string): ScannedRef {
 }
 
 /**
- * Scan every locale's refs directory: one walk + one read per file. A missing
- * directory is not an error — the refs tree may be an unshipped nested repo
- * (gitlink checkout), so `present` reports it and pages degrade their `[[...]]`
- * syntax to plain text with a warning instead of failing the build.
+ * Scan every locale's refs roots: one walk + one read per file. Roots are
+ * collected in config order and their ids must stay unique — a collision
+ * across roots fails the build (same root listed twice just dedupes). A
+ * missing root is not an error — the refs tree may be an unshipped nested
+ * repo (gitlink checkout), so `present` reports it and pages degrade their
+ * `[[...]]` syntax to plain text with a warning instead of failing the build.
  */
 export async function scanRefs(config: ResolvedConfig): Promise<RefsScan> {
   const byLocale = new Map<string, Map<string, ScannedRef>>();
   let present = false;
   const scans = await Promise.all(
     config.locales.map(async locale => {
-      const dir = refsDirOf(config, locale.key);
-      if (!fs.existsSync(dir)) return null;
-      const files = await glob('**/*.md', { cwd: dir });
+      const walks = await Promise.all(
+        refsDirsOf(config, locale.key).map(async dir => {
+          if (!fs.existsSync(dir)) return null;
+          return { dir, files: await glob('**/*.md', { cwd: dir }) };
+        }),
+      );
       const refs = new Map<string, ScannedRef>();
-      // Ids are the extension-less relative paths, unique per walk by
-      // construction — no duplicate guard needed.
-      for (const rel of files.toSorted()) {
-        const ref = readRef(dir, locale.key, rel);
-        refs.set(ref.id, ref);
+      // id -> resolved file: the duplicate guard across roots.
+      const seen = new Map<string, string>();
+      for (const walk of walks) {
+        if (walk === null) continue;
+        for (const rel of walk.files.toSorted()) {
+          const ref = readRef(walk.dir, locale.key, rel);
+          const resolved = path.resolve(ref.filePath);
+          const prev = seen.get(ref.id);
+          if (prev === resolved) continue;
+          if (prev !== undefined) {
+            throw new Error(
+              `[absolute-press] duplicate ref id "${ref.id}": ${prev} and ${resolved} (refs roots are collected in config order; ids must stay unique across them)`,
+            );
+          }
+          seen.set(ref.id, resolved);
+          refs.set(ref.id, ref);
+        }
       }
-      return [locale.key, refs] as const;
+      return { key: locale.key, refs, anyRoot: walks.some(w => w !== null) };
     }),
   );
   for (const scan of scans) {
-    if (scan === null) continue;
+    // Locales whose roots are all missing stay out of the map entirely —
+    // lookups then fall through to the default locale.
+    if (!scan.anyRoot) continue;
+    byLocale.set(scan.key, scan.refs);
     present = true;
-    byLocale.set(scan[0], scan[1]);
   }
   return { byLocale, present };
 }
 
 /** Re-read one ref file into an existing scan entry (dev watcher path);
- * null when the read fails (vanished/renamed mid-event — the structure
- * resync path owns those). */
+ * the roots are tried in config order. Null when no root holds the id
+ * (vanished/renamed mid-event — the structure resync path owns those). */
 export function scanRefEntry(
   config: ResolvedConfig,
   localeKey: string,
   id: string,
 ): ScannedRef | null {
-  try {
-    return readRef(refsDirOf(config, localeKey), localeKey, `${id}.md`);
-  } catch {
-    return null;
+  for (const dir of refsDirsOf(config, localeKey)) {
+    try {
+      return readRef(dir, localeKey, `${id}.md`);
+    } catch {
+      // Not in this root — keep trying the next one.
+    }
   }
+  return null;
 }
 
 /** Display title of one ref: frontmatter title, else the id's last segment. */

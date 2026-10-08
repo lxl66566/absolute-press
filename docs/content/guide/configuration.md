@@ -64,14 +64,15 @@ buildComponents: {
 ## refs
 
 ```ts
-refs: 'reference',
+refs: ['reference', '../glossary'],
 ```
 
-术语库目录（可选，string）：`[[id]]` 术语引用语法的数据源，详见 [Markdown 扩展](./markdown.md#术语引用)。
+术语库根目录列表（可选，单项可直接写字符串）：`[[id]]` 术语引用语法的数据源，详见 [Markdown 扩展](./markdown.md#术语引用)。
 
-- 相对每个 locale 的内容根解析（默认 locale 在 `<contentDir>/refs`，其余在 `<contentDir>/<key>/refs`，未命中时回退默认 locale 的术语）
-- 目录内 `.md` 不参与路由；id 是相对该目录、去扩展名的 posix 路径，frontmatter 只认 `title`（缺省用 id 末段做术语文字）
-- 术语库常独立成仓（git 嵌套仓）：目录不存在时只打一次 warning，`[[...]]` 全部降级为纯文本，构建照常通过
+- 每个条目相对各 locale 的内容根解析（默认 locale 在 `<contentDir>/<条目>`，其余在 `<contentDir>/<key>/<条目>`，未命中回退默认 locale）；条目可含 `..` 指向内容树之外（例如项目根旁的独立仓）
+- 根内 `.md` 不参与路由；id 是相对该根、去扩展名的 posix 路径，frontmatter 只认 `title`（缺省用 id 末段做术语文字）
+- 多根按配置顺序收集，id 跨根必须唯一，重复则构建报错
+- 术语库常独立成仓（git 嵌套仓）：根目录不存在时只打一次 warning，`[[...]]` 全部降级为纯文本，构建照常通过
 - 术语文章内的相对链接按 locale 内容根解析（与页面同语义），任意页面深度引用都不断链
 
 ## encrypt

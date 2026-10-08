@@ -64,14 +64,15 @@ Master switch over the built-in build components — markdown tags rendered to f
 ## refs
 
 ```ts
-refs: 'reference',
+refs: ['reference', '../glossary'],
 ```
 
-The term-library directory (optional, string): data source of the `[[id]]` term-reference syntax, see [Markdown extensions](./markdown.md#term-references).
+The term-library roots (optional; a single root may be written as a plain string): data source of the `[[id]]` term-reference syntax, see [Markdown extensions](./markdown.md#term-references).
 
-- Resolved against each locale's content root (the default locale reads `<contentDir>/refs`, others `<contentDir>/<key>/refs`, falling back to the default locale's terms on a miss)
-- `.md` files inside never become routes; an id is the extension-less posix path relative to that directory, and frontmatter recognizes `title` only (the id's last segment is the fallback term text)
-- The library often lives in its own repository (a nested git repo): a missing directory warns once, every `[[...]]` degrades to plain text, and the build still passes
+- Each entry resolves against every locale's content root (the default locale reads `<contentDir>/<entry>`, others `<contentDir>/<key>/<entry>`, falling back to the default locale's terms on a miss); entries may contain `..` to point outside the content tree (e.g. a separate repo next to the project root)
+- `.md` files inside never become routes; an id is the extension-less posix path relative to its root, and frontmatter recognizes `title` only (the id's last segment is the fallback term text)
+- Roots are collected in config order; ids must stay unique across them — duplicates fail the build
+- The library often lives in its own repository (a nested git repo): missing roots warn once, every `[[...]]` degrades to plain text, and the build still passes
 - Relative links inside term articles resolve against the locale content root (same semantics as pages), so terms embedded at any page depth never break
 
 ## encrypt
