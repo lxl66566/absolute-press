@@ -418,6 +418,155 @@ describe('renderShell hostile payload embedding', () => {
   });
 });
 
+describe('renderShell favicon', () => {
+  it('emits no icon link when unconfigured', () => {
+    expect(shell('/a')).not.toContain('rel="icon"');
+  });
+
+  it('derives the MIME type from the extension', () => {
+    expect(shell('/a', { favicon: '/favicon.svg' })).toContain(
+      '<link rel="icon" type="image/svg+xml" href="favicon.svg">',
+    );
+    expect(shell('/a', { favicon: '/favicon.ico' })).toContain(
+      '<link rel="icon" type="image/x-icon" href="favicon.ico">',
+    );
+    expect(shell('/a', { favicon: '/icon.png' })).toContain(
+      '<link rel="icon" type="image/png" href="icon.png">',
+    );
+    expect(shell('/a', { favicon: '/icon.webp' })).toContain(
+      '<link rel="icon" type="image/webp" href="icon.webp">',
+    );
+  });
+
+  it('omits the type attribute for unknown extensions', () => {
+    expect(shell('/a', { favicon: '/icon.jpg' })).toContain(
+      '<link rel="icon" href="icon.jpg">',
+    );
+  });
+
+  it('base-prefixes the href by page depth (subpath deploys)', () => {
+    expect(shell('/a/b', { favicon: '/favicon.svg' })).toContain(
+      'href="../favicon.svg"',
+    );
+    // Bare public-root paths (no leading slash) resolve the same way.
+    expect(shell('/a/b', { favicon: 'favicon.svg' })).toContain(
+      'href="../favicon.svg"',
+    );
+  });
+});
+
+describe('renderShell modulepreload', () => {
+  it('preloads the entry script early in head when requested (build)', () => {
+    const html = shell('/a/b', { modulepreload: true });
+    const link = '<link rel="modulepreload" href="../assets/entry-1.js">';
+    expect(html).toContain(link);
+    expect(indexOf(html, link)).toBeLessThan(indexOf(html, '<title>'));
+  });
+
+  it('emits no modulepreload when not requested (dev)', () => {
+    expect(shell('/a')).not.toContain('modulepreload');
+  });
+});
+
+describe('renderShell JSON-LD', () => {
+  /** The parsed ld+json block; fails the test when absent. */
+  function jsonLd(html: string): Record<string, unknown> {
+    const m = html.match(
+      /<script type="application\/ld\+json">(.*?)<\/script>/s,
+    );
+    expect(m, 'ld+json script must be present').not.toBeNull();
+    return JSON.parse(m![1]!) as Record<string, unknown>;
+  }
+
+  it('describes the locale home as a WebSite', () => {
+    const home = payload('/');
+    const data = jsonLd(shell('/', { payload: home }));
+    expect(data).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Site',
+      url: 'https://example.com/',
+      description: 'desc',
+      inLanguage: 'zh-CN',
+    });
+  });
+
+  it('recognizes a non-default-locale home by its route prefix', () => {
+    const enHome = payload('/en/');
+    enHome.site.locale = 'en';
+    enHome.site.locales = [
+      ...enHome.site.locales,
+      { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+    ];
+    const html = shell('/en/', {
+      payload: enHome,
+      locale: { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+    });
+    expect(jsonLd(html)['@type']).toBe('WebSite');
+    expect(jsonLd(html)['inLanguage']).toBe('en');
+  });
+
+  it('describes an article as a BlogPosting with dates and author', () => {
+    const article = payload('/guide/a');
+    article.page.excerpt = 'Page summary.';
+    article.page.createdAt = '2026-01-02T00:00:00.000Z';
+    article.page.updatedAt = '2026-02-03T00:00:00.000Z';
+    const data = jsonLd(
+      shell('/guide/a', {
+        payload: article,
+        author: { name: 'Alice', url: 'https://example.com/about' },
+      }),
+    );
+    expect(data).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: 'Hello',
+      url: 'https://example.com/guide/a',
+      mainEntityOfPage: 'https://example.com/guide/a',
+      description: 'Page summary.',
+      datePublished: '2026-01-02T00:00:00.000Z',
+      dateModified: '2026-02-03T00:00:00.000Z',
+      inLanguage: 'zh-CN',
+      author: {
+        '@type': 'Person',
+        name: 'Alice',
+        url: 'https://example.com/about',
+      },
+    });
+  });
+
+  it('omits author and dates when unset', () => {
+    const data = jsonLd(shell('/guide/a'));
+    expect(data['@type']).toBe('BlogPosting');
+    expect(data).not.toHaveProperty('author');
+    expect(data).not.toHaveProperty('datePublished');
+    expect(data).not.toHaveProperty('dateModified');
+    // The excerpt-less page falls back to the site description.
+    expect(data['description']).toBe('desc');
+  });
+
+  it('emits no JSON-LD on archive pages', () => {
+    const archive = payload('/tag/alpha');
+    expect(shell('/tag/alpha', { payload: archive })).not.toContain(
+      'application/ld+json',
+    );
+  });
+
+  it('escapes a script-closing title inside the JSON-LD block', () => {
+    const hostile = payload('/a');
+    hostile.page.title = '</script><script>alert(1)</script>';
+    const html = shell('/a', { payload: hostile });
+    const m = html.match(
+      /<script type="application\/ld\+json">(.*?)<\/script>/s,
+    );
+    expect(m).not.toBeNull();
+    expect(m![1]).not.toContain('<');
+    expect(JSON.parse(m![1]!)).toMatchObject({
+      headline: '</script><script>alert(1)</script>',
+    });
+  });
+});
+
 describe('renderShell meta attribute escaping', () => {
   it('entity-escapes <, >, & and " in title and description', () => {
     const hostile = payload('/x');

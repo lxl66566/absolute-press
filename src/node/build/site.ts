@@ -758,7 +758,10 @@ export class SiteStore {
       locale,
       hostname: this.config.hostname,
       speculationRules: assets.isBuild,
+      modulepreload: assets.isBuild,
+      ...(this.config.favicon ? { favicon: this.config.favicon } : {}),
       ...(this.config.seo?.image ? { ogImage: this.config.seo.image } : {}),
+      ...(this.config.seo?.author ? { author: this.config.seo.author } : {}),
       ...(this.config.googleAnalytics
         ? { gaId: this.config.googleAnalytics }
         : {}),

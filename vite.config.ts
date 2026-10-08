@@ -32,6 +32,10 @@ const config: UserConfig = defineConfig({
         // is the page's primary; the paginated article feed would push it
         // below the fold and read like a blog archive.
         home: { feed: false },
+        favicon: '/favicon.svg',
+        seo: {
+          author: { name: 'lxl66566', url: 'https://github.com/lxl66566' },
+        },
         // Icon key -> full SVG string; frontmatter `icon` must reference a
         // key registered here.
         icons: {

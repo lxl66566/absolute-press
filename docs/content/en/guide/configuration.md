@@ -17,6 +17,7 @@ Site config is passed in via `absolutePress(defineSiteConfig({...}))`. Type defi
 - `title` (required, string): site name; goes into `<title>`, RSS, and the sitemap
 - `description` (required, string): site description; goes into SEO meta and the RSS channel
 - `hostname` (required, string): canonical origin (no trailing slash), used for absolute links in SEO og tags, the sitemap, and RSS, e.g. `https://absolute-docs.pages.dev`
+- `favicon` (optional, string): site favicon, resolved against the site public root (same semantics as `nav.logo`), e.g. `/favicon.svg`; at build time emits `<link rel="icon">` with the `type` derived from the extension (ico/png/svg/webp, other extensions ship without `type`), and the href gets the page-depth relative prefix so subpath deploys never break it
 
 ## locales
 
@@ -145,10 +146,11 @@ The sidebar is generated complete from the content directory tree; `sidebar.*` o
 ```ts
 seo: {
   image: '/og.png', // share-card image, resolved against the site public root or an absolute URL
+  author: { name: 'Alice', url: 'https://example.com/about' }, // JSON-LD author, url optional
 }
 ```
 
-SEO head options: `image` is the share-card image. At build time it produces `og:image` (a relative value like `'/og.png'` resolves against the site public root and is joined with `hostname` into an absolute URL, same semantics as `nav.logo`; an absolute `https://` URL passes through unchanged) and upgrades `twitter:card` to `summary_large_image`. Without it, only `twitter:card: summary` is emitted (card without image), and no `og:image`. Each page's `meta description` comes from the content excerpt (see [SEO](./seo.md)); no per-page config needed.
+SEO head options: `image` is the share-card image. At build time it produces `og:image` (a relative value like `'/og.png'` resolves against the site public root and is joined with `hostname` into an absolute URL, same semantics as `nav.logo`; an absolute `https://` URL passes through unchanged) and upgrades `twitter:card` to `summary_large_image`. Without it, only `twitter:card: summary` is emitted (card without image), and no `og:image`. `author` is the author of the article-page BlogPosting JSON-LD (schema.org Person); when unset or blank-named, no `author` field is emitted. Each page's `meta description` comes from the content excerpt (see [SEO](./seo.md)); no per-page config needed.
 
 ## related
 

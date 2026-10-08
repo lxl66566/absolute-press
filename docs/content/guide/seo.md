@@ -16,19 +16,21 @@ icon: search
 
 每页 head 由构建层写入（见 `src/node/build/shell.ts`）：
 
-| 项                          | 值                                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `<title>`                   | `页面标题 \| 站点名`；页面无 h1 或标题与站点名相同时只留站点名                                |
-| `meta description`          | 正文纯文本摘要（约 160 字符）；无正文时回退站点 `description`                                 |
-| `link canonical`            | `hostname + 页面路由`                                                                         |
-| `og:type`                   | locale 首页与分类/标签归档页 `website`，其余页面 `article`                                    |
-| `og:title` / `og:site_name` | 页面标题（含站点名后缀）/ 站点名                                                              |
-| `og:description`            | 同 `meta description`（页面摘要优先）                                                         |
-| `og:url`                    | `hostname + 页面路由`                                                                         |
-| `og:image` / `twitter:card` | 配置 `seo.image` 时输出绝对地址图 + `summary_large_image`；未配置时仅 `twitter:card: summary` |
-| `link alternate (rss+xml)`  | `<hostname>/rss.xml` 的 RSS autodiscovery                                                     |
-| `link alternate (hreflang)` | 多语言镜像页：每个对应 locale 一条 + `x-default`（默认 locale 版本）                          |
-| `<html lang>`               | 所属 locale 的 `lang` 值                                                                      |
+| 项                          | 值                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `<title>`                   | `页面标题 \| 站点名`；页面无 h1 或标题与站点名相同时只留站点名                                                 |
+| `meta description`          | 正文纯文本摘要（约 160 字符）；无正文时回退站点 `description`                                                  |
+| `link canonical`            | `hostname + 页面路由`                                                                                          |
+| `og:type`                   | locale 首页与分类/标签归档页 `website`，其余页面 `article`                                                     |
+| `og:title` / `og:site_name` | 页面标题（含站点名后缀）/ 站点名                                                                               |
+| `og:description`            | 同 `meta description`（页面摘要优先）                                                                          |
+| `og:url`                    | `hostname + 页面路由`                                                                                          |
+| `og:image` / `twitter:card` | 配置 `seo.image` 时输出绝对地址图 + `summary_large_image`；未配置时仅 `twitter:card: summary`                  |
+| `link icon`                 | 配置 `favicon` 时输出，`type` 按扩展名推导（ico/png/svg/webp）                                                 |
+| `script ld+json`            | 结构化数据：locale 首页输出 WebSite，文章页输出 BlogPosting（headline、日期、`seo.author` 作者），归档页不输出 |
+| `link alternate (rss+xml)`  | `<hostname>/rss.xml` 的 RSS autodiscovery                                                                      |
+| `link alternate (hreflang)` | 多语言镜像页：每个对应 locale 一条 + `x-default`（默认 locale 版本）                                           |
+| `<html lang>`               | 所属 locale 的 `lang` 值                                                                                       |
 
 摘要由构建期从渲染后的正文一次性提取（跳过代码围栏/脚本样式，解码实体后截断），与渲染缓存同生命周期，随 payload 下发（`page.excerpt`），软导航时客户端同步逻辑复用同一份。站点 `description` 仍是无正文页面的兜底，值得认真写。
 
@@ -65,6 +67,7 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 ## 其他 head 注入
 
 - **Google Analytics**：配置 `googleAnalytics: 'G-XXX'` 后注入 gtag 脚本，异步加载
+- **modulepreload**（仅构建产物）：head 顶部声明入口脚本的 `<link rel="modulepreload">`，大体积 HTML 未流完浏览器即可开始下载入口 chunk；dev 的按需编译入口不预载
 - **Speculation Rules**（仅构建产物）：Chromium 会对站内链接做 prefetch（悬停）与 prerender（按下指针），MPA 导航在支持的平台接近 SPA 手感；Safari/Firefox 自动忽略，保持普通导航
 - **防 FOUC 脚本**：首屏渲染前从 localStorage 读主题写上 `html[data-theme]`，避免亮暗闪屏；脚本不依赖任何外部资源
 

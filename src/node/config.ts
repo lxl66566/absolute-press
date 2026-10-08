@@ -284,6 +284,8 @@ export interface ResolvedConfig {
   description: string;
   /** Canonical site URL without trailing slash. */
   hostname: string;
+  /** Site favicon in the public root; absent when unconfigured or blank. */
+  favicon?: string;
   /** Default locale first; its `prefix` is ''. */
   locales: LocaleInfo[];
   /** Normalized navbar options. */
@@ -311,7 +313,7 @@ export interface ResolvedConfig {
   urls: { directoryIndex: DirectoryIndex };
   /** RSS feed options. */
   feed: Required<NonNullable<SiteConfig['feed']>>;
-  /** SEO head options (share-card image). */
+  /** SEO head options (share-card image, JSON-LD author). */
   seo?: NonNullable<SiteConfig['seo']>;
   /** Policy for bare relative markdown links. */
   strictLinks: StrictLinks;
@@ -336,6 +338,18 @@ export interface ResolvedConfig {
   };
   /** Registered icon map (empty when unconfigured). */
   icons: Record<string, string>;
+}
+
+/**
+ * Normalize SEO head options: blank values would render empty tags
+ * (an empty og:image, a name-less JSON-LD author), so treat them as unset;
+ * with nothing usable left the whole section drops out.
+ */
+function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
+  const image = seo?.image?.trim() ? seo.image : undefined;
+  const author = seo?.author?.name.trim() ? seo.author : undefined;
+  if (!image && !author) return undefined;
+  return { ...(image ? { image } : {}), ...(author ? { author } : {}) };
 }
 
 export function resolveConfig(
@@ -399,6 +413,8 @@ export function resolveConfig(
     title: config.title,
     description: config.description,
     hostname: resolveHostname(config.hostname),
+    // A blank favicon would emit an empty icon link; treat it as unset.
+    ...(config.favicon?.trim() ? { favicon: config.favicon } : {}),
     locales,
     nav,
     sidebar,
@@ -439,8 +455,7 @@ export function resolveConfig(
         'feed.rssLimit',
       ),
     },
-    // A blank image would render an empty og:image; treat it as unset.
-    ...(config.seo?.image?.trim() ? { seo: config.seo } : {}),
+    seo: resolveSeo(config.seo),
     strictLinks: resolveStrictLinks(config.strictLinks),
     // A blank credit would render an empty footer line; treat it as unset.
     ...(config.footer?.credit?.trim() ? { footer: config.footer } : {}),

@@ -295,6 +295,13 @@ export interface SiteConfig {
   description: string;
   /** Canonical site URL (origin + optional base path) for SEO/sitemap/RSS, e.g. `https://user.github.io/repo`. */
   hostname: string;
+  /**
+   * Site favicon in the public root (same resolution as `nav.logo`):
+   * '/favicon.svg' -> public/favicon.svg. The shell emits one
+   * `<link rel="icon">` with the MIME type derived from the extension
+   * (ico/png/svg/webp; other extensions ship without `type`).
+   */
+  favicon?: string;
   /** Extra locales; content lives in `<contentDir>/<key>/`. */
   locales?: Record<string, LocaleConfig>;
   /**
@@ -344,6 +351,15 @@ export interface SiteConfig {
      * (a card without image) and no `og:image`.
      */
     image?: string;
+    /**
+     * Author of the BlogPosting JSON-LD on article pages. Unset sites emit
+     * no `author`; a blank name counts as unset.
+     */
+    author?: {
+      name: string;
+      /** Author profile URL; becomes the schema.org `url`. */
+      url?: string;
+    };
   };
   /**
    * Footer options. The footer is one quiet line: the desktop footer under

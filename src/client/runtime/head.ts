@@ -59,7 +59,10 @@ function setAttr(
 }
 
 /**
- * Apply the patch to the live document. The hreflang set differs per page,
+ * Apply the patch to the live document. JSON-LD is deliberately not synced:
+ * the ld+json block needs the configured author identity, which the payload
+ * does not carry, and only crawlers consume it — they never soft-navigate.
+ * The hreflang set differs per page,
  * so it is rebuilt in place (dropped entirely for pages without
  * counterparts, matching a shell that emitted none); the RSS alternate link
  * carries no hreflang attribute and never matches the selector.

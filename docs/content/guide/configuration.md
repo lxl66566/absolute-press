@@ -17,6 +17,7 @@ icon: gear
 - `title`（必填，string）：站点名，进入 `<title>`、RSS、sitemap
 - `description`（必填，string）：站点描述，进入 SEO meta 与 RSS channel
 - `hostname`（必填，string）：规范 origin（不带尾斜杠），用于 SEO og、sitemap 与 RSS 的绝对链接，如 `https://absolute-docs.pages.dev`
+- `favicon`（可选，string）：站点 favicon，相对站点 public 根解析（语义同 `nav.logo`），如 `/favicon.svg`；构建期输出 `<link rel="icon">`，`type` 按扩展名推导（ico/png/svg/webp，其余扩展名不带 `type`），href 随页面深度加相对前缀，子路径部署不断链
 
 ## locales
 
@@ -145,10 +146,11 @@ sidebar 由内容目录树完整生成，`sidebar.*` 只调整生成结果的顺
 ```ts
 seo: {
   image: '/og.png', // 分享卡片图，相对站点 public 根解析或绝对 URL
+  author: { name: 'Alice', url: 'https://example.com/about' }, // JSON-LD 作者，url 可选
 }
 ```
 
-SEO head 选项：`image` 是分享卡片图，构建期输出 `og:image`（相对值如 `'/og.png'` 解析到站点 public 根，拼上 `hostname` 成绝对地址，与 `nav.logo` 同语义；`https://` 开头的绝对 URL 原样透传）并把 `twitter:card` 升级为 `summary_large_image`。未配置时输出 `twitter:card: summary`（无图卡片），不输出 `og:image`。每页的 `meta description` 取正文摘要（见 [SEO](./seo.md)），无需逐页配置。
+SEO head 选项：`image` 是分享卡片图，构建期输出 `og:image`（相对值如 `'/og.png'` 解析到站点 public 根，拼上 `hostname` 成绝对地址，与 `nav.logo` 同语义；`https://` 开头的绝对 URL 原样透传）并把 `twitter:card` 升级为 `summary_large_image`。未配置时输出 `twitter:card: summary`（无图卡片），不输出 `og:image`。`author` 是文章页 BlogPosting JSON-LD 的作者（schema.org Person），未配置或 name 为空则不输出 author 字段。每页的 `meta description` 取正文摘要（见 [SEO](./seo.md)），无需逐页配置。
 
 ## related
 

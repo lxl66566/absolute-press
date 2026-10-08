@@ -16,19 +16,21 @@ Every page's `<head>`, the feed, and the sitemap are fully generated at build ti
 
 Each page's head is written by the build layer (see `src/node/build/shell.ts`):
 
-| Item                        | Value                                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `<title>`                   | `Page title \| Site name`; if the page has no h1 or the title equals the site name, only the site name is kept     |
-| `meta description`          | Plain-text excerpt of the content (about 160 chars); falls back to the site `description` when there is no content |
-| `link canonical`            | `hostname + page route`                                                                                            |
-| `og:type`                   | `website` for locale home pages and category/tag archive pages, `article` for everything else                      |
-| `og:title` / `og:site_name` | Page title (with site-name suffix) / site name                                                                     |
-| `og:description`            | Same as `meta description` (page excerpt takes priority)                                                           |
-| `og:url`                    | `hostname + page route`                                                                                            |
-| `og:image` / `twitter:card` | With `seo.image` configured: absolute image URL + `summary_large_image`; otherwise only `twitter:card: summary`    |
-| `link alternate (rss+xml)`  | RSS autodiscovery for `<hostname>/rss.xml`                                                                         |
-| `link alternate (hreflang)` | Cross-locale mirror pages: one entry per corresponding locale + `x-default` (the default locale version)           |
-| `<html lang>`               | The `lang` value of the owning locale                                                                              |
+| Item                        | Value                                                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `<title>`                   | `Page title \| Site name`; if the page has no h1 or the title equals the site name, only the site name is kept                |
+| `meta description`          | Plain-text excerpt of the content (about 160 chars); falls back to the site `description` when there is no content            |
+| `link canonical`            | `hostname + page route`                                                                                                       |
+| `og:type`                   | `website` for locale home pages and category/tag archive pages, `article` for everything else                                 |
+| `og:title` / `og:site_name` | Page title (with site-name suffix) / site name                                                                                |
+| `og:description`            | Same as `meta description` (page excerpt takes priority)                                                                      |
+| `og:url`                    | `hostname + page route`                                                                                                       |
+| `og:image` / `twitter:card` | With `seo.image` configured: absolute image URL + `summary_large_image`; otherwise only `twitter:card: summary`               |
+| `link icon`                 | With `favicon` configured; `type` derived from the extension (ico/png/svg/webp)                                               |
+| `script ld+json`            | Structured data: WebSite on locale home pages, BlogPosting on articles (headline, dates, `seo.author`); none on archive pages |
+| `link alternate (rss+xml)`  | RSS autodiscovery for `<hostname>/rss.xml`                                                                                    |
+| `link alternate (hreflang)` | Cross-locale mirror pages: one entry per corresponding locale + `x-default` (the default locale version)                      |
+| `<html lang>`               | The `lang` value of the owning locale                                                                                         |
 
 The excerpt is extracted once at build time from the rendered content (skipping code fences and script/style, truncating after decoding entities), shares its lifecycle with the render cache, and ships with the payload (`page.excerpt`); the soft-navigation client-side sync logic reuses the same copy. The site `description` is still the fallback for pages without content, so write it with care.
 
@@ -65,6 +67,7 @@ Two known boundaries:
 ## Other head injections
 
 - **Google Analytics**: with `googleAnalytics: 'G-XXX'` configured, the gtag script is injected, loaded async
+- **modulepreload** (build output only): the head opens with a `<link rel="modulepreload">` for the entry script, so the browser starts downloading the entry chunk before a large HTML has finished streaming; dev's on-demand-compiled entry is not preloaded
 - **Speculation Rules** (build output only): Chromium prefetches internal links (on hover) and prerenders them (on pointer down), so MPA navigation feels close to an SPA on supported platforms; Safari/Firefox ignore it and keep plain navigation
 - **Anti-FOUC script**: before first paint, reads the theme from localStorage and writes `html[data-theme]`, avoiding a light/dark flash; the script depends on no external resource
 

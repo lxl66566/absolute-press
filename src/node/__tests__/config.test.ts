@@ -263,6 +263,70 @@ describe('resolveConfig strictLinks', () => {
   });
 });
 
+describe('resolveConfig favicon', () => {
+  it('is absent by default', () => {
+    expect(resolveConfig(baseConfig(), '/root').favicon).toBeUndefined();
+  });
+
+  it('keeps a configured favicon', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), favicon: '/favicon.svg' },
+      '/root',
+    );
+    expect(config.favicon).toBe('/favicon.svg');
+  });
+
+  it('treats a blank favicon as unconfigured', () => {
+    const blank = resolveConfig({ ...baseConfig(), favicon: '  ' }, '/root');
+    expect(blank.favicon).toBeUndefined();
+  });
+});
+
+describe('resolveConfig seo', () => {
+  it('is absent by default', () => {
+    expect(resolveConfig(baseConfig(), '/root').seo).toBeUndefined();
+  });
+
+  it('keeps a configured share image and author', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        seo: {
+          image: '/og.png',
+          author: { name: 'Alice', url: 'https://x.dev/about' },
+        },
+      },
+      '/root',
+    );
+    expect(config.seo).toEqual({
+      image: '/og.png',
+      author: { name: 'Alice', url: 'https://x.dev/about' },
+    });
+  });
+
+  it('keeps the section with an author alone', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), seo: { author: { name: 'Alice' } } },
+      '/root',
+    );
+    expect(config.seo).toEqual({ author: { name: 'Alice' } });
+  });
+
+  it('treats blank values as unconfigured', () => {
+    const blank = resolveConfig(
+      { ...baseConfig(), seo: { image: '  ', author: { name: ' ' } } },
+      '/root',
+    );
+    expect(blank.seo).toBeUndefined();
+    // A blank author drops out even when the image keeps the section alive.
+    const imageOnly = resolveConfig(
+      { ...baseConfig(), seo: { image: '/og.png', author: { name: ' ' } } },
+      '/root',
+    );
+    expect(imageOnly.seo).toEqual({ image: '/og.png' });
+  });
+});
+
 describe('resolveConfig footer credit', () => {
   it('is absent by default', () => {
     expect(resolveConfig(baseConfig(), '/root').footer).toBeUndefined();
