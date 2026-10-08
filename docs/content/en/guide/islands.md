@@ -407,6 +407,59 @@ When a site island wants ExpandableList's "`@@@` entries + static table skeleton
 
 Implementation details of pipeline splitting and activation timing are in [Design and implementation: the islands runtime](./design/islands-runtime.md).
 
+### Reading site-wide data (site-data)
+
+Islands that need the site-wide page inventory (archive indexes, stat cards) need not scan content themselves: the site config's `onScan` hook receives the page inventory after each scan and returns arbitrary JSON data, which is injected into the `virtual:absolute-press/site-data` virtual module. An island imports that module directly; its default export is the `onScan` return value. In dev, content edits trigger a fresh scan and the data refreshes automatically. The hook signature and the `SiteScanPage` fields are in the [configuration reference](./configuration.md#onscan):
+
+```ts
+// vite.config.ts (excerpt)
+import { defineSiteConfig } from 'absolute-press';
+import type { SiteScanContext } from 'absolute-press';
+
+export default defineSiteConfig({
+  // ...
+  onScan: (ctx: SiteScanContext) => ({
+    pages: ctx.pages.map(page => ({
+      route: page.route,
+      date: page.createdAt,
+      tags: page.frontmatter.tag ?? [],
+    })),
+  }),
+});
+```
+
+Reading it on the island side:
+
+```ts
+import type { IslandComponent } from 'absolute-press/client';
+import siteData from 'virtual:absolute-press/site-data';
+
+const PageIndex: IslandComponent = () => {
+  const list = document.createElement('ul');
+  for (const page of siteData.pages) {
+    const item = document.createElement('li');
+    item.textContent = `${page.route}${page.date ? ` (${page.date.slice(0, 10)})` : ''}`;
+    list.append(item);
+  }
+  return list;
+};
+
+export default PageIndex;
+```
+
+The module ships no built-in types; declare it in the site's own ambient declaration file (e.g. `src/env.d.ts`), typing the default export as the shape of the `onScan` return value — the framework does the same for its own islands virtual module (`src/client/runtime/env.d.ts`):
+
+```ts
+declare module 'virtual:absolute-press/site-data' {
+  const siteData: {
+    pages: { route: string; date: string | null; tags: string[] }[];
+  };
+  export default siteData;
+}
+```
+
+Register the component through the site config `islands` as usual and use it in markdown. Importing the module without `onScan` configured fails the build with an error pointing at the `onScan` config; the data is injected JSON-serialized, so non-JSON values in the return value (like `Date`) do not reach the island as-is.
+
 ## Constraints and notes
 
 - Islands are block-level only; tags must be PascalCase and on the list (unregistered tags pass through as unknown HTML)

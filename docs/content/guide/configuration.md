@@ -262,9 +262,41 @@ readingTime: true, // 默认 true
 
 阅读时长统计：构建期按正文估算——中文按字数（300 字/分钟）、英文按词数（200 词/分钟），混合文本线性合并；frontmatter、代码围栏与行内代码不计入。结果写入页面 payload 的 `page.readingTime`（整数分钟，向上取整，最小 1），供归档卡片等展示处选用；文章顶部 meta 行当前不渲染该值。设为 `false` 后 payload 不携带该字段。
 
+## onScan
+
+```ts
+import type { SiteScanContext } from 'absolute-press';
+
+onScan: (ctx: SiteScanContext) => ({
+  pages: ctx.pages.map(page => ({
+    route: page.route,
+    date: page.createdAt,
+    tags: page.frontmatter.tag ?? [],
+  })),
+}),
+```
+
+站点数据钩子：框架单遍扫描内容树，每轮扫描完成后、渲染前运行一次——dev 启动、构建、dev 结构变更 resync 与内容编辑都会触发。参数 `SiteScanContext` 是 `{ config, pages }`：`config` 是全量解析后的站点配置（`ResolvedConfig`），`pages` 是全部 locale 的页面清单，按配置 locale 顺序排列，类型可从 `absolute-press` 导入。
+
+返回值会被 JSON 序列化进 `virtual:absolute-press/site-data` 虚拟模块（default export 即返回值），供站点 island 消费，消费方式见[Islands](./islands.md#站点-island-读取全站数据-site-data)。因此返回值必须 JSON 可序列化（`rawFrontmatter` 里的裸日期是 `Date` 对象，需要字符串时先自行 `toISOString`）；返回 Promise 会被 await。
+
+动机：locale 目录归属、README/index 语义、frontmatter 规范化与未知键告警、git 时间都以框架扫描为准。消费方不必再自己 walk 目录、parse frontmatter、查 git 时间——在 `onScan` 里从 `pages` 派生站点数据，语义与框架天然一致；dev 下内容编辑触发新一轮扫描，数据自动刷新，无需重启 dev server（在 vite.config.ts 里自扫内容的老做法需要重启才能拿到新数据）。
+
+`SiteScanPage` 字段（`import type { SiteScanPage } from 'absolute-press'`）：
+
+- `filePath: string`：markdown 源文件的绝对路径
+- `route: string`：带 locale 前缀的 clean 路由——叶子页 `/guide/a`、目录索引 `/guide/`（`urls.directoryIndex: 'bare'` 时为 `/guide`）、locale 首页 `/en/`、站点首页 `/`
+- `relPath: string`：相对 locale 内容根的路径，posix 分隔符
+- `locale: LocaleInfo`：页面所属 locale（`key` / `lang` / `label` / `prefix`）
+- `frontmatter: PageFrontmatter`：框架识别键的规范化结果（六个键，语义见[页面级配置](#页面级配置-frontmatter)）
+- `rawFrontmatter: Record<string, unknown>`：yaml 原生解析结果，自定义键在这里；裸日期是 `Date` 对象
+- `createdAt: string | null`：frontmatter `date` 的 ISO 字符串，缺失或不可解析为 `null`
+- `updatedAt: string | null`：git 最后提交时间的 ISO 字符串，不可用（如不在 git 仓库）为 `null`
+
 ## 构建层扩展字段（AbsolutePressConfig）
 
 - `nav`：见上文
+- `onScan`：见上文
 - `entryListIslands: string[]`：复用 `@@@` 条目管线的站点 island 名单（名字必须已在 `islands` 注册）——构建期把这些 island 的 children 按 ExpandableList 同款规则拆成「标题 + meta + 正文」静态表格骨架，island 客户端接 `childrenHtml` 填充数据，见[Islands](./islands.md#站点-island-复用条目管线-entrylist)
 - `code` / `readingTime`：见上文
 - `islands` / `lang` / `label`：见上文

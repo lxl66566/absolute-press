@@ -262,9 +262,41 @@ readingTime: true, // default true
 
 Reading-time estimate, computed from the content at build time — Chinese by character count (300 chars/min), English by word count (200 words/min), mixed text merged linearly; frontmatter, code fences, and inline code are excluded. The result goes into the page payload as `page.readingTime` (integer minutes, rounded up, minimum 1), available for display spots such as archive cards; the article top meta row currently does not render it. Set to `false` to drop the field from the payload.
 
+## onScan
+
+```ts
+import type { SiteScanContext } from 'absolute-press';
+
+onScan: (ctx: SiteScanContext) => ({
+  pages: ctx.pages.map(page => ({
+    route: page.route,
+    date: page.createdAt,
+    tags: page.frontmatter.tag ?? [],
+  })),
+}),
+```
+
+The site-data hook: the framework scans the content tree in a single pass and runs the hook once per scan, after the scan and before rendering — dev startup, builds, dev structural resyncs, and content edits all trigger it. The argument `SiteScanContext` is `{ config, pages }`: `config` is the fully resolved site config (`ResolvedConfig`); `pages` is the page inventory of all locales, in config locale order. Both types are importable from `absolute-press`.
+
+The return value is JSON-serialized into the `virtual:absolute-press/site-data` virtual module (its default export), consumed by site islands — see [Islands](./islands.md#reading-site-wide-data-site-data). The return value must therefore be JSON-serializable (a bare date in `rawFrontmatter` is a `Date` object; call `toISOString` yourself when you need a string); a returned promise is awaited.
+
+Motivation: locale directory ownership, README/index semantics, frontmatter normalization and unknown-key warnings, and git times are all owned by the framework scan. Consumers no longer walk directories, parse frontmatter, or query git themselves — derive site data from `pages` in `onScan` and the semantics match the framework by construction; in dev, content edits trigger a fresh scan so the data refreshes without a dev-server restart (the old approach of scanning inside vite.config.ts needed a restart to pick up changes).
+
+`SiteScanPage` fields (`import type { SiteScanPage } from 'absolute-press'`):
+
+- `filePath: string`: absolute path of the markdown source
+- `route: string`: locale-prefixed clean route — leaf `/guide/a`, directory index `/guide/` (`/guide` with `urls.directoryIndex: 'bare'`), locale home `/en/`, site home `/`
+- `relPath: string`: path relative to the locale content root, posix separators
+- `locale: LocaleInfo`: the page's locale (`key` / `lang` / `label` / `prefix`)
+- `frontmatter: PageFrontmatter`: the normalization result over the framework-recognized keys (the six keys; semantics in [per-page config](#per-page-config-frontmatter))
+- `rawFrontmatter: Record<string, unknown>`: the frontmatter as the yaml parser produced it; custom keys live here, bare dates are `Date` objects
+- `createdAt: string | null`: frontmatter `date` as an ISO string; null when absent or unparsable
+- `updatedAt: string | null`: last git commit time as an ISO string; null when unavailable (e.g. not a git repo)
+
 ## Build-layer extension fields (AbsolutePressConfig)
 
 - `nav`: see above
+- `onScan`: see above
 - `entryListIslands: string[]`: the list of site islands that reuse the `@@@` entry pipeline (names must already be registered in `islands`) — at build time these islands' children are split into a static table skeleton of "title + meta + body" by the same rules as ExpandableList, and the island client fills data via `childrenHtml`. See [Islands](./islands.md#reusing-the-entry-pipeline-for-site-islands-entrylist)
 - `code` / `readingTime`: see above
 - `islands` / `lang` / `label`: see above
