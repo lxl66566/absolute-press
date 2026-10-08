@@ -382,6 +382,70 @@ describe('absolutePress virtual islands module', () => {
   });
 });
 
+// -- virtual site-data module ------------------------------------------------
+
+describe('absolutePress virtual site-data module', () => {
+  const VIRTUAL_ID = 'virtual:absolute-press/site-data';
+  const RESOLVED_ID = '\0virtual:absolute-press/site-data';
+
+  it('maps the virtual id even without an onScan hook', async () => {
+    await makeTmp('ap-sitedata-');
+    const plugin = livePlugin(userConfig());
+    expect(callHook(plugin.resolveId, {}, VIRTUAL_ID)).toBe(RESOLVED_ID);
+    expect(callHook(plugin.resolveId, {}, './other.ts')).toBeNull();
+  });
+
+  it('serializes the onScan result after the build sync', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(
+      root,
+      userConfig({ onScan: () => ({ pages: 1 }) }),
+    );
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default {"pages":1};\n',
+    );
+  });
+
+  it('emits the undefined literal when the hook returns nothing', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(
+      root,
+      userConfig({ onScan: () => undefined }),
+    );
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default undefined;\n',
+    );
+  });
+
+  it('fails the load with guidance when no onScan hook is configured', async () => {
+    const root = await makeTmp('ap-sitedata-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = await buildSidePlugin(root);
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).rejects.toThrowError(
+      /virtual:absolute-press\/site-data[\s\S]*onScan/,
+    );
+  });
+
+  it('gates load on the first dev sync', async () => {
+    const { plugin } = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ onScan: () => ({ ready: true }) }),
+    );
+    // configureServer starts the sync; only its side effects matter here.
+    stubServer(plugin);
+    // Called while the initial sync is still in flight: without the gate
+    // siteData is still undefined and the module would emit `undefined`.
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default {"ready":true};\n',
+    );
+  });
+});
+
 // -- dev server --------------------------------------------------------------
 
 interface WsMessage {
@@ -420,6 +484,10 @@ interface DevServerStub {
   readonly watched: string[];
   readonly sent: WsMessage[];
   readonly transformCalls: string[];
+  /** id -> registered module node (moduleGraph fixture). */
+  readonly modules: Map<string, { id: string }>;
+  /** module ids passed to moduleGraph.invalidateModule, in order. */
+  readonly invalidated: string[];
   /** event name -> registered watcher callback (one per event). */
   readonly handlers: Map<string, (file: string) => void>;
   /** event name -> httpServer close handlers (dev-server cleanup hooks). */
@@ -445,6 +513,8 @@ function stubServer(plugin: Plugin): DevServerStub {
     watched: [],
     sent: [],
     transformCalls: [],
+    modules: new Map(),
+    invalidated: [],
     handlers: new Map(),
     httpCloseHandlers: new Map(),
     fire(event, file) {
@@ -481,6 +551,13 @@ function stubServer(plugin: Plugin): DevServerStub {
     middlewares: {
       use: (fn: DevServerStub['middleware']) => {
         stub.middleware = fn;
+      },
+    },
+    moduleGraph: {
+      getModuleById: (id: string): { id: string } | undefined =>
+        stub.modules.get(id),
+      invalidateModule: (mod: { id: string }): void => {
+        stub.invalidated.push(mod.id);
       },
     },
     // Indirection: transformBy swaps stub.transformRequest later.
@@ -525,6 +602,7 @@ async function waitHandled(handled: Handled): Promise<void> {
 
 async function devFixture(
   files: Record<string, string>,
+  cfg: AbsolutePressConfig = userConfig(),
 ): Promise<{ plugin: Plugin; root: string }> {
   const root = await makeTmp('ap-dev-');
   await Promise.all(
@@ -535,7 +613,7 @@ async function devFixture(
       await writeFile(path.join(root, 'content', rel), body);
     }),
   );
-  const plugin = livePlugin(userConfig());
+  const plugin = livePlugin(cfg);
   runConfig(plugin, { root }, hookEnv('serve'));
   callHook(plugin.configResolved, {}, { root });
   return { plugin, root };
@@ -548,13 +626,17 @@ describe('absolutePress dev server', () => {
     expect(server.watched).toEqual([path.join(root, 'content')]);
 
     server.fire('change', path.join(root, 'content', 'index.md'));
-    expect(server.sent).toHaveLength(1);
+    await vi.waitFor(() => expect(server.sent).toHaveLength(1), {
+      timeout: 30_000,
+      interval: 50,
+    });
     expect(server.sent[0]).toMatchObject({ type: 'full-reload' });
 
     // Non-markdown and out-of-content files never trigger a reload.
     server.sent.length = 0;
     server.fire('change', path.join(root, 'content', 'img.png'));
     server.fire('change', path.join(root, 'other.md'));
+    await new Promise(resolve => setTimeout(resolve, 100));
     expect(server.sent).toHaveLength(0);
   });
 
@@ -809,6 +891,90 @@ describe('absolutePress dev server', () => {
     } finally {
       errSpy.mockRestore();
     }
+  });
+});
+
+// -- site-data dev freshness -------------------------------------------------
+
+describe('absolutePress site-data dev freshness', () => {
+  const RESOLVED_ID = '\0virtual:absolute-press/site-data';
+
+  it('refreshes the hook, invalidates the module and reloads on md edits', async () => {
+    let calls = 0;
+    const onScan = (): { n: number } => ({ n: ++calls });
+    const { plugin, root } = await devFixture(
+      { 'a.md': '---\ntag: x\n---\n# A\n' },
+      userConfig({ onScan }),
+    );
+    const server = stubServer(plugin);
+    // Flush the initial sync first (the middleware's ready gate).
+    await waitHandled(callMiddleware(server, '/a'));
+    expect(calls).toBe(1);
+    server.modules.set(RESOLVED_ID, { id: RESOLVED_ID });
+
+    await writeFile(
+      path.join(root, 'content', 'a.md'),
+      '---\ntag: y\n---\n# A\n',
+    );
+    server.fire('change', path.join(root, 'content', 'a.md'));
+    await vi.waitFor(() => expect(server.invalidated).toEqual([RESOLVED_ID]), {
+      timeout: 30_000,
+      interval: 50,
+    });
+    expect(server.sent.at(-1)).toMatchObject({ type: 'full-reload' });
+    // The hook reran for the edit and the module serves the fresh result.
+    expect(calls).toBe(2);
+    await expect(callHook(plugin.load, {}, RESOLVED_ID)).resolves.toBe(
+      'export default {"n":2};\n',
+    );
+  });
+
+  it('invalidates the module after a structural resync', async () => {
+    const { plugin, root } = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ onScan: (): number => 1 }),
+    );
+    const server = stubServer(plugin);
+    await waitHandled(callMiddleware(server, '/'));
+    server.modules.set(RESOLVED_ID, { id: RESOLVED_ID });
+    server.fire('add', path.join(root, 'content', 'new.md'));
+    await vi.waitFor(() => expect(server.invalidated).toEqual([RESOLVED_ID]), {
+      timeout: 30_000,
+      interval: 50,
+    });
+    expect(server.sent.at(-1)).toMatchObject({ type: 'full-reload' });
+  });
+
+  it('reports md-edit hook failures over ws instead of swallowing them', async () => {
+    let calls = 0;
+    const onScan = (): number => {
+      if (++calls > 1) throw new Error('hook exploded');
+      return calls;
+    };
+    const { plugin, root } = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ onScan }),
+    );
+    const server = stubServer(plugin);
+    await waitHandled(callMiddleware(server, '/'));
+    server.fire('change', path.join(root, 'content', 'index.md'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await vi.waitFor(() => expect(server.sent).toHaveLength(1), {
+        timeout: 30_000,
+        interval: 50,
+      });
+      // Assert inside try: mockRestore() wipes the recorded calls.
+      expect(errSpy).toHaveBeenCalledWith(
+        '[absolute-press] dev site-data refresh failed',
+        expect.anything(),
+      );
+    } finally {
+      errSpy.mockRestore();
+    }
+    expect(server.sent[0]).toMatchObject({ type: 'error' });
+    expect(server.sent[0]?.err?.message).toBe('hook exploded');
+    expect(server.sent[0]?.err?.stack).toBeTruthy();
   });
 });
 
