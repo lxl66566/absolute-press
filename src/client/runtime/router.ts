@@ -165,6 +165,9 @@ async function navigate(href: string, push: boolean): Promise<void> {
     // like a native MPA jump, anything else starts at the top.
     applyScrollTarget(resolveScrollTarget(null, location.hash), location.hash);
   }
+  // After the history update (pushState, or the browser's own popstate
+  // entry switch), so location and document.title describe the new page.
+  reportPageView();
   // A pushed URL may carry a hash; anchor flash mirrors a native jump.
   if (location.hash !== '') flashAnchorTarget(location.hash);
 }
@@ -176,6 +179,30 @@ async function navigate(href: string, push: boolean): Promise<void> {
  */
 export function navigateTo(href: string): void {
   void navigate(href, true);
+}
+
+/** GA's event call signature (the gtag.js global). */
+type Gtag = (
+  command: 'event',
+  name: string,
+  params: Record<string, string>,
+) => void;
+
+/**
+ * GA page_view for a completed soft navigation. The initial load is already
+ * counted by the shell's `gtag('config', …)` bootstrap — reporting it here
+ * too would double-count — but a soft navigation swaps the page without a
+ * reload, which gtag never sees on its own. Sites without GA have no
+ * window.gtag and skip this.
+ */
+function reportPageView(): void {
+  const gtag: unknown = (window as { gtag?: unknown }).gtag;
+  if (typeof gtag !== 'function') return;
+  (gtag as Gtag)('event', 'page_view', {
+    page_title: document.title,
+    page_location: location.href,
+    page_path: location.pathname + location.search,
+  });
 }
 
 function onClick(event: MouseEvent): void {

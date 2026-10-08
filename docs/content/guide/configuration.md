@@ -96,7 +96,7 @@ giscus: {
 googleAnalytics: 'G-XXXXXXX',
 ```
 
-测量 ID 字符串，构建期注入 GA 脚本。
+测量 ID 字符串，构建期注入 GA 脚本。框架会在 SPA 软导航后补发 `page_view`（首次加载由 GA 自身统计）；请在 GA4 数据流的增强衡量里关闭「基于浏览器历史事件的页面浏览」，否则软导航会被重复计数。
 
 ## nav
 

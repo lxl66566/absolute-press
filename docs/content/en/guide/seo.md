@@ -66,7 +66,7 @@ Two known boundaries:
 
 ## Other head injections
 
-- **Google Analytics**: with `googleAnalytics: 'G-XXX'` configured, the gtag script is injected, loaded async
+- **Google Analytics**: with `googleAnalytics: 'G-XXX'` configured, the gtag script is injected, loaded async; a successful soft navigation (client-side page swap without reload) reports a `page_view` event, keeping the stats consistent with full page loads
 - **modulepreload** (build output only): the head opens with a `<link rel="modulepreload">` for the entry script, so the browser starts downloading the entry chunk before a large HTML has finished streaming; dev's on-demand-compiled entry is not preloaded
 - **Speculation Rules** (build output only): Chromium prefetches internal links (on hover) and prerenders them (on pointer down), so MPA navigation feels close to an SPA on supported platforms; Safari/Firefox ignore it and keep plain navigation
 - **Anti-FOUC script**: before first paint, reads the theme from localStorage and writes `html[data-theme]`, avoiding a light/dark flash; the script depends on no external resource

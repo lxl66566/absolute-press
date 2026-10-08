@@ -96,7 +96,7 @@ When configured, a Giscus comment island is mounted automatically at the end of 
 googleAnalytics: 'G-XXXXXXX',
 ```
 
-A measurement ID string; the GA script is injected at build time.
+A measurement ID string; the GA script is injected at build time. The framework sends a `page_view` after every SPA soft navigation (the initial load is counted by GA itself); disable "Page views based on browser history events" in the GA4 data stream's enhanced measurement, or soft navigations are double-counted.
 
 ## nav
 

@@ -66,7 +66,7 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 
 ## 其他 head 注入
 
-- **Google Analytics**：配置 `googleAnalytics: 'G-XXX'` 后注入 gtag 脚本，异步加载
+- **Google Analytics**：配置 `googleAnalytics: 'G-XXX'` 后注入 gtag 脚本，异步加载；软导航（客户端无刷新换页）成功后补发 `page_view` 事件，统计口径与整页加载一致
 - **modulepreload**（仅构建产物）：head 顶部声明入口脚本的 `<link rel="modulepreload">`，大体积 HTML 未流完浏览器即可开始下载入口 chunk；dev 的按需编译入口不预载
 - **Speculation Rules**（仅构建产物）：Chromium 会对站内链接做 prefetch（悬停）与 prerender（按下指针），MPA 导航在支持的平台接近 SPA 手感；Safari/Firefox 自动忽略，保持普通导航
 - **防 FOUC 脚本**：首屏渲染前从 localStorage 读主题写上 `html[data-theme]`，避免亮暗闪屏；脚本不依赖任何外部资源
