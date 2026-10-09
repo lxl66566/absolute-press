@@ -43,7 +43,7 @@ export function HomeFeed(props: { payload: PagePayload }): SolidElement {
           </p>
         }
       >
-        <ul class={cx('ap-cards space-y-3', anim() && 'ap-feed-anim')}>
+        <ul class={cx('ap-cards', anim() && 'ap-feed-anim')}>
           <For each={current()}>
             {article => (
               <ArticleCard

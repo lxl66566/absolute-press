@@ -745,11 +745,17 @@ html[data-theme='dark'] .ap-code pre.shiki span {
 }
 
 /* Card lists (HomeFeed / ArchiveView) render as cards, not prose bullets;
- * this id-scoped reset outranks the `#ap-content ul` disc rule above. */
+ * this id-scoped reset outranks the `#ap-content ul` disc rule above. The
+ * sibling gap lives here too: the prose `#ap-content li { margin: 0 }` reset
+ * (content.css) carries an ID and outranks single-class utilities like
+ * UnoCSS space-y. */
 #ap-content .ap-cards {
   list-style: none;
 }
 
+#ap-content .ap-cards > li + li {
+  margin-top: 0.75rem;
+}
 /* RecentArticles build component: build-time static HTML (no JS), two
  * article columns stacked into one on narrow screens. Site CSS can restyle
  * through the ap-recent* hooks; color-only hover, no motion. */

@@ -46,7 +46,7 @@ export function ArchiveView(props: { payload: PagePayload }): SolidElement {
               </p>
             }
           >
-            <ul class="ap-cards space-y-3">
+            <ul class="ap-cards">
               <For each={current()}>
                 {article => (
                   <ArticleCard
