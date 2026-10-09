@@ -1,6 +1,6 @@
 {
   "name": "absolute-press",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Absolute Press — A SolidJS static blog framework with MPA SSG + islands",
   "keywords": [
     "blog",

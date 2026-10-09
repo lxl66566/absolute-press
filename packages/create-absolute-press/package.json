@@ -1,6 +1,6 @@
 {
   "name": "create-absolute-press",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Scaffold an absolute-press blog: pnpm create absolute-press my-blog",
   "keywords": [
     "absolute-press",
