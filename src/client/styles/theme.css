@@ -60,6 +60,8 @@
     --ap-toc-w: 15rem;
     /* Desktop footer: one compact text-xs line (ArticleFooter). */
     --ap-footer-h: 1.5rem;
+    /* Shared scroll offset for heading anchors (#links, toc jumps). */
+    --ap-anchor-offset: 20vh;
 
     color-scheme: light;
   }
@@ -91,7 +93,7 @@
 
   /* Anchor offset for toc smooth-scroll and external #links */
   :is(h1, h2, h3, h4, h5, h6)[id] {
-    scroll-margin-top: 20vh;
+    scroll-margin-top: var(--ap-anchor-offset);
   }
 
   /* Accessibility override, in the earliest framework layer on purpose: for

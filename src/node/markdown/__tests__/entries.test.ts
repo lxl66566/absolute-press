@@ -183,7 +183,9 @@ describe('ExpandableList rendering', () => {
     expect(html).toContain('ap-xlist__preamble');
     expect(html).toContain('ap-xlist__table');
     expect(html).not.toContain('<thead>');
-    expect(html).toContain('<td class="ap-xlist__item-title">First</td>');
+    expect(html).toContain(
+      '<td class="ap-xlist__item-title"><h6 id="First" class="ap-xlist__entry-anchor">First</h6></td>',
+    );
     expect(html).toContain('<strong>bold</strong>');
     expect(html).toContain('ap-container--tip');
     // Item titles are escaped plain text, not markdown.
@@ -195,12 +197,19 @@ describe('ExpandableList rendering', () => {
     expect(html.match(/<tr class="ap-xlist__item-expanded">/g)).toHaveLength(2);
   });
 
+  it('omits the title anchor for untitled entries', () => {
+    const src = '<ExpandableList>\n\n@@@ \nbody\n\n</ExpandableList>';
+    const html = xlist(src);
+    expect(html).toContain('<td class="ap-xlist__item-title"></td>');
+    expect(html).not.toContain('ap-xlist__entry-anchor');
+  });
+
   it('escapes html-significant characters in titles', () => {
     const src =
       '<ExpandableList>\n\n@@@ <b>&"x"</b>\n\nbody\n\n</ExpandableList>';
     const html = xlist(src);
     expect(html).toContain(
-      '<td class="ap-xlist__item-title">&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;</td>',
+      '<td class="ap-xlist__item-title"><h6 id="&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;" class="ap-xlist__entry-anchor">&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;</h6></td>',
     );
   });
 
@@ -249,7 +258,9 @@ describe('ExpandableList rendering', () => {
     expect(html).toContain('ap-xlist__item-meta');
     expect(html).toContain('<strong>23h</strong>');
     expect(html.match(/class="ap-xlist__item-meta"/g)).toHaveLength(1);
-    expect(html).toContain('<td class="ap-xlist__item-title">First</td>');
+    expect(html).toContain(
+      '<td class="ap-xlist__item-title"><h6 id="First" class="ap-xlist__entry-anchor">First</h6></td>',
+    );
   });
 
   it('renders meta as inline markdown so block syntax stays literal', () => {
@@ -417,7 +428,9 @@ describe('ExpandableList rendering', () => {
     // Same static table skeleton as ExpandableList: title cells carry the
     // `@@@` keys, bodies render as markdown, no meta cells without `@@` lines.
     expect(html).toContain('data-ap-island="MyList"');
-    expect(html).toContain('<td class="ap-xlist__item-title">KEY-1</td>');
+    expect(html).toContain(
+      '<td class="ap-xlist__item-title"><h6 id="KEY-1" class="ap-xlist__entry-anchor">KEY-1</h6></td>',
+    );
     expect(html).toContain('<strong>one</strong>');
     expect(html).not.toContain('ap-xlist__item-meta');
     expect(html.match(/<tr class="ap-xlist__item">/g)).toHaveLength(2);

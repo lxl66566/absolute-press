@@ -215,6 +215,21 @@
     font-weight: 400;
   }
 
+  /* The static title anchor (entries.ts h6) reads as plain cell text: it
+   * exists for crawlers and no-JS deep links, not as a heading. The
+   * h1-h6[id] rule in theme.css covers it via --ap-anchor-offset; the
+   * hydrated cell id below needs the same offset explicitly. */
+  .ap-xlist__entry-anchor {
+    display: inline;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+  }
+
+  td.ap-xlist__title[id] {
+    scroll-margin-top: var(--ap-anchor-offset);
+  }
+
   /* The keyboard toggle looks like plain text: expandability reads from the
  * row (cursor + hover outline), never from a fake link style. */
   .ap-xlist__toggle {

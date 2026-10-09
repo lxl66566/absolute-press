@@ -313,7 +313,12 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                             : undefined
                         }
                       >
-                        <td class="ap-xlist__cell ap-xlist__title">
+                        <td
+                          class="ap-xlist__cell ap-xlist__title"
+                          // Same anchor as the static h6 (entries.ts);
+                          // deep links survive hydration.
+                          id={item.title === '' ? undefined : item.title}
+                        >
                           <Show
                             when={expandable}
                             fallback={

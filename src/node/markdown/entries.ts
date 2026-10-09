@@ -231,11 +231,20 @@ export function renderEntryListChildren(
               `<td class="ap-xlist__item-meta">${renderMeta(seg, ctx)}</td>`,
       );
     }
+    // The title is a real heading anchor in the static table: heading-level
+    // crawlers (Algolia docsearch) split aggregated content per entry
+    // instead of collapsing a whole list into one oversized record, and
+    // no-JS visitors get deep-link anchors. Untitled entries keep the bare
+    // empty cell (an empty id would be invalid). ExpandableList.css styles
+    // the h6 away; hydration moves the id onto the title cell.
+    const titleCell =
+      entry.title === ''
+        ? '<td class="ap-xlist__item-title"></td>'
+        : `<td class="ap-xlist__item-title">` +
+          `<h6 id="${escapeHtml(entry.title)}" class="ap-xlist__entry-anchor">` +
+          `${escapeHtml(entry.title)}</h6></td>`;
     parts.push(
-      '<tr class="ap-xlist__item">' +
-        `<td class="ap-xlist__item-title">${escapeHtml(entry.title)}</td>` +
-        cells.join('') +
-        '</tr>',
+      '<tr class="ap-xlist__item">' + titleCell + cells.join('') + '</tr>',
     );
     parts.push(
       '<tr class="ap-xlist__item-expanded">' +
