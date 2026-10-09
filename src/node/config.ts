@@ -24,6 +24,11 @@ import {
 } from './build/related.ts';
 import { normalizeRouteForMatch } from './build/route-match.ts';
 import {
+  ICON_PROVIDER_NAMES,
+  providerIcons,
+  type IconProviderName,
+} from './icons.ts';
+import {
   resolveCodeOptions,
   type ResolvedCodeOptions,
 } from './markdown/options.ts';
@@ -60,6 +65,19 @@ function resolveStrictLinks(value: string | undefined): StrictLinks {
   }
   throw new Error(
     `[absolute-press] strictLinks must be one of ${STRICT_LINKS.join(', ')}, got '${value}'`,
+  );
+}
+
+/** Runtime guard for the compile-time `IconProviderName` union (JS config files). */
+function resolveIconProvider(
+  value: string | undefined,
+): IconProviderName | undefined {
+  if (value === undefined) return undefined;
+  if ((ICON_PROVIDER_NAMES as readonly string[]).includes(value)) {
+    return value as IconProviderName;
+  }
+  throw new Error(
+    `[absolute-press] iconProvider must be one of ${ICON_PROVIDER_NAMES.join(', ')}, got '${value}'`,
   );
 }
 
@@ -155,6 +173,15 @@ export interface AbsolutePressConfig extends SiteConfig {
    * (warn). A single string is the one-root shorthand.
    */
   refs?: string | string[];
+  /**
+   * Built-in icon provider, layered under the custom `icons` map. Its
+   * registry keys follow the provider's own naming — `fontawesome` serves
+   * every free glyph as `<pack>/<name>` (`solid`/`regular`/`brands`, e.g.
+   * `solid/rocket`, `brands/github`) — so frontmatter `icon` references
+   * need no per-icon setup. On key collisions the custom `icons` entry wins.
+   * @default undefined — no provider; only `icons` keys are registered
+   */
+  iconProvider?: IconProviderName;
   /** `<html lang>` of the default locale. @default 'zh-CN' */
   lang?: string;
   /** Default-locale label for the locale switcher. @default '简体中文' */
@@ -402,7 +429,7 @@ export interface ResolvedConfig {
   giscus?: SiteConfig['giscus'];
   encrypt?: SiteConfig['encrypt'];
   googleAnalytics?: string;
-  /** Registered icon map (empty when unconfigured). */
+  /** Merged icon map: `iconProvider` glyphs layered under custom `icons` (custom wins). */
   icons: Record<string, string>;
 }
 
@@ -533,6 +560,7 @@ export function resolveConfig(
     );
   }
   const refs = resolveRefs(config.refs);
+  const iconProvider = resolveIconProvider(config.iconProvider);
   return {
     root,
     publicDir: publicDir || null,
@@ -597,6 +625,11 @@ export function resolveConfig(
     ...(config.googleAnalytics
       ? { googleAnalytics: config.googleAnalytics }
       : {}),
-    icons: config.icons ?? {},
+    // Provider glyphs layer under the custom keys; a collision keeps the
+    // custom entry (documented contract).
+    icons: {
+      ...(iconProvider ? providerIcons(iconProvider) : {}),
+      ...config.icons,
+    },
   };
 }

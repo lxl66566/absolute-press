@@ -1,6 +1,6 @@
 ---
 date: 2026-10-08
-icon: chip
+icon: solid/microchip
 category: [设计]
 tag: [ssg, 架构]
 ---

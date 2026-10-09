@@ -5,7 +5,7 @@ category:
 tag:
   - seo
   - rss
-icon: search
+icon: solid/magnifying-glass
 ---
 
 # SEO 与订阅

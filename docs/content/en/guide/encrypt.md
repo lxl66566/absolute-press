@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - encryption
-icon: lock
+icon: solid/lock
 ---
 
 # Encryption

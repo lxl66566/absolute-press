@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - faq
-icon: faq
+icon: solid/circle-question
 ---
 
 # FAQ

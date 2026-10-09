@@ -5,7 +5,7 @@ category:
 tag:
   - 主题
   - css
-icon: palette
+icon: solid/palette
 ---
 
 # 主题定制

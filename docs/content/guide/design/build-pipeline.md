@@ -5,7 +5,7 @@ category:
 tag:
   - 构建
   - markdown
-icon: diagram
+icon: solid/diagram-project
 ---
 
 # 构建管线

@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - encryption
-icon: shield
+icon: solid/file-shield
 feed: false
 ---
 

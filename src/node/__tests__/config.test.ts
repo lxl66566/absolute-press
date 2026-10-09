@@ -263,6 +263,50 @@ describe('resolveConfig strictLinks', () => {
   });
 });
 
+describe('resolveConfig icons', () => {
+  it('passes custom entries through unchanged', () => {
+    const { icons } = resolveConfig(
+      { ...baseConfig(), icons: { logo: '<svg/>' } },
+      '/root',
+    );
+    expect(icons).toEqual({ logo: '<svg/>' });
+  });
+
+  it('registers provider glyphs under <pack>/<name>', () => {
+    const { icons } = resolveConfig(
+      { ...baseConfig(), iconProvider: 'fontawesome' },
+      '/root',
+    );
+    expect(Object.keys(icons).length).toBeGreaterThan(1000);
+    expect(icons['solid/rocket']).toContain('<svg');
+    expect(icons['solid/rocket']).toContain('viewBox="0 0 512 512"');
+    expect(icons['brands/github']).toContain('fill="currentColor"');
+  });
+
+  it('layers custom keys over the provider (custom wins)', () => {
+    const { icons } = resolveConfig(
+      {
+        ...baseConfig(),
+        iconProvider: 'fontawesome',
+        icons: { 'solid/rocket': '<svg/>custom', mine: '<svg/>' },
+      },
+      '/root',
+    );
+    expect(icons['solid/rocket']).toBe('<svg/>custom');
+    expect(icons['brands/github']).toBeDefined();
+    expect(icons.mine).toBe('<svg/>');
+  });
+
+  it('rejects unknown providers', () => {
+    // JS config files bypass the IconProviderName union; the resolver
+    // guards at runtime. The cast only mirrors that unchecked input.
+    const bad = { ...baseConfig(), iconProvider: 'ionicons' as 'fontawesome' };
+    expect(() => resolveConfig(bad, '/root')).toThrowError(
+      /iconProvider must be one of fontawesome, got 'ionicons'/,
+    );
+  });
+});
+
 describe('resolveConfig favicon', () => {
   it('is absent by default', () => {
     expect(resolveConfig(baseConfig(), '/root').favicon).toBeUndefined();

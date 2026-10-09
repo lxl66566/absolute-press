@@ -5,7 +5,7 @@ category:
 tag:
   - search
   - comments
-icon: comments
+icon: solid/comments
 ---
 
 # Search and Comments

@@ -5,7 +5,7 @@ category:
 tag:
   - markdown
   - 自测
-icon: markdown
+icon: brands/markdown
 ---
 
 # Markdown 扩展

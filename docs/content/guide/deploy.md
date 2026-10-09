@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 部署
-icon: deploy
+icon: solid/cloud-arrow-down
 ---
 
 # 部署指南

@@ -5,7 +5,7 @@ category:
 tag:
   - 迁移
   - vuepress
-icon: migrate
+icon: solid/arrow-right-arrow-left
 ---
 
 # 迁移指南

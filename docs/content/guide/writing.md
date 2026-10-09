@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 写作
-icon: pen
+icon: solid/pen
 ---
 
 # 写作指南
@@ -42,14 +42,14 @@ category:
 tag:
   - 写作
   - markdown # 标签归档页（可多值）
-icon: rocket # 必须是站点配置 icons 里注册的 key
+icon: solid/rocket # 已注册的图标 key（iconProvider 或 icons）
 feed: true # 默认 true；false 退出 RSS（文章流仍收录）
 overview: true # 默认 true；仅对目录的 index.md 生效
 ---
 ```
 
 - `date` 决定首页文章流与归档的倒序位置；省略时排在没有日期的文章之前按路由名兜底
-- `icon` 在构建期校验：未注册的 key 直接构建报错。icon 值是完整 `<svg>` 字符串或裸 SVG 内部标记，在站点配置里集中注册一次，frontmatter 只引用 key
+- `icon` 在构建期校验：未注册的 key 直接构建报错。icon 值是完整 `<svg>` 字符串或裸 SVG 内部标记，在站点配置里集中注册一次（`iconProvider` 内置源或 `icons` 自定义 kv），frontmatter 只引用 key
 - `overview` 只在目录的 `index.md` 上有意义：设为 `false` 时，navbar 面板不再出现该目录的总览行（顶层面板不生成、二级 folder 的面板也不合成），文件夹行本身仍然指向它，sidebar 与移动端抽屉不受影响
 - 受密码保护的页面建议加 `feed: false`，避免标题与链接泄露进订阅源，见[加密](./encrypt.md)
 

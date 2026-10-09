@@ -5,7 +5,7 @@ category:
 tag:
   - islands
   - solid
-icon: code
+icon: solid/code
 ---
 
 # Island 机制实现

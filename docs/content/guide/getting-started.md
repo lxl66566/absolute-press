@@ -5,7 +5,7 @@ category:
 tag:
   - 入门
   - 安装
-icon: rocket
+icon: solid/rocket
 ---
 
 # 快速开始

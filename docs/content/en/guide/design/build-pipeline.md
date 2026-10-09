@@ -5,7 +5,7 @@ category:
 tag:
   - build
   - markdown
-icon: diagram
+icon: solid/diagram-project
 ---
 
 # Build Pipeline

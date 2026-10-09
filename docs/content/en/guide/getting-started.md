@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - getting-started
-icon: rocket
+icon: solid/rocket
 ---
 
 # Getting started

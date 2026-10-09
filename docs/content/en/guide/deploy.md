@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - deployment
-icon: deploy
+icon: solid/cloud-arrow-down
 ---
 
 # Deployment Guide

@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 加密
-icon: lock
+icon: solid/lock
 ---
 
 # 加密

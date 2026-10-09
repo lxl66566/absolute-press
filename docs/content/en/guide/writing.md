@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - writing
-icon: pen
+icon: solid/pen
 ---
 
 # Writing guide
@@ -42,14 +42,14 @@ category:
 tag:
   - writing
   - markdown # tag archive pages (multi-value)
-icon: rocket # must be a key registered in the site config icons map
+icon: solid/rocket # a registered icon key (iconProvider or icons)
 feed: true # default true; false opts out of RSS (the article feed still includes it)
 overview: true # default true; only meaningful on a directory's index.md
 ---
 ```
 
 - `date` decides the reverse-chronological position in the home article feed and archives; when omitted, the page sorts before undated articles by route name as a fallback
-- `icon` is validated at build time: an unregistered key is a build error. Icon values are full `<svg>` strings or bare SVG inner markup, registered once in the site config; frontmatter only references the key
+- `icon` is validated at build time: an unregistered key is a build error. Icon values are full `<svg>` strings or bare SVG inner markup, registered once in the site config (the `iconProvider` built-in source or custom `icons` entries); frontmatter only references the key
 - `overview` only matters on a directory's `index.md`: set to `false`, the navbar panel no longer shows an overview row for that directory (neither in top-level panels nor in synthesized second-level folder panels); the folder row still links to it, and the sidebar and mobile drawer are unaffected
 - Password-protected pages should set `feed: false` so titles and links do not leak into the feed — see [Encryption](./encrypt.md)
 

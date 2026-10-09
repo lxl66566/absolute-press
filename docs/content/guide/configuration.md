@@ -4,7 +4,7 @@ category:
   - 指南
 tag:
   - 配置
-icon: gear
+icon: solid/gear
 ---
 
 # 配置参考
@@ -31,15 +31,23 @@ locales: {
 - 其余 locale 的内容放 `<contentDir>/<key>/`，路由加 `/en` 前缀
 - 详见[多语言](./i18n.md)
 
+## iconProvider
+
+```ts
+iconProvider: 'fontawesome',
+```
+
+内置图标源，注册表叠加在自定义 `icons` 之下（同名时 `icons` 优先）。`'fontawesome'` 把 Font Awesome 全部免费字形按 `<pack>/<name>` 注册（`solid` / `regular` / `brands` 三组，如 `solid/rocket`、`brands/github`），frontmatter `icon` 直接引用，无需逐个登记。未配置时不注册任何图标。
+
 ## icons
 
 ```ts
 icons: {
-  rocket: '<svg xmlns="..." viewBox="0 0 512 512" fill="currentColor">...</svg>',
+  'my-logo': '<svg xmlns="..." viewBox="0 0 16 16" fill="currentColor">...</svg>',
 }
 ```
 
-显式注册的图标表：key 是 frontmatter `icon` 的合法取值（构建期校验，未注册的 key 报错）；value 是完整 `<svg>...</svg>` 字符串，或裸 SVG 内部标记（客户端会包一层 24x24 svg）。navbar/sidebar/文章卡片消费这些图标。
+自定义图标 kv：key 是 frontmatter `icon` 的合法取值（构建期校验，未注册的 key 报错）；value 是完整 `<svg>...</svg>` 字符串，或裸 SVG 内部标记（客户端会包一层 24x24 svg）。navbar/sidebar/文章卡片消费这些图标。与 `iconProvider` 的 key 同名时此处优先。
 
 ## islands
 
@@ -144,7 +152,7 @@ navbar 相关配置的归拢入口：导航树由内容目录自动生成，`nav
 - `order: string[]`：navbar 顶层条目按内容目录名排序（与 `tweaks` 同一套 key）；未列出的目录与根级散页保持生成顺序，未知名字忽略
 - `align: 'left' | 'center'`：navbar 顶层导航条的对齐方式，`'center'` 时在品牌区与右侧图标区之间自动等分剩余空间（默认 `'left'`）
 - `tweaks: Record<string, NavbarDirTweak>`：按顶层内容目录名微调 navbar 条目。`label` 改写导航文字（sidebar 分组标题同步沿用）；`groups` 按组排版下拉面板（带 `text` 的组渲染为静态小标题，无 `text` 的组只固定成员顺序，未列出的成员保持生成顺序追加在后面）；`items` 整体指定面板条目（如从站点数据模块派生的分区树），构建期校验每个站内链接必须指向该目录下的页面，未被任何条目链接覆盖的生成成员仍会追加在后，优先级高于 `groups`；未显式给 `icon` 的条目回填所链页面的 frontmatter 图标。文件夹行（任意层级）导航到目录 index 页（板块名即总览）：带 `index` 标记的总览行渲染在面板首行（客户端打 `ap-nav-index-row` 钩子，样式归站点 CSS）——顶层面板的总览行由构建生成，二级 folder 的总览行由客户端在其面板首行合成，folder 行本身只负责展开；index 页 frontmatter `overview: false` 可退出总览行（folder 行仍指向该页，sidebar 不受影响）
-- `social: { icon, url, title }[]`：导航栏右侧的社交图标按钮数组，渲染在 RSS 按钮之前，固定新标签页打开。`icon` 取 config `icons` 的 key，或内建品牌 key（`github` / `telegram` / `bilibili`），同名时 config `icons` 优先；`title` 用作 aria-label 与悬停提示
+- `social: { icon, url, title }[]`：导航栏右侧的社交图标按钮数组，渲染在 RSS 按钮之前，固定新标签页打开。`icon` 取已注册的图标 key（`iconProvider` / `icons`），或内建品牌 key（`github` / `telegram` / `bilibili`），同名时注册表优先；`title` 用作 aria-label 与悬停提示
 
 导航栏还固定渲染一个 RSS 按钮（链接 `/rss.xml`，base 自适应，title 走 i18n `nav.rss`）；RSS 始终生成，无需配置开关。
 

@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - configuration
-icon: gear
+icon: solid/gear
 ---
 
 # Configuration Reference
@@ -31,15 +31,23 @@ locales: {
 - Other locales put their content in `<contentDir>/<key>/`, and their routes get an `/en`-style prefix
 - See [Internationalization](./i18n.md)
 
+## iconProvider
+
+```ts
+iconProvider: 'fontawesome',
+```
+
+Built-in icon source, layered under the custom `icons` map (custom keys win on collision). `'fontawesome'` registers every Font Awesome free glyph under its `<pack>/<name>` key (`solid` / `regular` / `brands`, e.g. `solid/rocket`, `brands/github`), so frontmatter `icon` references need no per-icon setup. Without it, no icons are registered.
+
 ## icons
 
 ```ts
 icons: {
-  rocket: '<svg xmlns="..." viewBox="0 0 512 512" fill="currentColor">...</svg>',
+  'my-logo': '<svg xmlns="..." viewBox="0 0 16 16" fill="currentColor">...</svg>',
 }
 ```
 
-An explicitly registered icon map: the key is a legal value for frontmatter `icon` (validated at build time; unregistered keys fail the build). The value is a full `<svg>...</svg>` string, or bare SVG inner markup (the client wraps it in a 24x24 svg). The navbar, sidebar, and article cards consume these icons.
+Custom icon entries: the key is a legal value for frontmatter `icon` (validated at build time; unregistered keys fail the build). The value is a full `<svg>...</svg>` string, or bare SVG inner markup (the client wraps it in a 24x24 svg). The navbar, sidebar, and article cards consume these icons. On a key collision with `iconProvider`, the entry here wins.
 
 ## islands
 
@@ -144,7 +152,7 @@ The single entry point for navbar-related config: the nav tree is generated from
 - `order: string[]`: orders top-level navbar entries by content directory name (same key space as `tweaks`); directories not listed and root-level loose pages keep their generated order; unknown names are ignored
 - `align: 'left' | 'center'`: alignment of the top-level navbar strip; with `'center'` the remaining space between the brand area and the right icon area is split evenly (default `'left'`)
 - `tweaks: Record<string, NavbarDirTweak>`: tweaks navbar entries per top-level content directory. `label` rewrites the nav text (the sidebar group title follows it). `groups` lays out the dropdown panel by groups (a group with `text` renders a static subheading; a group without `text` only fixes member order; unlisted members are appended in generated order). `items` specifies the panel entries wholesale (e.g. a section tree derived from a site data module); every internal link is validated at build time to point to a page under that directory; generated members not covered by any item link are still appended; takes precedence over `groups`. Entries without an explicit `icon` inherit the linked page's frontmatter icon. Folder rows (at any depth) navigate to the directory index page (the section name is the overview): the overview row carrying the `index` marker renders as the first row of the panel (the client sets an `ap-nav-index-row` hook; badge/divider styling belongs to site CSS) — the overview row of a top-level panel is generated at build time, the overview row of a nested folder is synthesized by the client as its panel's first row, and the folder row itself only expands. An index page with frontmatter `overview: false` opts out of the overview row (the folder row still points to that page; the sidebar is unaffected)
-- `social: { icon, url, title }[]`: social icon buttons on the right of the navbar, rendered before the RSS button, always opened in a new tab. `icon` takes a key from config `icons`, or a built-in brand key (`github` / `telegram` / `bilibili`); on name collision config `icons` wins. `title` is used as aria-label and hover tooltip
+- `social: { icon, url, title }[]`: social icon buttons on the right of the navbar, rendered before the RSS button, always opened in a new tab. `icon` takes a registered icon key (`iconProvider` / `icons`), or a built-in brand key (`github` / `telegram` / `bilibili`); on name collision the registry wins. `title` is used as aria-label and hover tooltip
 
 The navbar also always renders an RSS button (linking `/rss.xml`, base-aware, title from i18n `nav.rss`); RSS is always generated, no config switch.
 

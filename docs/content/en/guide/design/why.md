@@ -1,6 +1,6 @@
 ---
 date: 2026-10-08
-icon: lightbulb
+icon: solid/lightbulb
 category: [design]
 tag: [ssg]
 ---

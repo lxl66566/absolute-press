@@ -55,6 +55,9 @@
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
+    "@fortawesome/free-regular-svg-icons": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@mdit/plugin-container": "^2.0.2",
     "@mdit/plugin-figure": "^1.2.2",
     "@mdit/plugin-footnote": "^1.1.2",

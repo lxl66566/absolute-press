@@ -5,7 +5,7 @@ category:
 tag:
   - markdown
   - self-test
-icon: markdown
+icon: brands/markdown
 ---
 
 # Markdown extensions

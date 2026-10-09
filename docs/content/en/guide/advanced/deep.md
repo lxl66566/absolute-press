@@ -4,7 +4,7 @@ category:
   - guide
 tag:
   - getting-started
-icon: sitemap
+icon: solid/sitemap
 ---
 
 # Deep Page

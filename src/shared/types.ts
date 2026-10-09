@@ -320,7 +320,8 @@ export interface SiteConfig {
   /** Extra locales; content lives in `<contentDir>/<key>/`. */
   locales?: Record<string, LocaleConfig>;
   /**
-   * Explicitly registered icons; frontmatter `icon` must be a key here.
+   * Custom icon entries layered over the `iconProvider` registry (custom
+   * keys win on collision); frontmatter `icon` must be a registered key.
    * Values are either a complete `<svg>...</svg>` string or bare SVG inner
    * markup (e.g. `<path .../>`), which the client wraps in a 24x24 svg.
    */

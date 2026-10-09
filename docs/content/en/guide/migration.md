@@ -5,7 +5,7 @@ category:
 tag:
   - migration
   - vuepress
-icon: migrate
+icon: solid/arrow-right-arrow-left
 ---
 
 # Migration Guide

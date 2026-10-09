@@ -5,7 +5,7 @@ category:
 tag:
   - theme
   - css
-icon: palette
+icon: solid/palette
 ---
 
 # Theme Customization

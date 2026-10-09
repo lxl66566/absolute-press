@@ -1,6 +1,6 @@
 ---
 date: 2026-10-01
-icon: book
+icon: solid/book
 ---
 
 # 指南

@@ -5,7 +5,7 @@ category:
 tag:
   - islands
   - solid
-icon: puzzle
+icon: solid/puzzle-piece
 ---
 
 # Islands

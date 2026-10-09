@@ -1,6 +1,6 @@
 ---
 date: 2026-10-08
-icon: compass
+icon: solid/compass
 category: [设计]
 tag: [ssg]
 ---
