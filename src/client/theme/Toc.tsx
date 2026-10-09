@@ -301,7 +301,8 @@ export function TocOutline(props: {
   };
 
   return (
-    <ul ref={listEl} class="border-l border-[var(--c-border)]">
+    // Track line is rail-only (Toc.css .ap-toc nav > ul).
+    <ul ref={listEl}>
       <For each={tree}>
         {node => (
           <TocEntry

@@ -28,6 +28,12 @@
     align-items: center;
   }
 
+  /* Rail track line for the active rows' accent bar; declared here instead
+   * of on the shared TocOutline ul so the bordered inline card opts out. */
+  .ap-toc nav > ul {
+    border-left: 1px solid var(--c-border);
+  }
+
   .ap-toc-row > a {
     flex: 1 1 auto;
     min-width: 0;

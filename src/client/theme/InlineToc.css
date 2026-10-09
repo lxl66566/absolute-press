@@ -25,8 +25,8 @@
   }
 
   /* Prose links (accent color + hover underline) would tint the outline rows;
- * restore the rail's row palette. This chrome layer beats the prose rules
- * without selector strength. */
+   * restore the rail's row palette. This chrome layer beats the prose rules
+   * without selector strength. */
   .ap-toc-inline a {
     color: var(--c-text-2);
   }
@@ -38,6 +38,14 @@
 
   .ap-toc-inline a.font-medium {
     color: var(--c-accent);
+  }
+
+  /* The card is the only toc placement inside .ap-main: prose list chrome
+   * (disc markers, indent, margin) leaks in; rows indent themselves. */
+  .ap-toc-inline ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   /* Collapsed body: rows must leave the tab / a11y tree — a 0fr grid track
