@@ -549,6 +549,12 @@
     color: lightblue;
   }
 
+  /* Inline code keeps its chip bg and own color otherwise, leaking the text. */
+  :is(.ap-heimu, .heimu, heimu) code {
+    background-color: transparent;
+    color: inherit;
+  }
+
   .ap-heimu::selection,
   .ap-heimu *::selection,
   .heimu::selection,
