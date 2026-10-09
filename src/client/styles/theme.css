@@ -566,7 +566,9 @@
     cursor: help;
     text-decoration: underline;
     text-decoration-style: dotted;
-    text-decoration-color: var(--c-border);
+    /* text-2 mixed over transparency: --c-border sits too close to the bg
+     * in both themes to read as an underline. */
+    text-decoration-color: color-mix(in srgb, var(--c-text-2) 60%, transparent);
     text-underline-offset: 3px;
     transition: text-decoration-color 140ms ease-out;
   }
