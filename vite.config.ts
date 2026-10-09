@@ -36,10 +36,6 @@ const config: UserConfig = defineConfig({
         // below the fold and read like a blog archive.
         home: { feed: false },
         favicon: '/favicon.svg',
-        // Algolia crawler site-ownership verification (raw head injection).
-        head: [
-          '<meta name="algolia-site-verification" content="ADD39C0998F22200">',
-        ],
         seo: {
           author: { name: 'lxl66566', url: 'https://github.com/lxl66566' },
         },
@@ -84,9 +80,9 @@ const config: UserConfig = defineConfig({
             '<svg fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M208 80c0-26.5 21.5-48 48-48h64c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48h-8v40H464c30.9 0 56 25.1 56 56v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H464c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-4.4-3.6-8-8-8H312v40h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H256c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V280H112c-4.4 0-8 3.6-8 8v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-30.9 25.1-56 56-56H264V192h-8c-26.5 0-48-21.5-48-48V80z"/></svg>',
         },
         algolia: {
-          appId: 'UMGMTUUIFU',
-          apiKey: '6e1820d0f954590466468855790a2440',
-          indexName: 'algolia',
+          appId: 'O9JW6I7R5M',
+          apiKey: '3b5ac7214c5b516709dec2584a3e9e2a',
+          indexName: 'absolute-press-crawler',
         },
         giscus: {
           repo: 'lxl66566/absolute-press',
