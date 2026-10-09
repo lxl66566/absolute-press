@@ -31,6 +31,9 @@ const config: UserConfig = defineConfig({
         locales: {
           en: { lang: 'en', label: 'English' },
         },
+        head: [
+          '<meta name="algolia-site-verification"  content="154015213040B8F8" />',
+        ],
         // Docs landing page: the prose intro (hero/features/reading paths)
         // is the page's primary; the paginated article feed would push it
         // below the fold and read like a blog archive.
