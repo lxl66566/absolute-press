@@ -85,12 +85,12 @@ const config: UserConfig = defineConfig({
           indexName: 'algolia',
         },
         giscus: {
-          repo: 'lxl66566/lxl66566.github.io',
-          repoId: 'R_kgDOHRyDvA',
+          repo: 'lxl66566/absolute-press',
+          repoId: 'R_kgDOU_0Cgw',
           category: 'General',
-          categoryId: 'DIC_kwDOHRyDvM4CQSP1',
+          categoryId: 'DIC_kwDOU_0Cg84DHb0i',
         },
-        googleAnalytics: 'G-MKRDBH1ZP1',
+        // googleAnalytics: 'G-MKRDBH1ZP1',
         nav: {
           // Navbar social buttons; `github` resolves to the built-in brand glyph.
           social: [
