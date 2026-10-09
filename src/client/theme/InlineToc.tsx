@@ -61,8 +61,13 @@ export function InlineToc(props: { payload: PagePayload }): SolidElement {
           id="ap-toc-inline-body"
           class={cx('ap-collapse', !open() && 'ap-collapsed')}
         >
-          <div class="px-3 pt-1 pb-2">
-            <TocOutline tree={tree} msg={t} rail={false} />
+          {/* Bare grid child; padding rides a further-inward wrapper — a 0fr
+           * grid row cannot compress a padded child, which leaked a bg sliver
+           * under the collapsed bar (same trap as .ap-xlist__body). */}
+          <div>
+            <div class="px-3 pt-1 pb-2">
+              <TocOutline tree={tree} msg={t} rail={false} />
+            </div>
           </div>
         </div>
       </nav>
