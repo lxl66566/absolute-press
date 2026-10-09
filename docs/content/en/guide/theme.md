@@ -58,20 +58,23 @@ Rules:
 
 The page shell is generated at build time, and the theme chrome mounts onto fixed placeholder DOM — site CSS and scripts can rely on this structure (produced by the renderer, consumed by the theme; do not rename):
 
+````html
 ```html
-<div id="ap-nav"></div>
+<div id="ap-nav" class="ap-nav"></div>
 <!-- navbar -->
-<aside id="ap-sidebar"></aside>
+<aside id="ap-sidebar" class="ap-sidebar"></aside>
 <!-- sidebar -->
-<main id="ap-content">…</main>
+<main id="ap-content" class="ap-main">…</main>
 <!-- content (full HTML already rendered at build time) -->
-<div id="ap-toc"></div>
+<div id="ap-toc" class="ap-toc"></div>
 <!-- table of contents -->
 <script type="application/json" id="__AP_DATA__">
   …
 </script>
 <!-- page payload -->
-```
+````
+
+The ids are mount anchors for scripts; **site CSS should key on the sibling classes** (`ap-nav` / `ap-sidebar` / `ap-main` / `ap-toc` / `ap-footer`, plus `ap-chrome` on the client-injected theme chrome). Framework styles only use class selectors: id specificity is so strong that a site rule hanging off one survives any future framework default.
 
 - An island placeholder is `<div data-ap-island="Name" data-props="…">`; before activation its inner content is the pre-rendered HTML
 - The markdown renderer emits stable classes: containers `ap-container--<type>` (tip/warning/danger/caution/error/info/details/right), tabs `ap-tabs` / `ap-tab` / `ap-tabs--code`, heimu `ap-heimu` (bare `.heimu` also supported), code blocks `ap-code`
@@ -124,6 +127,37 @@ The sidebar is generated automatically from the directory tree (data in `src/nod
 - **Arbitrary nesting depth**: groups nest as deep as the directories do, and each level collapses independently
 
 This site's `guide/advanced/deep` is a live example of multi-level nesting.
+
+## Cascade layers
+
+Every stylesheet on the page lives in a [cascade layer](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer): winners are decided by layer order, independent of selector strength or load order. The order is declared once in each page head:
+
+```css
+@layer properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome;
+```
+
+| Layer                                          | Owner     | Contents                                                                      |
+| ---------------------------------------------- | --------- | ----------------------------------------------------------------------------- |
+| `properties` / `theme` / `base` / `preflights` | uno       | `base` is the reset, `preflights` holds global base rules                     |
+| `ap-base`                                      | framework | design tokens, body basics, anchor offsets                                    |
+| `ap-prose`                                     | framework | markdown body defaults (zero specificity — any explicit style overrides them) |
+| `default`                                      | uno       | utilities                                                                     |
+| `ap-chrome`                                    | framework | components, islands, layout                                                   |
+| (unlayered)                                    | your site | your CSS                                                                      |
+
+**Site CSS left out of every layer beats all framework styles** — an override only needs the same selector (or a weaker one), no `html` prefixes, `!important`, or ids. Two caveats:
+
+- The site's uno config must set `outputToCssLayers: true`; otherwise the site's uno reset stays unlayered and flattens the framework typography
+- Site CSS injected through uno preflights must return the `preflights` layer to unlayered output via the `cssLayerName` option:
+
+```ts
+// uno.config.ts
+outputToCssLayers: {
+  cssLayerName: layer => (layer === 'preflights' ? null : layer),
+},
+```
+
+When overriding `--c-*` tokens, provide both light and dark values (tokens live inside a layer, so an unlayered site `:root` also shadows the dark block — see the override example below).
 
 ## Override example
 

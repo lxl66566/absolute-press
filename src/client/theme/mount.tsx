@@ -32,9 +32,12 @@ export function mountTheme(payload: PagePayload): void {
   if (toc) mountComponent(ThemeToc, toc, { payload });
   const content = document.getElementById('ap-content');
   if (content) {
-    // Chrome (feed/archive/meta) sits above the static markdown body.
+    // Chrome (feed/archive/meta) sits above the static markdown body. The
+    // class is the CSS hook (the prose-tier trim keys on it); the id stays
+    // the JS lookup contract.
     const slot = document.createElement('div');
     slot.id = 'ap-chrome';
+    slot.className = 'ap-chrome';
     content.prepend(slot);
     mountComponent(ThemeContent, slot, { payload });
     // Archive shells carry only a bare no-JS fallback h1; the interactive

@@ -1,76 +1,78 @@
 /* Mermaid island: pan/zoom shell (design tokens from styles/theme.css). */
 
-.ap-mermaid {
-  position: relative;
-  margin: 1rem 0;
-}
+@layer ap-chrome {
+  .ap-mermaid {
+    position: relative;
+    margin: 1rem 0;
+  }
 
-/* The canvas clips the transformed chart; vertical page scrolling stays
+  /* The canvas clips the transformed chart; vertical page scrolling stays
    native (one-finger touch / plain wheel), so hovering a diagram never
    hijacks scrolling. */
-.ap-mermaid__canvas {
-  overflow: hidden;
-  touch-action: pan-y;
-  cursor: grab;
-  border-radius: 0.5rem;
-  background-color: color-mix(in srgb, var(--c-bg-soft) 45%, transparent);
-  padding: 0.5rem;
-}
+  .ap-mermaid__canvas {
+    overflow: hidden;
+    touch-action: pan-y;
+    cursor: grab;
+    border-radius: 0.5rem;
+    background-color: color-mix(in srgb, var(--c-bg-soft) 45%, transparent);
+    padding: 0.5rem;
+  }
 
-.ap-mermaid__canvas:active {
-  cursor: grabbing;
-}
+  .ap-mermaid__canvas:active {
+    cursor: grabbing;
+  }
 
-.ap-mermaid__inner {
-  transform-origin: 0 0;
-}
+  .ap-mermaid__inner {
+    transform-origin: 0 0;
+  }
 
-.ap-mermaid__inner > svg {
-  margin: 0 auto;
-}
+  .ap-mermaid__inner > svg {
+    margin: 0 auto;
+  }
 
-.ap-mermaid__reset {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--c-border);
-  border-radius: 0.375rem;
-  background-color: var(--c-bg);
-  color: var(--c-text-2);
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity 150ms ease-out,
-    color 150ms ease-out;
-}
-
-.ap-mermaid:hover .ap-mermaid__reset,
-.ap-mermaid__reset:focus-visible {
-  opacity: 1;
-}
-
-.ap-mermaid__reset:hover {
-  color: var(--c-accent);
-}
-
-.ap-mermaid__reset svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.ap-mermaid--error {
-  /* Shared error red (theme.css --c-danger, theme-aware for contrast). */
-  color: var(--c-danger);
-  font-size: 0.875rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
   .ap-mermaid__reset {
-    transition: none;
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid var(--c-border);
+    border-radius: 0.375rem;
+    background-color: var(--c-bg);
+    color: var(--c-text-2);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 150ms ease-out,
+      color 150ms ease-out;
+  }
+
+  .ap-mermaid:hover .ap-mermaid__reset,
+  .ap-mermaid__reset:focus-visible {
+    opacity: 1;
+  }
+
+  .ap-mermaid__reset:hover {
+    color: var(--c-accent);
+  }
+
+  .ap-mermaid__reset svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .ap-mermaid--error {
+    /* Shared error red (theme.css --c-danger, theme-aware for contrast). */
+    color: var(--c-danger);
+    font-size: 0.875rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ap-mermaid__reset {
+      transition: none;
+    }
   }
 }

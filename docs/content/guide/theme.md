@@ -58,20 +58,23 @@ icon: palette
 
 页面外壳由构建期生成，主题 chrome 挂载到固定占位 DOM 上——站点 CSS 与脚本可以依赖这套结构（渲染器产出、主题消费，禁止改名）：
 
+````html
 ```html
-<div id="ap-nav"></div>
+<div id="ap-nav" class="ap-nav"></div>
 <!-- 导航栏 -->
-<aside id="ap-sidebar"></aside>
+<aside id="ap-sidebar" class="ap-sidebar"></aside>
 <!-- 侧边栏 -->
-<main id="ap-content">…</main>
+<main id="ap-content" class="ap-main">…</main>
 <!-- 正文（构建期已渲染完整 HTML） -->
-<div id="ap-toc"></div>
+<div id="ap-toc" class="ap-toc"></div>
 <!-- 目录 -->
 <script type="application/json" id="__AP_DATA__">
   …
 </script>
 <!-- 页面 payload -->
-```
+````
+
+id 是脚本挂载锚，**CSS 请用同名类**（`ap-nav` / `ap-sidebar` / `ap-main` / `ap-toc` / `ap-footer`，客户端注入的主题 chrome 还会带 `ap-chrome`）：框架样式只用类选择器；id 特异性高，站点 CSS 一旦挂上它，后续任何框架升级的默认规则都压不过它。
 
 - island 占位是 `<div data-ap-island="名称" data-props="…">`，激活前内部就是预渲染好的 HTML
 - markdown 渲染器产出稳定 class：容器 `ap-container--<type>`（tip/warning/danger/caution/error/info/details/right）、页签 `ap-tabs` / `ap-tab` / `ap-tabs--code`、黑幕 `ap-heimu`（兼容裸 `.heimu`）、代码块 `ap-code`
@@ -124,6 +127,37 @@ sidebar 由目录树自动生成（数据在 `src/node/build/pages.ts`），交�
 - **任意多层嵌套**：目录嵌套多深，分组就嵌套多深，内外层可独立收起
 
 本站的 `guide/advanced/deep` 是多层嵌套的现场示例。
+
+## 级联层
+
+页面上所有样式都放进[级联层](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer)，胜负由层序决定，与选择器强弱、加载顺序无关。层序在每页 head 里声明一次：
+
+```css
+@layer properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome;
+```
+
+| 层                                             | 归属 | 内容                                                     |
+| ---------------------------------------------- | ---- | -------------------------------------------------------- |
+| `properties` / `theme` / `base` / `preflights` | uno  | `base` 是 reset，`preflights` 是全局基础规则             |
+| `ap-base`                                      | 框架 | 设计令牌、body 基础、锚点偏移                            |
+| `ap-prose`                                     | 框架 | 正文 markdown 默认样式（零特异性，任何显式样式都能覆盖） |
+| `default`                                      | uno  | 工具类                                                   |
+| `ap-chrome`                                    | 框架 | 组件、岛、布局                                           |
+| （不分层）                                     | 站点 | 你的 CSS                                                 |
+
+站点 CSS 不放进任何层，就恒胜全部框架样式——覆盖只需同名选择器甚至更低，不必叠 `html` 前缀、`!important` 或 id。两个注意点：
+
+- 站点 uno 必须开 `outputToCssLayers: true`；否则站点 uno 的 reset 不分层，会压平框架排版
+- 站点自定义 CSS 若经 uno preflights 注入，用 `outputToCssLayers` 的 `cssLayerName` 把 `preflights` 层输出为不分层：
+
+```ts
+// uno.config.ts
+outputToCssLayers: {
+  cssLayerName: layer => (layer === 'preflights' ? null : layer),
+},
+```
+
+覆盖 `--c-*` 令牌时记得亮暗两套都写（令牌在层内，不分层的站点 `:root` 会连暗色块一起压掉，见下方覆盖示例的写法）。
 
 ## 覆盖示例
 

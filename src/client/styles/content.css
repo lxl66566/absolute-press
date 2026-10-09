@@ -1,63 +1,65 @@
 /*
- * Content typography normalization for the markdown body (#ap-content):
+ * Content typography normalization for the markdown body (.ap-main):
  * list rhythm (M15), nested marker levels (L9), tasklist checkbox accent
  * (L8) and the external-link arrow (L5). theme.css carries the base prose
- * rules and is imported BEFORE this file (entry.tsx import order).
+ * rules and is imported BEFORE this file (entry.tsx import order): same
+ * ap-prose layer, so later rules here win the source-order tie.
  */
 
-/* --------------------------------------------------------------------------
- * Lists (M15 + L9)
- * List content must read at the same line cadence as paragraph text: items,
- * their wrapped lines and nested lists all sit on the plain body
- * line-height with no extra vertical gap. Loose lists drop their inner <p>
- * margins; nested lists must re-zero here because theme.css's prose
- * `:where(p, ul, ol, …)` margin (0.8em) would otherwise re-special-case
- * them. Only the list block itself keeps that prose margin, so a list
- * separates from surrounding paragraphs exactly like a paragraph does.
- * ------------------------------------------------------------------------ */
-#ap-content li {
-  margin: 0;
-}
+@layer ap-prose {
+  /* ------------------------------------------------------------------------
+   * Lists (M15 + L9)
+   * List content must read at the same line cadence as paragraph text: items,
+   * their wrapped lines and nested lists all sit on the plain body
+   * line-height with no extra vertical gap. Loose lists drop their inner <p>
+   * margins; nested lists must re-zero here because theme.css's prose
+   * `:where(p, ul, ol, …)` margin (0.8em) would otherwise re-special-case
+   * them. Only the list block itself keeps that prose margin, so a list
+   * separates from surrounding paragraphs exactly like a paragraph does.
+   * ------------------------------------------------------------------------ */
+  :where(.ap-main) :where(li) {
+    margin: 0;
+  }
 
-#ap-content li > p {
-  margin: 0;
-}
+  :where(.ap-main) :where(li > p) {
+    margin: 0;
+  }
 
-#ap-content li > ul,
-#ap-content li > ol {
-  margin: 0;
-}
+  :where(.ap-main) :where(li > ul, li > ol) {
+    margin: 0;
+  }
 
-/* Nested ul marker levels (old site: disc/circle/square). The deeper
- * selectors win on specificity; theme.css's task-list/card resets keep
- * outranking both. */
-#ap-content ul ul {
-  list-style: circle;
-}
+  /* Nested ul marker levels (old site: disc/circle/square). Source order
+   * after theme.css's disc rule decides the tie; chrome-layer resets for
+   * cards and task lists sit in a later layer and keep winning. */
+  :where(.ap-main) :where(ul ul) {
+    list-style: circle;
+  }
 
-#ap-content ul ul ul {
-  list-style: square;
-}
+  :where(.ap-main) :where(ul ul ul) {
+    list-style: square;
+  }
 
-/* --------------------------------------------------------------------------
- * Task list checkboxes (L8): theme green instead of the UA gray fill.
- * ------------------------------------------------------------------------ */
-#ap-content .task-list-item-checkbox {
-  accent-color: var(--c-accent);
-}
+  /* ------------------------------------------------------------------------
+   * Task list checkboxes (L8): theme green instead of the UA gray fill.
+   * ------------------------------------------------------------------------ */
+  :where(.ap-main) :where(.task-list-item-checkbox) {
+    accent-color: var(--c-accent);
+  }
 
-/* --------------------------------------------------------------------------
- * External links (L5): Unicode north-east arrow after outbound links
- * (link-rules.ts tags http(s)/protocol-relative hrefs `ap-external`). A text
- * glyph follows the link's own font and color, hover included; VS15 (\FE0E)
- * pins text presentation so it can't flip to a color-emoji glyph; no
- * animation (icons never animate). 0.8em shrinks the glyph below the text
- * x-height; the 0.25em lift hangs it off the cap line for an upper-right
- * bias instead of riding the baseline.
- * ------------------------------------------------------------------------ */
-#ap-content a.ap-external::after {
-  content: '\2197\FE0E';
-  font-size: 0.8em;
-  margin-left: 0.2em;
-  vertical-align: 0.25em;
+  /* ------------------------------------------------------------------------
+   * External links (L5): Unicode north-east arrow after outbound links
+   * (link-rules.ts tags http(s)/protocol-relative hrefs `ap-external`). A text
+   * glyph follows the link's own font and color, hover included; VS15 (\FE0E)
+   * pins text presentation so it can't flip to a color-emoji glyph; no
+   * animation (icons never animate). 0.8em shrinks the glyph below the text
+   * x-height; the 0.25em lift hangs it off the cap line for an upper-right
+   * bias instead of riding the baseline.
+   * ------------------------------------------------------------------------ */
+  :where(.ap-main) :where(a.ap-external)::after {
+    content: '\2197\FE0E';
+    font-size: 0.8em;
+    margin-left: 0.2em;
+    vertical-align: 0.25em;
+  }
 }

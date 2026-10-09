@@ -12,6 +12,22 @@ export function baseOf(route: string): string {
   return '../'.repeat(Math.max(0, depth));
 }
 
+/**
+ * The one place the document's cascade-layer order is fixed. Emitted inline
+ * in the shell head before every stylesheet (layer order is decided by
+ * first occurrence across the document). Consumers:
+ * - uno (with outputToCssLayers): `properties`, `theme`, `base`,
+ *   `preflights` (its reset), `default` (utilities)
+ * - framework stylesheets: `ap-base`, `ap-prose`, `ap-chrome`
+ * - site CSS: unlayered, therefore strongest
+ * The contract test (styles/__tests__/css-contract.test.ts) keeps the css
+ * and this list in sync.
+ */
+export const LAYER_ORDER =
+  'properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome';
+
+const LAYER_ORDER_STYLE = `<style>@layer ${LAYER_ORDER};</style>`;
+
 export interface ShellInput {
   payload: PagePayload;
   /** Rendered markdown HTML (asset tokens allowed). */
@@ -205,7 +221,12 @@ export function renderShell(input: ShellInput): string {
   // Render-blocking stylesheets sit between the theme bootstrap script and
   // any third-party scripts: CSS discovery (hence first paint) must never
   // wait on script execution. katexHref stays first when present.
+  // The layer statement precedes every stylesheet so IT fixes the cascade
+  // order for the whole document (layer order is decided by first
+  // occurrence): uno's sheets slot into the named positions regardless of
+  // chunking. Site CSS stays unlayered and therefore outranks all of them.
   const stylesheets = [
+    LAYER_ORDER_STYLE,
     ...(input.katexHref
       ? [
           `<link rel="stylesheet" href="${escapeHtml(withBase(input.katexHref))}">`,
@@ -265,13 +286,15 @@ export function renderShell(input: ShellInput): string {
       : []),
     '</head>',
     '<body>',
-    '<div id="ap-nav"></div>',
-    '<aside id="ap-sidebar"></aside>',
-    `<main id="ap-content">${content}</main>`,
-    '<div id="ap-toc"></div>',
+    // Mount ids are the JS contract (dom.ts getElementById); the classes are
+    // the CSS contract — framework stylesheets never reference ids.
+    '<div id="ap-nav" class="ap-nav"></div>',
+    '<aside id="ap-sidebar" class="ap-sidebar"></aside>',
+    `<main id="ap-content" class="ap-main">${content}</main>`,
+    '<div id="ap-toc" class="ap-toc"></div>',
     // Site footer mount point (ArticleFooter); the body's flex column layout
     // pins it to the page bottom.
-    '<footer id="ap-footer"></footer>',
+    '<footer id="ap-footer" class="ap-footer"></footer>',
     `<script type="application/json" id="__AP_DATA__">${serializeInlineJson(payload)}</script>`,
     `<script type="module" src="${escapeHtml(withBase(scriptSrc))}"></script>`,
     '</body>',

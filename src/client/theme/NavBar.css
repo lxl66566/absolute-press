@@ -5,69 +5,71 @@
  * win the tie (same ordering contract as styles/sidebar.css).
  */
 
-/* H8 invariant: dropdown panels must never grow a horizontal scrollbar.
+@layer ap-chrome {
+  /* H8 invariant: dropdown panels must never grow a horizontal scrollbar.
  * The root cause (closed nested flyouts contributing their static-position
  * width to the panel's scrollable overflow area) is fixed at the source by
  * keeping nested flyouts permanently out of flow (position: fixed, placed
  * by JS in placeFlyout). This clip is the standing guarantee for any future
  * wide child: x never scrolls, y keeps its internal scrolling. */
-.ap-nav-drop {
-  overflow-x: clip;
-  /* Fade on close must include visibility (the Uno transition utility list
+  .ap-nav-drop {
+    overflow-x: clip;
+    /* Fade on close must include visibility (the Uno transition utility list
    * leaves it out, which would hide the panel before the opacity fade). */
-  transition-property: opacity, visibility;
-}
+    transition-property: opacity, visibility;
+  }
 
-/* Open state snaps in with no transition: moving the pointer between
+  /* Open state snaps in with no transition: moving the pointer between
  * adjacent top-level entries swaps panels instantly, so the newly hovered
  * panel's content never blanks out (the reported cross-fade flicker).
  * Closing keeps the 150ms fade from the Uno transition/duration utilities. */
-.ap-nav-drop.is-open {
-  visibility: visible;
-  opacity: 1;
-  transition: none;
-}
+  .ap-nav-drop.is-open {
+    visibility: visible;
+    opacity: 1;
+    transition: none;
+  }
 
-/* Panel rows stretch to the row width: folder rows are buttons, and a
+  /* Panel rows stretch to the row width: folder rows are buttons, and a
  * button's width:auto shrinks to its content instead of filling the panel,
  * which would leave the row's ml-auto caret (nested flyout arrow) glued to
  * the label instead of pinned at the shared right edge. */
-.ap-nav-drop :is(a, button) {
-  width: 100%;
-}
+  .ap-nav-drop :is(a, button) {
+    width: 100%;
+  }
 
-/* M14: one glyph box for the whole right rail. FaIcon's optical sizing and
+  /* M14: one glyph box for the whole right rail. FaIcon's optical sizing and
  * translate are tuned for glyphs inline with text; standalone rail icons
  * need the plain 20px box so brand glyphs, RSS and theme markers share one
  * optical baseline and vertical center. */
-.ap-nav-rail svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  translate: none;
-  transform: none;
-}
+  .ap-nav-rail svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    translate: none;
+    transform: none;
+  }
 
-/* M1: section activation on the top bar and current-page rows in panels.
+  /* M1: section activation on the top bar and current-page rows in panels.
  * Done in plain CSS on purpose: the active color as a second arbitrary
  * utility (`text-[var(--c-accent)]` vs the base `text-[var(--c-text-2)]`)
  * loses the stylesheet-order tie inside UnoCSS and silently never shows. */
-.ap-nav-top-active {
-  color: var(--c-accent);
-  border-bottom-color: var(--c-accent);
-}
+  .ap-nav-top-active {
+    color: var(--c-accent);
+    border-bottom-color: var(--c-accent);
+  }
 
-.ap-nav-drop-active {
-  color: var(--c-accent);
-}
+  .ap-nav-drop-active {
+    color: var(--c-accent);
+  }
 
-/* Configured dropdown group captions (老站-style 游戏/艺术/其他 headers):
+  /* Configured dropdown group captions (老站-style 游戏/艺术/其他 headers):
  * the caption is a plain label, its members list flush below it. */
-.ap-nav-caption > ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+  .ap-nav-caption > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 
-.ap-nav-caption:last-child {
-  padding-bottom: 0.25rem;
+  .ap-nav-caption:last-child {
+    padding-bottom: 0.25rem;
+  }
 }

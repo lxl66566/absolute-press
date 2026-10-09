@@ -6,64 +6,66 @@
  * Consumed by src/client/theme/Toc.tsx.
  */
 
-#ap-toc {
-  scrollbar-width: none;
-}
+@layer ap-chrome {
+  .ap-toc {
+    scrollbar-width: none;
+  }
 
-#ap-toc::-webkit-scrollbar {
-  display: none;
-}
+  .ap-toc::-webkit-scrollbar {
+    display: none;
+  }
 
-/* Long headings: single line, clipped with an ellipsis (full text is in
+  /* Long headings: single line, clipped with an ellipsis (full text is in
  * the title attribute); min-width 0 keeps the flex row shrinkable. */
-#ap-toc a {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .ap-toc a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.ap-toc-row {
-  display: flex;
-  align-items: center;
-}
+  .ap-toc-row {
+    display: flex;
+    align-items: center;
+  }
 
-.ap-toc-row > a {
-  flex: 1 1 auto;
-  min-width: 0;
-}
+  .ap-toc-row > a {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 
-/* Fold toggle: mirrors the sidebar chevron (sidebar.css) at rail scale. */
-.ap-toc-row__chevron {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-right: 0.25rem;
-  color: var(--c-text-2);
-  cursor: pointer;
-  background: transparent;
-  border-radius: 0.25rem;
-  transition: color 150ms ease-out;
-}
+  /* Fold toggle: mirrors the sidebar chevron (sidebar.css) at rail scale. */
+  .ap-toc-row__chevron {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.25rem;
+    color: var(--c-text-2);
+    cursor: pointer;
+    background: transparent;
+    border-radius: 0.25rem;
+    transition: color 150ms ease-out;
+  }
 
-.ap-toc-row__chevron:hover {
-  color: var(--c-text);
-}
+  .ap-toc-row__chevron:hover {
+    color: var(--c-text);
+  }
 
-.ap-toc-row__chevron:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 1px;
-}
+  .ap-toc-row__chevron:focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 1px;
+  }
 
-/* Group collapse: .ap-collapse (theme.css) carries the shared 0fr/1fr
+  /* Group collapse: .ap-collapse (theme.css) carries the shared 0fr/1fr
  * mechanics; .ap-toc-group stays as this component's identity hook
  * (revealActive targets it for the transitionend re-aim). */
 
-@media (prefers-reduced-motion: reduce) {
-  .ap-toc-row__chevron,
-  .ap-collapse {
-    transition: none;
+  @media (prefers-reduced-motion: reduce) {
+    .ap-toc-row__chevron,
+    .ap-collapse {
+      transition: none;
+    }
   }
 }

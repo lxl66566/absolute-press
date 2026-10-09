@@ -10,53 +10,54 @@
  * Imported AFTER theme.css (entry.tsx) so the overrides below win ties.
  */
 
-.ap-container {
-  /* Full card: replace theme.css's 4px left bar with a hairline same-hue
+@layer ap-chrome {
+  .ap-container {
+    /* Full card: replace theme.css's 4px left bar with a hairline same-hue
    * frame so the tinted box reads as one card against the page background. */
-  border: 1px solid color-mix(in srgb, var(--ap-container-c) 25%, transparent);
-  border-radius: 0.5rem;
-}
+    border: 1px solid color-mix(in srgb, var(--ap-container-c) 25%, transparent);
+    border-radius: 0.5rem;
+  }
 
-.ap-container__title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
+  .ap-container__title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
 
-/* Same-hue icon: inherits the title's mixed accent color. Static, no
+  /* Same-hue icon: inherits the title's mixed accent color. Static, no
  * animation (icons never animate). */
-.ap-container__icon {
-  width: 1em;
-  height: 1em;
-  flex-shrink: 0;
-}
+  .ap-container__icon {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+  }
 
-/* Details container: the chevron icon replaces the native disclosure marker;
+  /* Details container: the chevron icon replaces the native disclosure marker;
  * closed it points right, open it rotates to point down (instant, no
  * transition). */
-.ap-container--details summary {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  list-style: none;
-}
+  .ap-container--details summary {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    list-style: none;
+  }
 
-/* The shared __title bottom margin (theme.css, id-scoped) reads as dead
- * space under the summary line of a closed box; the summary owns the whole
- * closed card, so it keeps a clean box instead. */
-#ap-content details.ap-container--details > summary {
-  margin: 0;
-}
+  /* The shared __title bottom margin (theme.css) reads as dead space under
+ * the summary line of a closed box; the summary owns the whole closed
+ * card, so it keeps a clean box instead. */
+  details.ap-container--details > summary {
+    margin: 0;
+  }
 
-.ap-container--details summary::-webkit-details-marker {
-  display: none;
-}
+  .ap-container--details summary::-webkit-details-marker {
+    display: none;
+  }
 
-.ap-container--details[open] > summary .ap-container__icon {
-  transform: rotate(90deg);
-}
+  .ap-container--details[open] > summary .ap-container__icon {
+    transform: rotate(90deg);
+  }
 
-/* Expand/collapse: grow the content box (::details-content) between 0 and
+  /* Expand/collapse: grow the content box (::details-content) between 0 and
  * its natural height over 120ms. calc-size() interpolates against the auto
  * size without the global interpolate-size opt-in; browsers without
  * calc-size (Safari) or without ::details-content keep the native instant
@@ -67,22 +68,23 @@
  * excluded from theme.css's `__title + *` reset, so that margin is restored)
  * inside the animating box instead of letting it collapse out above; the
  * last child's bottom margin stays zeroed by theme.css. */
-@supports (width: calc-size(auto, size)) {
-  .ap-container--details::details-content {
-    block-size: 0;
-    overflow-y: clip;
-    transition:
-      block-size 120ms ease-out,
-      content-visibility 200ms allow-discrete;
+  @supports (width: calc-size(auto, size)) {
+    .ap-container--details::details-content {
+      block-size: 0;
+      overflow-y: clip;
+      transition:
+        block-size 120ms ease-out,
+        content-visibility 200ms allow-discrete;
+    }
+
+    .ap-container--details[open]::details-content {
+      block-size: calc-size(auto, size);
+    }
   }
 
-  .ap-container--details[open]::details-content {
-    block-size: calc-size(auto, size);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ap-container--details::details-content {
-    transition: none;
+  @media (prefers-reduced-motion: reduce) {
+    .ap-container--details::details-content {
+      transition: none;
+    }
   }
 }

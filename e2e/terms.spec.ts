@@ -1,12 +1,11 @@
 import { expect, test } from 'playwright/test';
 
 // Term popovers (runtime/terms.ts, theme.css): hover opens a popover layer
-// hosted inside #ap-content. The size follows the content (one-line refs
-// stay small, longer bodies grow to the width cap), and the first child's
-// prose margin must not leak a blank strip above the body — site styles
-// scope headings under #ap-content with an ID, which a plain class
-// selector loses (regression: .ap-term-popover > :first-child alone).
-
+// hosted inside .ap-main. The size follows the content (one-line refs stay
+// small, longer bodies grow to the width cap), and the first child's prose
+// margin must not leak a blank strip above the body — the popover rules
+// live in the ap-chrome layer, above every prose margin rule by cascade
+// construction (e2e/cascade.spec.ts pins the layer order itself).
 test('one-line term opens a small popover without a top blank', async ({
   page,
 }) => {
@@ -38,7 +37,8 @@ test('long term bodies grow to the caps, never past them', async ({ page }) => {
 
   const box = (await popover.boundingBox())!;
   const viewport = page.viewportSize()!;
-  expect(box.width).toBeLessThanOrEqual(Math.min(640, viewport.width - 16) + 1);
+  // Cap from theme.css: max-width min(50rem, 100vw - 1rem).
+  expect(box.width).toBeLessThanOrEqual(Math.min(800, viewport.width - 16) + 1);
   expect(box.height).toBeLessThanOrEqual(viewport.height / 2 + 1);
 });
 
