@@ -17,14 +17,14 @@ export function baseOf(route: string): string {
  * in the shell head before every stylesheet (layer order is decided by
  * first occurrence across the document). Consumers:
  * - uno (with outputToCssLayers): `properties`, `theme`, `base`,
- *   `preflights` (its reset), `default` (utilities)
+ *   `preflights` (its reset), `shortcuts` + `default` (utility tier)
  * - framework stylesheets: `ap-base`, `ap-prose`, `ap-chrome`
  * - site CSS: unlayered, therefore strongest
  * The contract test (styles/__tests__/css-contract.test.ts) keeps the css
  * and this list in sync.
  */
 export const LAYER_ORDER =
-  'properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome';
+  'properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome';
 
 const LAYER_ORDER_STYLE = `<style>@layer ${LAYER_ORDER};</style>`;
 

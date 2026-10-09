@@ -172,6 +172,7 @@ describe('css cascade contract', () => {
       'theme',
       'base',
       'preflights',
+      'shortcuts',
       'default',
     ]) {
       expect(declared).toContain(name);

@@ -133,17 +133,17 @@ sidebar 由目录树自动生成（数据在 `src/node/build/pages.ts`），交�
 页面上所有样式都放进[级联层](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer)，胜负由层序决定，与选择器强弱、加载顺序无关。层序在每页 head 里声明一次：
 
 ```css
-@layer properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome;
+@layer properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome;
 ```
 
-| 层                                             | 归属 | 内容                                                     |
-| ---------------------------------------------- | ---- | -------------------------------------------------------- |
-| `properties` / `theme` / `base` / `preflights` | uno  | `base` 是 reset，`preflights` 是全局基础规则             |
-| `ap-base`                                      | 框架 | 设计令牌、body 基础、锚点偏移                            |
-| `ap-prose`                                     | 框架 | 正文 markdown 默认样式（零特异性，任何显式样式都能覆盖） |
-| `default`                                      | uno  | 工具类                                                   |
-| `ap-chrome`                                    | 框架 | 组件、岛、布局                                           |
-| （不分层）                                     | 站点 | 你的 CSS                                                 |
+| 层                                                           | 归属 | 内容                                                               |
+| ------------------------------------------------------------ | ---- | ------------------------------------------------------------------ |
+| `properties` / `theme` / `base` / `preflights` / `shortcuts` | uno  | `base` 是 reset，`preflights` 是全局基础规则，`shortcuts` 是工具宏 |
+| `ap-base`                                                    | 框架 | 设计令牌、body 基础、锚点偏移                                      |
+| `ap-prose`                                                   | 框架 | 正文 markdown 默认样式（零特异性，任何显式样式都能覆盖）           |
+| `default`                                                    | uno  | 工具类                                                             |
+| `ap-chrome`                                                  | 框架 | 组件、岛、布局                                                     |
+| （不分层）                                                   | 站点 | 你的 CSS                                                           |
 
 站点 CSS 不放进任何层，就恒胜全部框架样式——覆盖只需同名选择器甚至更低，不必叠 `html` 前缀、`!important` 或 id。两个注意点：
 

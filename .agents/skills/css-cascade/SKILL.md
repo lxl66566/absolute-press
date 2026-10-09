@@ -12,12 +12,12 @@ description: absolute-press 框架的 CSS 级联层契约：ap-base / ap-prose /
 shell head 内联声明（src/node/build/shell.ts `LAYER_ORDER`），先于任何 stylesheet：
 
 ```
-@layer properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome;
+@layer properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome;
 ```
 
 | 层 | 归属 | 内容 |
 | --- | --- | --- |
-| properties / theme / base / preflights | uno（`outputToCssLayers: true`） | base = preset-wind4 reset；preflights = 框架指针光标等自定义 preflight |
+| properties / theme / base / preflights / shortcuts | uno（`outputToCssLayers: true`） | base = preset-wind4 reset；preflights = 框架指针光标等自定义 preflight；shortcuts = 工具宏 |
 | ap-base | 框架 styles/theme.css 头部 | `--c-*` tokens（含 dark 块）、body 基础、锚点 scroll-margin、全局 reduced-motion 覆盖 |
 | ap-prose | 框架 markdown 正文默认样式（theme.css、content.css） | 全部 `:where(.ap-main)` 作用域，零特异性 |
 | default | uno utilities | 工具类：显式类名压过正文默认 |

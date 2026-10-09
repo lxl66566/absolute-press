@@ -67,7 +67,7 @@ docs/          官方文档站（vite.config.ts 接入 absolutePress() 指向 do
 - **路由**：canonical 是无扩展名 clean URL（`x.md` → `/x`，目录 index → `/dir/`，可用 `urls.directoryIndex: 'bare'` 切 `/dir`），落盘文件保持 `x.html`/`dir/index.html` 不变；encrypt match、canonical、sitemap、payload 全部消费 clean 形态
 - **死链**：`./` `../` 相对链接构建期 resolve 失败即报错；resolve 语义 `./x` → `./x.md` → `./x/index.md` → `./x/README.md`
 - **主题**：CSS 变量 `--c-*`（亮暗双套，theme.css）+ `--vp-c-*` 兼容别名；暗色 = `html[data-theme="dark"]` + localStorage `ap-theme`；动画 120–200ms ease-out，尊重 prefers-reduced-motion
-- **CSS 级联契约**（详见 .agents/skills/css-cascade/SKILL.md，css-contract.test.ts 强制。shell head 一次声明层序 `properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome`（shell.ts `LAYER_ORDER`）；框架 CSS 一律入层且层名仅限 ap-base/ap-prose/ap-chrome；禁 id 选择器（`#ap-*` 只作 JS 挂载锚，CSS 挂钩是类 `ap-main/ap-nav/ap-sidebar/ap-toc/ap-footer/ap-chrome`）；ap-prose 一律 `:where(.ap-main)` 零特异性；禁 `!important`（白名单：theme.css shiki 与 reduced-motion）；组件间距用父级 gap 不用兄弟 margin；uno 必须 `outputToCssLayers: true`
+- **CSS 级联契约**（详见 .agents/skills/css-cascade/SKILL.md，css-contract.test.ts 强制。shell head 一次声明层序 `properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome`（shell.ts `LAYER_ORDER`）；框架 CSS 一律入层且层名仅限 ap-base/ap-prose/ap-chrome；禁 id 选择器（`#ap-*` 只作 JS 挂载锚，CSS 挂钩是类 `ap-main/ap-nav/ap-sidebar/ap-toc/ap-footer/ap-chrome`）；ap-prose 一律 `:where(.ap-main)` 零特异性；禁 `!important`（白名单：theme.css shiki 与 reduced-motion）；组件间距用父级 gap 不用兄弟 margin；uno 必须 `outputToCssLayers: true`
 - **i18n**：默认 locale 在 contentDir 根，其余在 `<contentDir>/<key>/`（路由加前缀）；UI 文案在 theme/i18n/，zh 为 shape 真相源
 - **加密**：客户端密码门（sha256 比对，sessionStorage 记住），非真加密，设计如此
 - **frontmatter** 只认 `date/category/tag/icon/feed/overview`；icon 必须是 config `icons` map 的 key（svg 字符串），构建期校验

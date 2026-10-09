@@ -133,17 +133,17 @@ This site's `guide/advanced/deep` is a live example of multi-level nesting.
 Every stylesheet on the page lives in a [cascade layer](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer): winners are decided by layer order, independent of selector strength or load order. The order is declared once in each page head:
 
 ```css
-@layer properties, theme, base, preflights, ap-base, ap-prose, default, ap-chrome;
+@layer properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome;
 ```
 
-| Layer                                          | Owner     | Contents                                                                      |
-| ---------------------------------------------- | --------- | ----------------------------------------------------------------------------- |
-| `properties` / `theme` / `base` / `preflights` | uno       | `base` is the reset, `preflights` holds global base rules                     |
-| `ap-base`                                      | framework | design tokens, body basics, anchor offsets                                    |
-| `ap-prose`                                     | framework | markdown body defaults (zero specificity — any explicit style overrides them) |
-| `default`                                      | uno       | utilities                                                                     |
-| `ap-chrome`                                    | framework | components, islands, layout                                                   |
-| (unlayered)                                    | your site | your CSS                                                                      |
+| Layer                                                        | Owner     | Contents                                                                                  |
+| ------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------- |
+| `properties` / `theme` / `base` / `preflights` / `shortcuts` | uno       | `base` is the reset, `preflights` holds global base rules, `shortcuts` are utility macros |
+| `ap-base`                                                    | framework | design tokens, body basics, anchor offsets                                                |
+| `ap-prose`                                                   | framework | markdown body defaults (zero specificity — any explicit style overrides them)             |
+| `default`                                                    | uno       | utilities                                                                                 |
+| `ap-chrome`                                                  | framework | components, islands, layout                                                               |
+| (unlayered)                                                  | your site | your CSS                                                                                  |
 
 **Site CSS left out of every layer beats all framework styles** — an override only needs the same selector (or a weaker one), no `html` prefixes, `!important`, or ids. Two caveats:
 
