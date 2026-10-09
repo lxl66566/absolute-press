@@ -384,6 +384,8 @@ export interface ResolvedConfig {
   feed: Required<NonNullable<SiteConfig['feed']>>;
   /** SEO head options (share-card image, JSON-LD author). */
   seo?: NonNullable<SiteConfig['seo']>;
+  /** Extra head tags (raw HTML); blank entries dropped, config order kept. */
+  head: string[];
   /** Policy for bare relative markdown links. */
   strictLinks: StrictLinks;
   /** Custom footer credit line; absent keeps the default credits. */
@@ -583,6 +585,8 @@ export function resolveConfig(
       ),
     },
     seo: resolveSeo(config.seo),
+    // Blank entries would emit empty lines into every head; drop them here.
+    head: (config.head ?? []).filter(tag => tag.trim() !== ''),
     strictLinks: resolveStrictLinks(config.strictLinks),
     // A blank credit would render an empty footer line; treat it as unset.
     ...(config.footer?.credit?.trim() ? { footer: config.footer } : {}),

@@ -1084,6 +1084,7 @@ export class SiteStore {
       ...(this.config.googleAnalytics
         ? { gaId: this.config.googleAnalytics }
         : {}),
+      ...(this.config.head.length > 0 ? { headTags: this.config.head } : {}),
     };
   }
 

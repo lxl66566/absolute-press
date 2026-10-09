@@ -177,6 +177,14 @@ seo: {
 
 SEO head 选项：`image` 是分享卡片图，构建期输出 `og:image`（相对值如 `'/og.png'` 解析到站点 public 根，拼上 `hostname` 成绝对地址，与 `nav.logo` 同语义；`https://` 开头的绝对 URL 原样透传）并把 `twitter:card` 升级为 `summary_large_image`。未配置时输出 `twitter:card: summary`（无图卡片），不输出 `og:image`。`author` 是文章页 BlogPosting JSON-LD 的作者（schema.org Person），未配置或 name 为空则不输出 author 字段。`exclude` 让若干路由前缀保持不被抓取：不进 sitemap.xml，robots.txt 各追加一条 `Disallow`；页面仍会构建。加密页用 `encrypt` 即可，无需重复列在这里。每页的 `meta description` 取正文摘要（见 [SEO](./seo.md)），无需逐页配置。
 
+## head
+
+```ts
+head: ['<meta name="algolia-site-verification" content="ADD39C0998F22200">'],
+```
+
+注入每个页面 `<head>` 的原始 HTML 片段数组，原样输出、保持配置顺序，位于框架自身标签之后（speculation rules 脚本之前），空字符串条目被丢弃。面向站点所有权验证 meta（Algolia DocSearch、Google Search Console、Bing…）、第三方统计代码片段、额外的 `<link>`/`<script>` 等场景。片段内的资源 URL 必须写绝对地址（`https://` 开头）：页面按部署深度生成相对前缀，裸路径在不同深度的页面会指向错误位置。
+
 ## related
 
 ```ts

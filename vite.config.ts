@@ -36,6 +36,10 @@ const config: UserConfig = defineConfig({
         // below the fold and read like a blog archive.
         home: { feed: false },
         favicon: '/favicon.svg',
+        // Algolia crawler site-ownership verification (raw head injection).
+        head: [
+          '<meta name="algolia-site-verification" content="ADD39C0998F22200">',
+        ],
         seo: {
           author: { name: 'lxl66566', url: 'https://github.com/lxl66566' },
         },

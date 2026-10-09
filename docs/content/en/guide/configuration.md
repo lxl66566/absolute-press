@@ -177,6 +177,14 @@ seo: {
 
 SEO head options: `image` is the share-card image. At build time it produces `og:image` (a relative value like `'/og.png'` resolves against the site public root and is joined with `hostname` into an absolute URL, same semantics as `nav.logo`; an absolute `https://` URL passes through unchanged) and upgrades `twitter:card` to `summary_large_image`. Without it, only `twitter:card: summary` is emitted (card without image), and no `og:image`. `author` is the author of the article-page BlogPosting JSON-LD (schema.org Person); when unset or blank-named, no `author` field is emitted. `exclude` keeps route prefixes uncrawled: out of sitemap.xml plus one `Disallow` each in robots.txt; the pages are still built. Gated pages need no entry here — `encrypt` already excludes and disallows them. Each page's `meta description` comes from the content excerpt (see [SEO](./seo.md)); no per-page config needed.
 
+## head
+
+```ts
+head: ['<meta name="algolia-site-verification" content="ADD39C0998F22200">'],
+```
+
+An array of raw HTML fragments injected verbatim into every page `<head>`, in config order, after the framework's own tags (before the speculation rules script); blank entries are dropped. Built for site-ownership verification metas (Algolia DocSearch, Google Search Console, Bing...), third-party analytics snippets, and extra `<link>`/`<script>` tags. Resource URLs inside a fragment must be absolute (`https://`-prefixed): pages carry depth-dependent relative base prefixes, so bare paths resolve wrongly on deeper pages.
+
 ## related
 
 ```ts

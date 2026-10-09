@@ -203,6 +203,34 @@ describe('renderShell ga id embedding', () => {
   });
 });
 
+describe('renderShell site head tags', () => {
+  const TAG = '<meta name="algolia-site-verification" content="TOKEN">';
+
+  it('emits configured tags verbatim', () => {
+    const html = shell('/a', { headTags: [TAG, '<style>b{}</style>'] });
+    expect(html).toContain(TAG);
+    expect(html).toContain('<style>b{}</style>');
+  });
+
+  it('sits after third-party scripts, before the speculation rules script', () => {
+    const html = shell('/a', {
+      gaId: 'G-TEST',
+      speculationRules: true,
+      headTags: [TAG],
+    });
+    const tag = indexOf(html, TAG);
+    expect(tag).toBeGreaterThan(indexOf(html, 'googletagmanager.com'));
+    expect(tag).toBeLessThan(indexOf(html, '<script type="speculationrules">'));
+  });
+
+  it('emits nothing extra when unset', () => {
+    const html = shell('/a');
+    expect(html.split('\n').filter(l => l.includes('<meta name="a"'))).toEqual(
+      [],
+    );
+  });
+});
+
 describe('renderShell title composition', () => {
   it('suffixes a distinct page title with the site title', () => {
     expect(shell('/a')).toContain('<title>Hello | Site</title>');

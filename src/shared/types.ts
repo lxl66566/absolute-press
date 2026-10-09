@@ -384,6 +384,14 @@ export interface SiteConfig {
     exclude?: string[];
   };
   /**
+   * Raw HTML injected verbatim into every page `<head>`, after the
+   * framework's own tags: site-verification metas (Algolia, Search
+   * Console...), analytics snippets, extra resource links. Resource URLs
+   * must be absolute — the per-page relative base makes bare paths
+   * page-depth dependent.
+   */
+  head?: string[];
+  /**
    * Footer options. The footer is one quiet line: the desktop footer under
    * the content column and the mobile drawer footer.
    */

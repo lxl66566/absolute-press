@@ -24,7 +24,7 @@ algolia: {
 
 配置后导航栏挂载 DocSearch 搜索框（凭证随 payload 下发，search-only key 本来就是公开的）。三步接入：
 
-1. 到 [DocSearch](https://docsearch.algolia.com/) 申请或自行在 Algolia 控制台创建索引，拿到三件套凭证
+1. 到 [DocSearch](https://docsearch.algolia.com/) 申请或自行在 Algolia 控制台创建索引，拿到三件套凭证；申请审核要求验证站点所有权时，把 Algolia 给的验证 meta 通过 `head` 配置加进页面（见[配置](./configuration.md#head)）
 2. 填进站点配置的 `algolia` 字段
 3. **全量重爬一次**：爬取配置里的 CSS 选择器要匹配新主题的 DOM 结构（正文容器、标题层级），旧站选择器不会自动适配
 

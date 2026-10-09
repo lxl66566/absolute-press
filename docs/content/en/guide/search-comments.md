@@ -24,7 +24,7 @@ algolia: {
 
 When configured, the navbar mounts a DocSearch box (the credentials ship with the payload; a search-only key is public by design). Three steps to wire it up:
 
-1. Apply at [DocSearch](https://docsearch.algolia.com/) or create an index yourself in the Algolia console to get the three credentials
+1. Apply at [DocSearch](https://docsearch.algolia.com/) or create an index yourself in the Algolia console to get the three credentials; when the application review asks to verify site ownership, add the verification meta Algolia gives you through the `head` config (see [configuration](./configuration.md#head))
 2. Fill them into the `algolia` field of the site config
 3. **Run one full re-crawl**: the CSS selectors in the crawler config must match the new theme's DOM structure (content container, heading levels); selectors from an old site do not adapt automatically
 

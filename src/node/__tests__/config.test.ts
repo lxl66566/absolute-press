@@ -327,6 +327,34 @@ describe('resolveConfig seo', () => {
   });
 });
 
+describe('resolveConfig head', () => {
+  it('is empty by default', () => {
+    expect(resolveConfig(baseConfig(), '/root').head).toEqual([]);
+  });
+
+  it('keeps configured tags in config order', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        head: ['<meta name="a" content="1">', '<meta name="b" content="2">'],
+      },
+      '/root',
+    );
+    expect(config.head).toEqual([
+      '<meta name="a" content="1">',
+      '<meta name="b" content="2">',
+    ]);
+  });
+
+  it('drops blank entries', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), head: ['<meta name="a" content="1">', '   '] },
+      '/root',
+    );
+    expect(config.head).toEqual(['<meta name="a" content="1">']);
+  });
+});
+
 describe('resolveConfig footer credit', () => {
   it('is absent by default', () => {
     expect(resolveConfig(baseConfig(), '/root').footer).toBeUndefined();

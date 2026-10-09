@@ -49,6 +49,9 @@ export interface ShellInput {
   ogImage?: string;
   /** Google Analytics measurement id (e.g. 'G-XXX'); omitted when unset. */
   gaId?: string;
+  /** Site config `head`: raw HTML emitted verbatim before the speculation
+   * rules script, so that script stays last in head. */
+  headTags?: string[];
   /** Build only: emit the Speculation Rules script for same-site links. */
   speculationRules?: boolean;
   /**
@@ -278,6 +281,10 @@ export function renderShell(input: ShellInput): string {
     `<script>${foucScript()}</script>`,
     ...stylesheets,
     ...(input.gaId ? gaLines(input.gaId) : []),
+    // Verbatim site tags (verification metas, analytics snippets). Their
+    // order is insignificant, so they take the slot before the speculation
+    // rules script and never outrank it.
+    ...(input.headTags ?? []),
     // Last in head: rules parsing must not delay stylesheet discovery.
     ...(input.speculationRules
       ? [
