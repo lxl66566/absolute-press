@@ -421,6 +421,67 @@ describe('resolveConfig footer credit', () => {
   });
 });
 
+describe('resolveConfig profile', () => {
+  it('is absent by default', () => {
+    expect(resolveConfig(baseConfig(), '/root').profile).toBeUndefined();
+  });
+
+  it('defaults name to the title, avatar to nav.logo, drawer to true', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        nav: { logo: '/logo.jpg' },
+        profile: { exclude: ['/hide/'] },
+      },
+      '/root',
+    );
+    expect(config.profile).toEqual({
+      name: 't',
+      avatar: '/logo.jpg',
+      exclude: ['/hide'],
+      drawer: true,
+    });
+  });
+
+  it('keeps configured values and a false drawer switch', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        nav: { logo: '/logo.jpg' },
+        profile: {
+          name: 'Alice',
+          avatar: '/me.png',
+          link: '/about',
+          articlesLink: '/timeline/',
+          exclude: ['/hide/'],
+          drawer: false,
+        },
+      },
+      '/root',
+    );
+    expect(config.profile).toEqual({
+      name: 'Alice',
+      avatar: '/me.png',
+      link: '/about',
+      articlesLink: '/timeline/',
+      exclude: ['/hide'],
+      drawer: false,
+    });
+  });
+
+  it('treats blank fields as unset (no avatar without nav.logo)', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), profile: { name: '  ', avatar: ' ' } },
+      '/root',
+    );
+    expect(config.profile).toEqual({
+      name: 't',
+      exclude: [],
+      drawer: true,
+    });
+  });
+});
+
 describe('resolveConfig related', () => {
   it('rejects a depth outside the 1-3 union', () => {
     // JS config files bypass the RelatedDepth union; the resolver guards

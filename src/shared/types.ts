@@ -218,6 +218,45 @@ export interface RelatedLink {
   links?: RelatedEdgeRef[];
 }
 
+/** One category/tag chip entry of the profile taxonomy. */
+export interface ProfileChip {
+  /** Display name (majority casing, like the archive groups). */
+  name: string;
+  /** Articles carrying the name (after `profile.exclude`). */
+  count: number;
+  /** Clean archive route of this locale: `/category/<name>` / `/tag/<name>`. */
+  route: string;
+}
+
+/**
+ * Taxonomy half of the profile data of one locale, derived at build time
+ * from the same article list the archives use (locale homes and
+ * `profile.exclude` routes filtered out). This is what the payload ships
+ * to the mobile drawer; the card identity fields of SiteProfile only
+ * serve the build-time renderer and stay out of every page's payload.
+ */
+export interface ProfileTaxonomy {
+  /** Article count after `profile.exclude`. */
+  articles: number;
+  categories: ProfileChip[];
+  tags: ProfileChip[];
+}
+
+/**
+ * Full profile data of one locale: the taxonomy plus the card identity
+ * fields (config `profile`, defaulted). Serves the static home card.
+ */
+export interface SiteProfile extends ProfileTaxonomy {
+  /** Card display name (config `profile.name`, defaulted to the site title). */
+  name: string;
+  /** Avatar image path (public-root semantics of `nav.logo`); absent renders none. */
+  avatar?: string;
+  /** Link wrapping the avatar and the name. */
+  link?: string;
+  /** Link of the articles stat number; absent renders it as plain text. */
+  articlesLink?: string;
+}
+
 /** Everything serialized into `<script id="__AP_DATA__">` of one page. */
 export interface PagePayload {
   site: {
@@ -255,6 +294,11 @@ export interface PagePayload {
     algolia?: { appId: string; apiKey: string; indexName: string };
     /** Present when navbar social links are configured. */
     social?: SocialEntry[];
+    /**
+     * Present only when the site configures `profile` with the mobile drawer
+     * section on (`profile.drawer`): taxonomy of the drawer's profile block.
+     */
+    profile?: ProfileTaxonomy;
   };
   navbar: NavItem[];
   /** Sidebar section resolved for this page. */

@@ -867,6 +867,85 @@ describe('SiteStore', () => {
   });
 });
 
+describe('SiteStore profile', () => {
+  const profileFiles = {
+    'index.md': '# Home\n',
+    'a.md': '---\ncategory: Rust\ntag: t\n---\n# A\n',
+    'b.md': '---\ncategory: rust\ntag: [t, u]\n---\n# B\n',
+    'hide/x.md': '---\ncategory: Secret\n---\n# X\n',
+  };
+
+  it('injects the static card on locale homes only and omits the toc container', async () => {
+    const fx = await contentFixture(profileFiles, {
+      nav: { logo: '/logo.jpg' },
+      profile: { exclude: ['/hide/'] },
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    const home = store.devHtml('/');
+    // Static card markup (no island placeholder): avatar, stats, chips.
+    expect(home).toContain('<section class="ap-home-profile">');
+    expect(home).toContain('src="logo.jpg"');
+    // Case-merged archive grouping (rust + Rust), lowercase route order.
+    expect(home).toContain('href="category/Rust"');
+    expect(home).not.toContain('category/Secret');
+    // The outline lane belongs to the card: no toc container.
+    expect(home).not.toContain('id="ap-toc"');
+
+    const article = store.devHtml('/a');
+    expect(article).toContain('id="ap-toc"');
+    expect(article).not.toContain('ap-home-profile');
+  });
+
+  it('carries the drawer profile in every payload, exclude-filtered', async () => {
+    const fx = await contentFixture(profileFiles, {
+      profile: { exclude: ['/hide/'] },
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    const home = payloadOf(store.devHtml('/') ?? '');
+    expect(home.site).toMatchObject({
+      profile: {
+        articles: 2,
+        categories: [{ name: 'Rust', count: 2, route: '/category/Rust' }],
+        tags: [
+          { name: 't', count: 2, route: '/tag/t' },
+          { name: 'u', count: 1, route: '/tag/u' },
+        ],
+      },
+    });
+    // The drawer is site-wide chrome: article payloads carry it too.
+    const article = payloadOf(store.devHtml('/a') ?? '');
+    expect(article.site).toHaveProperty('profile');
+  });
+
+  it('drawer:false keeps the card but drops the payload profile', async () => {
+    const fx = await contentFixture(profileFiles, {
+      profile: { drawer: false },
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    expect(store.devHtml('/')).toContain('ap-home-profile');
+    expect(payloadOf(store.devHtml('/') ?? '').site).not.toHaveProperty(
+      'profile',
+    );
+  });
+
+  it('no profile: zero footprint on the home shell and payload', async () => {
+    const fx = await contentFixture(profileFiles);
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    const home = store.devHtml('/');
+    expect(home).not.toContain('ap-home-profile');
+    expect(home).toContain('id="ap-toc"');
+    expect(payloadOf(home ?? '').site).not.toHaveProperty('profile');
+  });
+});
+
 describe('SiteStore onScan', () => {
   it('runs the hook at sync and exposes the result via siteData', async () => {
     const fx = await contentFixture({

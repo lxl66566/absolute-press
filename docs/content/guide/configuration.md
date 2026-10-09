@@ -235,6 +235,26 @@ home: {
 
 首页选项：`feed` 控制是否在各 locale 首页顶部渲染分页文章流。博客首页保持默认；文档/landing 式首页可设 `false`，让正文介绍（hero/特性/阅读路线）成为视觉主体。`feedPerPage` 是文章流每页篇数（客户端分页，取值须为不小于 1 的整数）；非默认值才写入页面 payload。
 
+## profile
+
+```ts
+profile: {
+  name: 'Alice',              // 卡片显示名，默认站点 title
+  avatar: '/me.jpg',          // 头像图，默认 nav.logo（都没有则不渲染头像）
+  link: '/about',             // 头像+名称包裹的链接，可选
+  articlesLink: '/timeline/', // 「文章」统计数字的链接，可选；不配则统计为纯文本
+  exclude: ['/hide/'],        // 计数排除的路由前缀（文章总数与分类/标签计数）
+  drawer: true,               // 移动端抽屉区块开关，配了 profile 默认 true
+}
+```
+
+作者主页卡片，严格 opt-in：不配置时框架行为零变化。配置后每个 locale 首页在构建期于正文顶部注入一张静态卡片（头像 / 统计行 / 社交图标行 / 分类+标签 chips，最终 HTML、零客户端 JS，爬虫与 no-JS 直接可见），同时该首页不再输出 TOC 容器（卡片占位轮廓泳道，客户端软导航会自动补回/移除容器）。
+
+- 统计行三项：文章数（配了 `articlesLink` 时是链接）、分类数与标签数（锚到卡片自己的分组锚点，`:target` 闪烁一次）
+- 社交图标行复用 `nav.social`（含内建品牌字形），新标签页打开
+- taxonomy 从该 locale 的文章列表派生（locale 首页已排除），再过滤 `exclude` 前缀；分组与排序同归档页（大小写合并、小写排序），chips 链接 `/category/<name>`、`/tag/<name>`，路由经 encodeURIComponent 并按页面深度加相对前缀
+- 响应式：`<1024px` 卡片隐藏，改由移动端抽屉承接（`drawer: false` 关闭抽屉区块）：抽屉原有头像/站点名/社交图标行不变，其下插入三项纯数字统计行与分类/标签两个原生 `<details>` 折叠组（默认折叠，chips 列表限高 40vh 内部滚动），credits 仍在最后；`1024–1280px` 卡片流入正文顶端；`≥1280px` 站点 CSS 可自行把卡片 skin 进 TOC 泳道
+
 ## archive
 
 ```ts
@@ -336,6 +356,7 @@ onScan: (ctx: SiteScanContext) => ({
 ## 构建层扩展字段（AbsolutePressConfig）
 
 - `nav`：见上文
+- `profile`：见上文
 - `onScan`：见上文
 - `entryListIslands: string[]`：复用 `@@@` 条目管线的站点 island 名单（名字必须已在 `islands` 注册）——构建期把这些 island 的 children 按 ExpandableList 同款规则拆成「标题 + meta + 正文」静态表格骨架，island 客户端接 `childrenHtml` 填充数据，见[Islands](./islands.md#站点-island-复用条目管线-entrylist)
 - `code` / `readingTime`：见上文

@@ -113,13 +113,151 @@
   }
 
   /* Site credits line (CC + framework placeholder): mirrors the desktop
- * footer's quiet text; the footer itself is desktop-only. */
+   * footer's quiet text; the footer itself is desktop-only. */
   .ap-drawer-footer__credits {
     display: flex;
     align-items: center;
     font-size: 0.75rem;
     line-height: 1rem;
     color: var(--c-text-2);
+  }
+
+  /* Profile section (config `profile`): plain-number stats row plus the
+   * category/tag chip groups behind native <details> disclosures — stateless
+   * and accessible, no JS state. The chevron flips instantly (site UX rule:
+   * icons never animate). */
+  .ap-drawer-profile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .ap-drawer-profile__stats {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+
+  .ap-drawer-profile__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    align-items: center;
+  }
+
+  .ap-drawer-profile__stat b {
+    font-size: 1.05rem;
+    color: var(--c-text);
+  }
+
+  .ap-drawer-profile__stat span {
+    font-size: 0.75rem;
+    color: var(--c-text-2);
+  }
+
+  .ap-drawer-profile__group {
+    border-top: 1px solid var(--c-border);
+  }
+
+  .ap-drawer-profile__summary {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.55rem 0.25rem;
+    font-size: 0.9rem;
+    color: var(--c-text);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+
+  .ap-drawer-profile__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ap-drawer-profile__chevron {
+    flex: none;
+    width: 0.9rem;
+    height: 0.9rem;
+    color: var(--c-text-2);
+    /* Instant flip, no transition (icon motion rule). */
+    transform: rotate(-90deg);
+  }
+
+  .ap-drawer-profile__group[open]
+    > .ap-drawer-profile__summary
+    .ap-drawer-profile__chevron {
+    transform: none;
+  }
+
+  .ap-drawer-profile__label {
+    flex: 1 1 auto;
+    text-align: left;
+  }
+
+  .ap-drawer-profile__count {
+    flex: none;
+    padding: 0 0.5rem;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--c-text-2);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+  }
+
+  /* Oversized chip lists scroll inside a capped lane (thin scrollbar like
+   * the sidebar); wrapping keeps the horizontal axis overflow-free. */
+  .ap-drawer-profile__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.3rem;
+    max-height: 40vh;
+    margin: 0;
+    padding: 0 0.25rem 0.6rem;
+    overflow-y: auto;
+    list-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-border) transparent;
+  }
+
+  .ap-drawer-profile__chips::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .ap-drawer-profile__chips::-webkit-scrollbar-thumb {
+    background-color: var(--c-border);
+    border-radius: 9999px;
+  }
+
+  .ap-drawer-profile__chips li {
+    list-style: none;
+  }
+
+  .ap-drawer-profile__chip {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: baseline;
+    padding: 0.1rem 0.55rem;
+    font-size: 0.78rem;
+    color: var(--c-text-2);
+    background-color: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+    transition:
+      color 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+
+  .ap-drawer-profile__chip:hover {
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+    text-decoration: none;
+  }
+
+  .ap-drawer-profile__chip-count {
+    font-size: 0.68rem;
+    opacity: 0.75;
   }
 
   /* The drawer is a mobile-only surface; the hamburger is hidden at lg. */

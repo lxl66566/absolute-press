@@ -981,6 +981,187 @@
   }
 
   /* ------------------------------------------------------------------------
+   * Static profile card (config `profile`), injected above the home body at
+   * build time. Below lg the mobile drawer's profile section takes over, so
+   * the card hides; at xl+ site CSS may skin it into the TOC lane (the shell
+   * ships profile homes without #ap-toc).
+   * ------------------------------------------------------------------------ */
+  .ap-home-profile {
+    margin-bottom: 1.5rem;
+  }
+
+  /* The card occupies the body's leading position, so the heading under it
+   * drops its section-sized top margin — same structural trim the chrome
+   * slot gets (works pre- and post-hydration: the card stays adjacent to
+   * the h1 either way). */
+  .ap-main > .ap-home-profile + :where(h1) {
+    margin-top: 0;
+  }
+
+  .ap-home-profile__card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1.25rem 1rem;
+    background-color: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: 0.75rem;
+  }
+
+  .ap-home-profile__avatar {
+    display: block;
+    line-height: 0;
+  }
+
+  .ap-home-profile__avatar-img {
+    width: 6rem;
+    height: 6rem;
+    object-fit: cover;
+    border: 1px solid var(--c-border);
+    border-radius: 0.75rem;
+  }
+
+  .ap-home-profile__name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--c-text);
+    text-decoration: none;
+    transition: color 120ms ease-out;
+  }
+
+  .ap-home-profile__name:hover {
+    color: var(--c-accent);
+    text-decoration: none;
+  }
+
+  .ap-home-profile__stats {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .ap-home-profile__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .ap-home-profile__stat b {
+    font-size: 1.05rem;
+    color: var(--c-text);
+    transition: color 120ms ease-out;
+  }
+
+  .ap-home-profile__stat span {
+    font-size: 0.75rem;
+    color: var(--c-text-2);
+    transition: color 120ms ease-out;
+  }
+
+  .ap-home-profile__stat:hover b,
+  .ap-home-profile__stat:hover span {
+    color: var(--c-accent);
+  }
+
+  .ap-home-profile__social {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .ap-home-profile__social a {
+    display: inline-flex;
+    align-items: center;
+    color: var(--c-text-2);
+    transition: color 120ms ease-out;
+  }
+
+  .ap-home-profile__social a:hover {
+    color: var(--c-accent);
+  }
+
+  .ap-home-profile__social svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .ap-home-profile__group {
+    width: 100%;
+  }
+
+  /* Anchor targets of the stats row: flash once for feedback (an xl+ rail
+   * skin keeps the card fixed, so there is nothing to scroll to). */
+  .ap-home-profile__group:target {
+    animation: ap-home-profile-flash 900ms ease-out;
+    border-radius: 0.375rem;
+  }
+
+  .ap-home-profile__label {
+    display: block;
+    width: 100%;
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.55rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--c-text-2);
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  /* Chrome, not prose: list chrome reset lives here in the higher layer. */
+  .ap-home-profile__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ap-home-profile__chips li {
+    list-style: none;
+  }
+
+  .ap-home-profile__chip {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: baseline;
+    padding: 0.1rem 0.55rem;
+    font-size: 0.78rem;
+    color: var(--c-text-2);
+    background-color: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+    transition:
+      color 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+
+  .ap-home-profile__chip--tag {
+    padding: 0.05rem 0.45rem;
+    font-size: 0.72rem;
+    background-color: transparent;
+  }
+
+  .ap-home-profile__chip:hover {
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+    text-decoration: none;
+  }
+
+  .ap-home-profile__chip-count {
+    font-size: 0.68rem;
+    opacity: 0.75;
+  }
+
+  @media (max-width: 1023px) {
+    .ap-home-profile {
+      display: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------------
    * Navbar dropdown panels
    * Capped below the navbar edge; long catalogs scroll inside the panel
    * instead of spilling past the viewport. Scrollbar follows the theme.
@@ -1016,6 +1197,16 @@
 
   @keyframes ap-anchor-flash {
     from {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes ap-home-profile-flash {
+    from {
+      background-color: color-mix(in srgb, var(--c-accent) 15%, transparent);
+    }
+
+    to {
       background-color: transparent;
     }
   }

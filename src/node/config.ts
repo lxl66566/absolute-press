@@ -149,6 +149,13 @@ export interface AbsolutePressConfig extends SiteConfig {
   nav?: NavConfig;
   /** Sidebar order options over the generated tree. */
   sidebar?: SidebarConfig;
+  /**
+   * Author profile: a build-time static card injected at the top of every
+   * locale home (avatar / stats / category+tag chips, no client JS) plus an
+   * optional profile section in the mobile drawer. Unconfigured sites keep
+   * the plain home untouched.
+   */
+  profile?: ProfileConfig;
   /** Extra islands: PascalCase tag -> module path relative to project root. */
   islands?: Record<string, string>;
   /**
@@ -321,6 +328,39 @@ export interface NavbarDirTweak {
 export type NavAlign = 'left' | 'center';
 
 /**
+ * Author profile options: the static home card and the mobile drawer
+ * section. See AbsolutePressConfig.profile.
+ */
+export interface ProfileConfig {
+  /** Card display name; defaults to the site title. */
+  name?: string;
+  /** Avatar image path (public-root semantics of `nav.logo`); defaults to `nav.logo`. */
+  avatar?: string;
+  /** Link wrapping the avatar and the name; absent renders them unlinked. */
+  link?: string;
+  /** Link of the articles stat number; absent renders it as plain text. */
+  articlesLink?: string;
+  /** Route prefixes excluded from the article count and the taxonomy chips. */
+  exclude?: string[];
+  /** Mobile drawer profile section; default true once `profile` is set. */
+  drawer?: boolean;
+}
+
+/** Normalized profile options consumed by the build layer. */
+export interface ResolvedProfile {
+  /** Display name, already defaulted to the site title. */
+  name: string;
+  /** `profile.avatar ?? nav.logo`; absent renders no avatar. */
+  avatar?: string;
+  link?: string;
+  articlesLink?: string;
+  /** Match-normalized route prefixes (same form as `nav.exclude`). */
+  exclude: string[];
+  /** Mobile drawer profile section switch. */
+  drawer: boolean;
+}
+
+/**
  * Sidebar order options. The sidebar tree is generated complete from the
  * content directories; these knobs only reorder the generated result —
  * entries can be rearranged, never dropped (hiding pages is `nav.exclude`).
@@ -403,6 +443,8 @@ export interface ResolvedConfig {
   readingTime: boolean;
   /** Home page options (article feed on/off, feed page size). */
   home: Required<NonNullable<SiteConfig['home']>>;
+  /** Author profile options; absent when the site configures no profile. */
+  profile?: ResolvedProfile;
   /** Category/tag archive page options. */
   archive: Required<NonNullable<SiteConfig['archive']>>;
   /** Canonical URL shapes. */
@@ -447,6 +489,37 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
     ...(image ? { image } : {}),
     ...(author ? { author } : {}),
     ...(exclude.length > 0 ? { exclude } : {}),
+  };
+}
+
+/** A blank value would emit empty text/attribute boxes; treat as unset. */
+function cleanOption(value: string | undefined): string | undefined {
+  return value?.trim() ? value : undefined;
+}
+
+/**
+ * Normalize profile options: blank name/link fields would render empty
+ * boxes, so they count as unset (name falls back to the site title); the
+ * avatar falls back to `nav.logo` (both unset renders no avatar); exclude
+ * prefixes take the same match-normalization as `nav.exclude`.
+ */
+function resolveProfile(
+  profile: ProfileConfig | undefined,
+  title: string,
+  navLogo: string | undefined,
+): ResolvedProfile | undefined {
+  if (profile === undefined) return undefined;
+  const name = cleanOption(profile.name) ?? title;
+  const link = cleanOption(profile.link);
+  const articlesLink = cleanOption(profile.articlesLink);
+  const avatar = cleanOption(profile.avatar) ?? cleanOption(navLogo);
+  return {
+    name,
+    ...(avatar ? { avatar } : {}),
+    ...(link ? { link } : {}),
+    ...(articlesLink ? { articlesLink } : {}),
+    exclude: (profile.exclude ?? []).map(normalizeRouteForMatch),
+    drawer: profile.drawer ?? true,
   };
 }
 
@@ -561,6 +634,11 @@ export function resolveConfig(
   }
   const refs = resolveRefs(config.refs);
   const iconProvider = resolveIconProvider(config.iconProvider);
+  const resolvedProfile = resolveProfile(
+    config.profile,
+    config.title,
+    config.nav?.logo,
+  );
   return {
     root,
     publicDir: publicDir || null,
@@ -593,6 +671,7 @@ export function resolveConfig(
         'home.feedPerPage',
       ),
     },
+    ...(resolvedProfile ? { profile: resolvedProfile } : {}),
     archive: {
       perPage: resolveIntOption(
         config.archive?.perPage,

@@ -55,10 +55,17 @@ export interface ShellInput {
   /** Build only: emit the Speculation Rules script for same-site links. */
   speculationRules?: boolean;
   /**
-   * Build only: modulepreload the entry script. Dev entries are /@fs or
+   * Modulepreload the entry script. Dev entries are /@fs or
    * /src URLs compiled on demand; preloading them would fetch raw source.
    */
   modulepreload?: boolean;
+  /**
+   * Omit the #ap-toc container from the shell. Profile-configured home
+   * pages set this: the profile card takes the outline lane. The client
+   * mount skips a missing container, and the router re-syncs the container
+   * across soft navigations (see client/runtime/router.ts).
+   */
+  hideToc?: boolean;
   /** Site config `seo.author`: author of the BlogPosting JSON-LD. */
   author?: { name: string; url?: string };
 }
@@ -298,7 +305,7 @@ export function renderShell(input: ShellInput): string {
     '<div id="ap-nav" class="ap-nav"></div>',
     '<aside id="ap-sidebar" class="ap-sidebar"></aside>',
     `<main id="ap-content" class="ap-main">${content}</main>`,
-    '<div id="ap-toc" class="ap-toc"></div>',
+    ...(input.hideToc ? [] : ['<div id="ap-toc" class="ap-toc"></div>']),
     // Site footer mount point (ArticleFooter); the body's flex column layout
     // pins it to the page bottom.
     '<footer id="ap-footer" class="ap-footer"></footer>',

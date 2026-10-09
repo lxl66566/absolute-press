@@ -11,6 +11,7 @@ import type {
   PageMeta,
   PagePayload,
   RelatedLink,
+  SiteProfile,
   TermHooks,
 } from '../../shared/types.ts';
 import { ARCHIVE_PER_PAGE, HOME_FEED_PER_PAGE } from '../../shared/types.ts';
@@ -56,6 +57,11 @@ import {
 } from './pages.ts';
 import type { PageSource, RenderedPage } from './pages.ts';
 import {
+  buildSiteProfile,
+  drawerProfileOf,
+  renderProfileCard,
+} from './profile.ts';
+import {
   isRefFile,
   localeContentRoot,
   localeKeyOf,
@@ -97,6 +103,9 @@ interface LocaleChrome {
   navbar: PagePayload['navbar'];
   sidebar: PagePayload['sidebar'];
   articles: ArticleInfo[];
+  /** Profile section data of this locale; null when no profile is configured
+   * (the static home card and the drawer payload share this one derivation). */
+  profile: SiteProfile | null;
 }
 
 /** relPath -> (locale key -> page source), over the full scan. */
@@ -585,7 +594,7 @@ export class SiteStore {
     };
   }
 
-  /** Compute-if-absent per-locale chrome (navbar/sidebar/articles). */
+  /** Compute-if-absent per-locale chrome (navbar/sidebar/articles/profile). */
   private chromeOf(ctx: RenderContext, key: string): LocaleChrome {
     let chrome = ctx.chrome.get(key);
     if (!chrome) {
@@ -607,10 +616,19 @@ export class SiteStore {
         labels,
         sidebar: this.config.sidebar,
       });
+      const articles = buildArticles(siblings);
+      const profile = this.config.profile;
+      const locale = this.config.locales.find(l => l.key === key);
       chrome = {
-        articles: buildArticles(siblings),
+        articles,
         navbar,
         sidebar,
+        // The home card and the drawer payload share one derivation, so
+        // their counts can never drift apart.
+        profile:
+          profile && locale
+            ? buildSiteProfile(profile, articles, locale)
+            : null,
       };
       ctx.chrome.set(key, chrome);
     }
@@ -775,6 +793,9 @@ export class SiteStore {
           : {}),
         ...(this.config.footer
           ? { footerCredit: this.config.footer.credit }
+          : {}),
+        ...(chrome.profile && this.config.profile?.drawer
+          ? { profile: drawerProfileOf(chrome.profile) }
           : {}),
       }),
       navbar: chrome.navbar,
@@ -966,6 +987,20 @@ export class SiteStore {
         `${GATE_STYLE}<div data-ap-island="PasswordGate" data-props="${props}">` +
         `${content}</div>`;
     }
+    // The static profile card leads the home body, outside any gate: it is
+    // site chrome (like the navbar), not gated content.
+    if (this.config.profile && isLocaleHome(page)) {
+      const profile = this.chromeOf(ctx, page.locale.key).profile;
+      if (profile) {
+        content =
+          renderProfileCard(profile, {
+            base: baseOf(page.route),
+            lang: page.locale.lang,
+            social: this.config.nav.social ?? [],
+            icons: this.config.icons,
+          }) + content;
+      }
+    }
     const giscus = this.config.giscus;
     if (giscus && !isLocaleHome(page)) {
       const props = escapeHtml(
@@ -1034,8 +1069,9 @@ export class SiteStore {
 
   /**
    * Shared `payload.site` block of one locale's pages; page payloads pass
-   * the home/archive/footer knobs as `extra` (archive pages carry none).
-   * Integrations stay last — key order drives the serialized JSON order.
+   * the home/archive/footer/profile knobs as `extra` (archive pages carry
+   * only the profile one). Integrations stay last — key order drives the
+   * serialized JSON order.
    */
   private siteBlock(
     ctx: RenderContext,
@@ -1043,7 +1079,7 @@ export class SiteStore {
     localeKey: string,
     extra: Pick<
       PagePayload['site'],
-      'feedPerPage' | 'archivePerPage' | 'footerCredit'
+      'feedPerPage' | 'archivePerPage' | 'footerCredit' | 'profile'
     > = {},
   ): PagePayload['site'] {
     return {
@@ -1144,6 +1180,9 @@ export class SiteStore {
     const content = this.decorateContent(page, payload, rendered.html, ctx);
     return renderShell({
       ...this.shellArgs(assets, page.locale),
+      // Profile homes lead with the profile card occupying the outline
+      // lane, so the shell omits the TOC container entirely.
+      ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
       // Only math pages carry the katex stylesheet; the check runs on the
       // decorated content, so math living solely inside term-ref popover
       // templates is covered too. The decision re-reads the cached html
@@ -1175,7 +1214,16 @@ export class SiteStore {
       `${archive.kind}/${archive.title}`,
     );
     const payload: PagePayload = {
-      site: this.siteBlock(ctx, archive.route, archive.locale.key),
+      // Archive pages carry no feed knobs but the drawer still shows the
+      // profile section.
+      site: this.siteBlock(
+        ctx,
+        archive.route,
+        archive.locale.key,
+        chrome.profile && this.config.profile?.drawer
+          ? { profile: drawerProfileOf(chrome.profile) }
+          : {},
+      ),
       navbar: chrome.navbar,
       sidebar: chrome.sidebar,
       page: alternates ? { ...meta, alternates } : meta,

@@ -235,6 +235,26 @@ home: {
 
 Home page options: `feed` controls whether the paginated article feed renders at the top of each locale home page. Blog home pages keep the default; docs/landing-style home pages can set `false` so the content intro (hero/features/reading path) becomes the visual focus. `feedPerPage` is the page size of the article feed (client-side pagination, must be an integer no less than 1); it is only written into the page payload when non-default.
 
+## profile
+
+```ts
+profile: {
+  name: 'Alice',              // card display name, defaults to the site title
+  avatar: '/me.jpg',          // avatar image, defaults to nav.logo (no avatar when both unset)
+  link: '/about',             // link wrapping the avatar+name, optional
+  articlesLink: '/timeline/', // link of the posts stat number, optional; plain text otherwise
+  exclude: ['/hide/'],        // route prefixes excluded from counts (total + categories/tags)
+  drawer: true,               // mobile drawer section switch, default true once profile is set
+}
+```
+
+Author profile card, strictly opt-in: unconfigured sites see zero behavior change. Once configured, every locale home gets a static card injected above the body at build time (avatar / stats row / social icon row / category+tag chips — final HTML, zero client JS, visible to crawlers and no-JS clients), and that home no longer emits the TOC container (the card owns the outline lane; the client router re-syncs the container across soft navigations).
+
+- Stats row: posts count (a link when `articlesLink` is set), categories and tags counts (anchors into the card's own groups, flashing once via `:target`)
+- The social icon row reuses `nav.social` (builtin brand glyphs included), opened in new tabs
+- The taxonomy derives from the locale's article list (locale homes already excluded), then filters the `exclude` prefixes; grouping and order match the archive pages (case merging, lowercase sort); chips link to `/category/<name>` / `/tag/<name>` with encodeURIComponent'd routes prefixed by the per-page relative base
+- Responsive: below 1024px the card hides and the mobile drawer takes over (`drawer: false` turns the drawer section off): the drawer's existing avatar/site-title/social row stays unchanged, with a plain-number stats row and two native `<details>` groups of category/tag chips (collapsed by default, chip lists capped at 40vh with internal scrolling) inserted below it, credits still last. At 1024–1280px the card flows at the top of the body; at 1280px+ site CSS can skin it into the TOC lane
+
 ## archive
 
 ```ts
@@ -336,6 +356,7 @@ Motivation: locale directory ownership, README/index semantics, frontmatter norm
 ## Build-layer extension fields (AbsolutePressConfig)
 
 - `nav`: see above
+- `profile`: see above
 - `onScan`: see above
 - `entryListIslands: string[]`: the list of site islands that reuse the `@@@` entry pipeline (names must already be registered in `islands`) — at build time these islands' children are split into a static table skeleton of "title + meta + body" by the same rules as ExpandableList, and the island client fills data via `childrenHtml`. See [Islands](./islands.md#reusing-the-entry-pipeline-for-site-islands-entrylist)
 - `code` / `readingTime`: see above

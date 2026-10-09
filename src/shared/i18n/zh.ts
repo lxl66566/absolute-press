@@ -36,6 +36,12 @@ export const zh = {
     latest: '最新文章',
     updated: '最近更新',
   },
+  profile: {
+    /** Stat labels of the profile card (home card + mobile drawer section). */
+    posts: '文章',
+    categories: '分类',
+    tags: '标签',
+  },
   archive: {
     categoryTitle: '分类：{name}',
     tagTitle: '标签：{name}',

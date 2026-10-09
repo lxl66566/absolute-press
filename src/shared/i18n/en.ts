@@ -36,6 +36,12 @@ export const en = {
     latest: 'Latest articles',
     updated: 'Recently updated',
   },
+  profile: {
+    /** Stat labels of the profile card (home card + mobile drawer section). */
+    posts: 'Posts',
+    categories: 'Categories',
+    tags: 'Tags',
+  },
   archive: {
     categoryTitle: 'Category: {name}',
     tagTitle: 'Tag: {name}',

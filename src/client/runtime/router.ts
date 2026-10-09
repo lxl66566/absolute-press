@@ -1,5 +1,5 @@
 import type { PagePayload } from '../../shared/types';
-import { disposeRootsUnder } from '../dom';
+import { disposeRoot, disposeRootsUnder } from '../dom';
 import {
   anchorTargetElement,
   flashAnchorTarget,
@@ -86,6 +86,10 @@ function applyPage(
 
   upgradeMermaidFences(content);
   mountRelatedGraph(payload, content);
+  // #ap-toc presence is page-shaped (profile homes ship without it), and
+  // the swap only replaces #ap-content — sync the outline container against
+  // the fetched page before the chrome remounts into it.
+  syncTocContainer(incoming);
   // Keep the payload script in sync: pagePayload() readers (site islands)
   // must see the navigated page's data, not the previous page's.
   const dataEl = document.getElementById('__AP_DATA__');
@@ -108,6 +112,31 @@ function applyPage(
 
   initTabsPersistence();
   hydrateIslands(content);
+}
+
+/**
+ * Mirror the fetched page's #ap-toc container in the live document: create
+ * it (before #ap-footer, its shell position) when the target page has one
+ * and the current page shipped without, dispose and drop it when the target
+ * has none — a leftover rail would overlay a profile home. No-op on pages
+ * whose shapes already agree (every non-profile site).
+ */
+function syncTocContainer(incoming: Element): void {
+  const live = document.getElementById('ap-toc');
+  const fetched = incoming.parentElement?.querySelector('#ap-toc');
+  if (fetched == null) {
+    if (live !== null) {
+      disposeRoot(live);
+      live.remove();
+    }
+    return;
+  }
+  if (live === null) {
+    const el = document.createElement('div');
+    el.id = 'ap-toc';
+    el.className = 'ap-toc';
+    document.getElementById('ap-footer')?.before(el);
+  }
 }
 
 /** Apply a scroll decision to the live document. An anchor resolves against
