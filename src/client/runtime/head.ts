@@ -162,3 +162,28 @@ export function applyHead(patch: HeadPatch, doc: Document): void {
   xDefault.setAttribute('href', patch.alternates[0]!.href);
   head.insertBefore(xDefault, reference);
 }
+
+/**
+ * Adopt the fetched page's KaTeX stylesheet into the live document. The shell
+ * links it only on pages that rendered math, but a soft navigation swaps just
+ * the body — arriving on a math page from a math-free one would leave the
+ * katex markup unstyled, showing the visually-hidden MathML copy as a second
+ * plain-text formula. Once added the link stays: keeping it on later
+ * math-free pages only costs an already-cached stylesheet.
+ */
+export function adoptKatexStylesheet(
+  fetched: Document,
+  pageUrl: string,
+  doc: Document,
+): void {
+  const selector = 'link[rel="stylesheet"][href*="katex"]';
+  const href = fetched.querySelector(selector)?.getAttribute('href');
+  if (!href || doc.querySelector(selector)) return;
+  const link = doc.createElement('link');
+  link.setAttribute('rel', 'stylesheet');
+  // The fetched href is relative to the target page's depth while the live
+  // document still sits on the source URL (pushState runs after the swap), so
+  // resolve against the target URL instead of inheriting the document base.
+  link.setAttribute('href', new URL(href, pageUrl).href);
+  doc.head?.append(link);
+}

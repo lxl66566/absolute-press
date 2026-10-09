@@ -13,6 +13,7 @@ import {
 } from '../theme/mount';
 import { setClientBase, setClientRoute } from '../theme/state';
 import {
+  adoptKatexStylesheet,
   applyHead,
   canonicalPrefix,
   headPatchOf,
@@ -136,6 +137,7 @@ async function navigate(href: string, push: boolean): Promise<void> {
     title: string;
     /** Raw payload JSON of the fetched page (kept for the live script). */
     rawJson: string;
+    fetched: Document;
   };
   try {
     const response = await fetch(href);
@@ -153,6 +155,7 @@ async function navigate(href: string, push: boolean): Promise<void> {
       content: incoming,
       title: doc.title,
       rawJson: data,
+      fetched: doc,
     };
   } catch {
     // Router cannot serve this URL — fall back to a full load. A stale
@@ -161,6 +164,9 @@ async function navigate(href: string, push: boolean): Promise<void> {
     return;
   }
   if (seq !== navSeq) return;
+  // Per-page stylesheets the shell links conditionally (katex) must enter the
+  // live document before the swap, or the target page renders unstyled.
+  adoptKatexStylesheet(page.fetched, href, document);
   applyPage(page.payload, page.content, page.title, page.rawJson);
 
   if (push) {

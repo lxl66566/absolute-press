@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import { seoPageType } from '../../../shared/seo';
 import type { PagePayload } from '../../../shared/types';
-import { applyHead, canonicalPrefixOf, headPatchOf } from '../head';
+import {
+  adoptKatexStylesheet,
+  applyHead,
+  canonicalPrefixOf,
+  headPatchOf,
+} from '../head';
 
 function payload(
   route: string,
@@ -217,6 +222,55 @@ describe('applyHead', () => {
   });
 });
 
+function fetchedDoc(html: string): Document {
+  return parseHTML(html).document;
+}
+
+function katexLinks(d: Document): Element[] {
+  return [...d.querySelectorAll('link[rel="stylesheet"][href*="katex"]')];
+}
+
+describe('adoptKatexStylesheet', () => {
+  /** Shell head of a math page at depth 1 (katex link first, then app css). */
+  const MATH_PAGE = `<html><head>
+<link rel="stylesheet" href="../assets/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/entry-x.css">
+</head><body></body></html>`;
+
+  it('adopts the fetched page katex link, resolved against the target URL', () => {
+    const live = doc();
+    // The live document still sits on the source page when this runs, so a
+    // depth-relative href must resolve against the target page URL instead.
+    adoptKatexStylesheet(fetchedDoc(MATH_PAGE), 'https://x/guide/a', live);
+    expect(katexLinks(live).map(l => l.getAttribute('href'))).toEqual([
+      'https://x/assets/katex/katex.min.css',
+    ]);
+  });
+
+  it('keeps the dev /@fs href absolute on the dev origin', () => {
+    const live = doc();
+    const dev = fetchedDoc(
+      '<html><head><link rel="stylesheet" href="/@fs/pkg/katex/dist/katex.min.css"></head><body></body></html>',
+    );
+    adoptKatexStylesheet(dev, 'http://localhost:5173/math', live);
+    expect(katexLinks(live)[0]!.getAttribute('href')).toBe(
+      'http://localhost:5173/@fs/pkg/katex/dist/katex.min.css',
+    );
+  });
+
+  it('does not duplicate the link on a later math-to-math navigation', () => {
+    const live = doc();
+    adoptKatexStylesheet(fetchedDoc(MATH_PAGE), 'https://x/a', live);
+    adoptKatexStylesheet(fetchedDoc(MATH_PAGE), 'https://x/b', live);
+    expect(katexLinks(live)).toHaveLength(1);
+  });
+
+  it('does nothing when the fetched page carries no katex link', () => {
+    const live = doc();
+    adoptKatexStylesheet(doc(), 'https://x/plain', live);
+    expect(katexLinks(live)).toHaveLength(0);
+  });
+});
 describe('applyHead matches the SSG og:type', () => {
   it('flips to website on soft navigation to a locale home', () => {
     const d = doc();
