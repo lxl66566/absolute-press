@@ -229,24 +229,34 @@ export interface ProfileChip {
 }
 
 /**
- * Taxonomy half of the profile data of one locale, derived at build time
- * from the same article list the archives use (locale homes and
- * `profile.exclude` routes filtered out). This is what the payload ships
- * to the mobile drawer; the card identity fields of SiteProfile only
- * serve the build-time renderer and stay out of every page's payload.
+ * Profile stats of one locale as the payload ships them to the mobile
+ * drawer (config `profile` with `drawer` on): plain numbers only — the
+ * chip lists stopped shipping when the drawer's collapsible groups became
+ * links to the built-in categories/tags pages. Derived from the same
+ * article list the archives use (locale homes and `profile.exclude`
+ * routes filtered out).
  */
 export interface ProfileTaxonomy {
   /** Article count after `profile.exclude`. */
   articles: number;
-  categories: ProfileChip[];
-  tags: ProfileChip[];
+  /** Category count after `profile.exclude`. */
+  categories: number;
+  /** Tag count after `profile.exclude`. */
+  tags: number;
 }
 
 /**
- * Full profile data of one locale: the taxonomy plus the card identity
- * fields (config `profile`, defaulted). Serves the static home card.
+ * Full profile data of one locale: the chip lists plus the card identity
+ * fields (config `profile`, defaulted). Serves the static home card; the
+ * payload only ships the counts derived from it (`ProfileTaxonomy`).
  */
-export interface SiteProfile extends ProfileTaxonomy {
+export interface SiteProfile {
+  /** Article count after `profile.exclude`. */
+  articles: number;
+  /** Category chips (majority casing, archive-grouped). */
+  categoryChips: ProfileChip[];
+  /** Tag chips (majority casing, archive-grouped). */
+  tagChips: ProfileChip[];
   /** Card display name (config `profile.name`, defaulted to the site title). */
   name: string;
   /** Avatar image path (public-root semantics of `nav.logo`); absent renders none. */
@@ -299,6 +309,18 @@ export interface PagePayload {
      * section on (`profile.drawer`): taxonomy of the drawer's profile block.
      */
     profile?: ProfileTaxonomy;
+    /**
+     * Routes of the built-in listing pages (config `pages`) of the payload's
+     * locale, present per enabled page — a missing key means the page is
+     * disabled (and emits no file). The whole block is absent only when
+     * every listing page is off. Consumers: the mobile drawer's listing
+     * row and the profile card's stat links.
+     */
+    pages?: {
+      timeline?: string;
+      categories?: string;
+      tags?: string;
+    };
   };
   navbar: NavItem[];
   /** Sidebar section resolved for this page. */
@@ -385,6 +407,31 @@ export interface SiteConfig {
      * over the payload articles). @default HOME_FEED_PER_PAGE
      */
     feedPerPage?: number;
+  };
+  /**
+   * Built-in listing pages: the timeline (all articles, year-grouped), the
+   * category overview and the tag overview. Each emits one static page per
+   * locale outside the content tree (`/timeline/`, `/categories/`,
+   * `/tags/`, never in navbar/sidebar); the mobile drawer links them and
+   * the profile card's stat numbers default to them. A disabled page emits
+   * nothing (its URL 404s) and loses every entry point. Content pages
+   * occupying the same route fail the build.
+   */
+  pages?: {
+    /**
+     * Timeline page at `<locale>/timeline`. @default true
+     */
+    timeline?: boolean;
+    /**
+     * Category overview at `<locale>/categories`, linking the per-category
+     * archives. @default true
+     */
+    categories?: boolean;
+    /**
+     * Tag overview at `<locale>/tags`, linking the per-tag archives.
+     * @default true
+     */
+    tags?: boolean;
   };
   /** Category/tag archive page options. */
   archive?: {

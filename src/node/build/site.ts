@@ -10,6 +10,7 @@ import type {
   PageAlternate,
   PageMeta,
   PagePayload,
+  ProfileChip,
   RelatedLink,
   SiteProfile,
   TermHooks,
@@ -22,9 +23,10 @@ import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
 import {
-  assertNoArchiveCollisions,
+  assertNoSyntheticCollisions,
   groupArchiveArticles,
   type ArchivePage,
+  type SyntheticRoute,
 } from './archive.ts';
 import {
   LinkResolver,
@@ -44,6 +46,14 @@ import { renderRobots, renderRss, renderSitemap } from './feeds.ts';
 import type { FeedArticle, SitemapEntry } from './feeds.ts';
 import { getGitTimes } from './git.ts';
 import { katexAssets, katexDevHref, pageUsesKatex } from './katex-assets.ts';
+import {
+  listingPages,
+  listingRoutesOf,
+  renderListingContent,
+  type ListingData,
+  type ListingKind,
+  type ListingPage,
+} from './listing.ts';
 import { createMarkdownRenderer } from './markdown-adapter.ts';
 import { buildChrome } from './nav-tree.ts';
 import { isNotFoundRoute, renderNotFound } from './not-found.ts';
@@ -58,7 +68,9 @@ import {
 import type { PageSource, RenderedPage } from './pages.ts';
 import {
   buildSiteProfile,
-  drawerProfileOf,
+  buildTaxonomy,
+  drawerStatsOf,
+  profileKeptArticles,
   renderProfileCard,
 } from './profile.ts';
 import {
@@ -103,6 +115,15 @@ interface LocaleChrome {
   navbar: PagePayload['navbar'];
   sidebar: PagePayload['sidebar'];
   articles: ArticleInfo[];
+  /**
+   * `profile.exclude`-filtered article list (the profile card's count and
+   * the timeline page's rows share one set, so the numbers can never
+   * drift); unfiltered when the site configures no profile.
+   */
+  listingArticles: ArticleInfo[];
+  /** Taxonomy chips of this locale (profile card + listing pages). */
+  categoryChips: ProfileChip[];
+  tagChips: ProfileChip[];
   /** Profile section data of this locale; null when no profile is configured
    * (the static home card and the drawer payload share this one derivation). */
   profile: SiteProfile | null;
@@ -155,6 +176,8 @@ interface RenderContext {
   siblings: Map<string, Map<string, PageSource>>;
   /** Archive key `<kind>/<name>` -> alternates; lazy like the chrome. */
   archiveAlternates: Map<string, PageAlternate[]> | null;
+  /** Enabled built-in listing pages (config `pages`), config locale order. */
+  listings: ListingPage[];
   integrations: Pick<
     PagePayload['site'],
     'icons' | 'algolia' | 'social' | 'logo'
@@ -506,7 +529,7 @@ export class SiteStore {
       let message: string | null = null;
       try {
         // Same assertion the build emit uses; catch turns it into a warning.
-        assertNoArchiveCollisions(this.pages, archives);
+        assertNoSyntheticCollisions(this.pages, [...archives, ...ctx.listings]);
       } catch (e) {
         message = e instanceof Error ? e.message : String(e);
       }
@@ -590,6 +613,7 @@ export class SiteStore {
       chrome: new Map(),
       siblings: siblingIndex(pages),
       archiveAlternates: null,
+      listings: listingPages(this.config),
       integrations: this.siteIntegrations(pages),
     };
   }
@@ -619,10 +643,19 @@ export class SiteStore {
       const articles = buildArticles(siblings);
       const profile = this.config.profile;
       const locale = this.config.locales.find(l => l.key === key);
+      // Timeline dataset and chips derive unconditionally (the listing pages
+      // render with no profile configured); buildSiteProfile recombines the
+      // same pieces for the card.
+      const kept = profileKeptArticles(profile, articles);
+      const chips = locale
+        ? buildTaxonomy(kept, locale)
+        : { categoryChips: [], tagChips: [] };
       chrome = {
         articles,
         navbar,
         sidebar,
+        listingArticles: kept,
+        ...chips,
         // The home card and the drawer payload share one derivation, so
         // their counts can never drift apart.
         profile:
@@ -795,7 +828,7 @@ export class SiteStore {
           ? { footerCredit: this.config.footer.credit }
           : {}),
         ...(chrome.profile && this.config.profile?.drawer
-          ? { profile: drawerProfileOf(chrome.profile) }
+          ? { profile: drawerStatsOf(chrome.profile) }
           : {}),
       }),
       navbar: chrome.navbar,
@@ -998,6 +1031,7 @@ export class SiteStore {
             lang: page.locale.lang,
             social: this.config.nav.social ?? [],
             icons: this.config.icons,
+            pages: listingRoutesOf(this.config, page.locale),
           }) + content;
       }
     }
@@ -1082,6 +1116,10 @@ export class SiteStore {
       'feedPerPage' | 'archivePerPage' | 'footerCredit' | 'profile'
     > = {},
   ): PagePayload['site'] {
+    const locale = this.config.locales.find(l => l.key === localeKey);
+    const listingRoutes = locale
+      ? listingRoutesOf(this.config, locale)
+      : undefined;
     return {
       title: this.config.title,
       description: this.config.description,
@@ -1092,6 +1130,7 @@ export class SiteStore {
       ...(this.config.nav.align === 'center'
         ? { navAlign: this.config.nav.align }
         : {}),
+      ...(listingRoutes ? { pages: listingRoutes } : {}),
       ...extra,
       ...ctx.integrations,
     };
@@ -1221,7 +1260,7 @@ export class SiteStore {
         archive.route,
         archive.locale.key,
         chrome.profile && this.config.profile?.drawer
-          ? { profile: drawerProfileOf(chrome.profile) }
+          ? { profile: drawerStatsOf(chrome.profile) }
           : {},
       ),
       navbar: chrome.navbar,
@@ -1235,6 +1274,71 @@ export class SiteStore {
       ...this.shellArgs(assets, archive.locale),
       payload,
       content: `<h1>${escapeHtml(archive.title, { attr: false })}</h1>`,
+    });
+  }
+
+  /**
+   * hreflang alternates of one listing kind: every locale carries the page
+   * (when enabled), config locale order. Undefined for single-locale sites.
+   */
+  private listingAlternates(
+    ctx: RenderContext,
+    kind: ListingKind,
+  ): PageAlternate[] | undefined {
+    const group = new Map<string, PageAlternate>();
+    for (const listing of ctx.listings) {
+      if (listing.kind === kind) {
+        group.set(listing.locale.key, {
+          lang: listing.locale.lang,
+          route: listing.route,
+        });
+      }
+    }
+    return alternatesIn(this.config, group, a => a);
+  }
+
+  /** Built-in listing page (`/timeline/`, `/categories/`, `/tags/`). */
+  private listingHtml(
+    listing: ListingPage,
+    assets: BuildAssets,
+    ctx: RenderContext,
+  ): string {
+    const chrome = this.chromeOf(ctx, listing.locale.key);
+    const meta: PageMeta = {
+      route: listing.route,
+      locale: listing.locale.key,
+      title: listing.title,
+      headings: [],
+      frontmatter: {},
+      createdAt: null,
+      updatedAt: null,
+    };
+    const alternates = this.listingAlternates(ctx, listing.kind);
+    const payload: PagePayload = {
+      // Like the archives: no feed knobs, but the drawer keeps the profile
+      // section and the listing row.
+      site: this.siteBlock(
+        ctx,
+        listing.route,
+        listing.locale.key,
+        chrome.profile && this.config.profile?.drawer
+          ? { profile: drawerStatsOf(chrome.profile) }
+          : {},
+      ),
+      navbar: chrome.navbar,
+      sidebar: chrome.sidebar,
+      page: alternates ? { ...meta, alternates } : meta,
+    };
+    const data: ListingData = {
+      articles: chrome.listingArticles,
+      categoryChips: chrome.categoryChips,
+      tagChips: chrome.tagChips,
+    };
+    // No katexHref: listing content is headings, links and chips — no math.
+    return renderShell({
+      ...this.shellArgs(assets, listing.locale),
+      payload,
+      content: renderListingContent(listing, data, baseOf(listing.route)),
     });
   }
 
@@ -1283,11 +1387,16 @@ export class SiteStore {
     const ctx = this.buildContext();
     const page = this.links.pageForRoute(route);
     if (page) return this.htmlForPage(page, this.devAssets, ctx);
-    const archive = [
+    const synthetic: (ArchivePage | ListingPage)[] = [
       ...this.archivePages(ctx, 'category'),
       ...this.archivePages(ctx, 'tag'),
-    ].find(a => a.route === route);
-    return archive ? this.archiveHtml(archive, this.devAssets, ctx) : null;
+      ...ctx.listings,
+    ];
+    const match = synthetic.find(a => a.route === route);
+    if (!match) return null;
+    return 'articles' in match
+      ? this.archiveHtml(match, this.devAssets, ctx)
+      : this.listingHtml(match, this.devAssets, ctx);
   }
 
   rss(): string {
@@ -1331,11 +1440,16 @@ export class SiteStore {
         source: this.htmlForPage(page, assets, ctx),
       });
     }
-    const archives = [
+    const archives: ArchivePage[] = [
       ...this.archivePages(ctx, 'category'),
       ...this.archivePages(ctx, 'tag'),
     ];
-    assertNoArchiveCollisions(this.pages, archives);
+    // One collision surface for every synthetic route: archives, the
+    // built-in listing pages and content pages fail loudly together.
+    assertNoSyntheticCollisions(this.pages, [
+      ...archives,
+      ...ctx.listings,
+    ] satisfies SyntheticRoute[]);
     for (const archive of archives) {
       out.push({
         fileName: routeToFileName(
@@ -1343,6 +1457,18 @@ export class SiteStore {
           this.config.urls.directoryIndex,
         ).slice(1),
         source: this.archiveHtml(archive, assets, ctx),
+      });
+    }
+    for (const listing of ctx.listings) {
+      out.push({
+        // Directory-index file shape (`timeline/index.html`) in both
+        // directoryIndex modes.
+        fileName: routeToFileName(
+          listing.route,
+          this.config.urls.directoryIndex,
+          true,
+        ).slice(1),
+        source: this.listingHtml(listing, assets, ctx),
       });
     }
     for (const [fileName, buf] of this.links.images) {
@@ -1364,10 +1490,10 @@ export class SiteStore {
       out.push({ fileName: '404.html', source: renderNotFound(this.config) });
     }
     // Pages carry their git last-commit time as lastmod; synthetic archive
-    // pages have no source file and stay lastmod-less. Both carry their
-    // hreflang alternates when cross-locale counterparts exist. Gated pages
-    // and the 404 override stay out: a sitemap entry advertises the URL to
-    // crawlers, defeating the gate's unlisted posture.
+    // and listing pages have no source file and stay lastmod-less. Both
+    // carry their hreflang alternates when cross-locale counterparts exist.
+    // Gated pages and the 404 override stay out: a sitemap entry advertises
+    // the URL to crawlers, defeating the gate's unlisted posture.
     const sitemapEntries: SitemapEntry[] = [
       ...ctx.pages
         .filter(
@@ -1385,6 +1511,11 @@ export class SiteStore {
         route: a.route,
         lastmod: null,
         alternates: this.archiveAlternatesOf(ctx).get(`${a.kind}/${a.title}`),
+      })),
+      ...ctx.listings.map(l => ({
+        route: l.route,
+        lastmod: null,
+        alternates: this.listingAlternates(ctx, l.kind),
       })),
     ];
     const feedable = ctx.pages.filter(p => p.meta.frontmatter.feed !== false);

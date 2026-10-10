@@ -11,6 +11,14 @@ export interface ArchivePage {
   articles: ArticleInfo[];
 }
 
+/** Route-collision view of one synthetic (non-content) page: an archive or
+ * a built-in listing page (config `pages`). */
+export interface SyntheticRoute {
+  route: string;
+  kind: 'category' | 'tag' | 'timeline' | 'categories' | 'tags';
+  title: string;
+}
+
 /** One archive group after case-insensitive name merging. */
 export interface ArchiveGroup {
   /** Display name; also used in the archive route. */
@@ -75,30 +83,35 @@ function majorityCasing(variants: Map<string, number>): string {
 }
 
 /**
- * Archive routes must not collide with a page route or another archive:
+ * Synthetic routes must not collide with a page route or each other:
  * e.g. `content/category/foo.md` maps to the same `/category/foo` as
- * the `foo` category archive. Without this check the failure only surfaces
+ * the `foo` category archive, `content/timeline/index.md` maps to the
+ * built-in `/timeline/`. Without this check the failure only surfaces
  * later as a duplicate emitFile name, far from the content that caused it.
  */
-export function assertNoArchiveCollisions(
+export function assertNoSyntheticCollisions(
   pages: PageSource[],
-  archives: ArchivePage[],
+  synthetic: SyntheticRoute[],
 ): void {
+  const label = (p: SyntheticRoute): string =>
+    p.kind === 'category' || p.kind === 'tag'
+      ? `${p.kind} archive "${p.title}"`
+      : `${p.kind} listing "${p.title}"`;
   const fileByRoute = new Map(pages.map(p => [p.route, p.filePath]));
-  const firstByRoute = new Map<string, ArchivePage>();
-  for (const archive of archives) {
-    const file = fileByRoute.get(archive.route);
+  const firstByRoute = new Map<string, SyntheticRoute>();
+  for (const page of synthetic) {
+    const file = fileByRoute.get(page.route);
     if (file) {
       throw new Error(
-        `[absolute-press] duplicate route ${archive.route}: ${archive.kind} archive "${archive.title}" and page ${file} both map to it`,
+        `[absolute-press] duplicate route ${page.route}: ${label(page)} and page ${file} both map to it`,
       );
     }
-    const first = firstByRoute.get(archive.route);
+    const first = firstByRoute.get(page.route);
     if (first) {
       throw new Error(
-        `[absolute-press] duplicate route ${archive.route}: ${first.kind} archive "${first.title}" and ${archive.kind} archive "${archive.title}" both map to it`,
+        `[absolute-press] duplicate route ${page.route}: ${label(first)} and ${label(page)} both map to it`,
       );
     }
-    firstByRoute.set(archive.route, archive);
+    firstByRoute.set(page.route, page);
   }
 }

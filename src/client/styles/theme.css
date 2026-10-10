@@ -981,6 +981,112 @@
   }
 
   /* ------------------------------------------------------------------------
+   * Built-in listing pages (config `pages`): static timeline + taxonomy
+   * overview. The h1 rides the prose defaults; these rules shape the bodies.
+   * ------------------------------------------------------------------------ */
+  .ap-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Chrome layer beats the prose h2 margins: the year heading is part of a
+   * compact list block, not a document section. */
+  .ap-timeline__year {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 0;
+    font-size: 1.15rem;
+  }
+
+  .ap-timeline__count {
+    padding: 0 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--c-text-2);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+  }
+
+  .ap-timeline__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ap-timeline__link {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    color: var(--c-text);
+    text-decoration: none;
+    transition: color 140ms ease-out;
+  }
+
+  .ap-timeline__link:hover {
+    color: var(--c-accent);
+    text-decoration: none;
+  }
+
+  .ap-timeline__date {
+    flex: none;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text-2);
+  }
+
+  .ap-timeline__title {
+    min-width: 0;
+  }
+
+  .ap-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ap-terms__chip {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: baseline;
+    padding: 0.15rem 0.7rem;
+    font-size: 0.85rem;
+    color: var(--c-text-2);
+    background-color: var(--c-bg);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+    transition:
+      color 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+
+  .ap-terms__chip:hover {
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+    text-decoration: none;
+  }
+
+  .ap-terms__count {
+    font-size: 0.72rem;
+    opacity: 0.75;
+  }
+
+  .ap-listing-empty {
+    padding: 2.5rem 0;
+    font-size: 0.875rem;
+    color: var(--c-text-2);
+    text-align: center;
+  }
+
+  /* ------------------------------------------------------------------------
    * Static profile card (config `profile`), injected above the home body at
    * build time. Below lg the mobile drawer's profile section takes over, so
    * the card hides; at xl+ site CSS may skin it into the TOC lane (the shell

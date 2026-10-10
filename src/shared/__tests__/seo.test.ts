@@ -29,6 +29,17 @@ function payload(route: string, localeKey = 'root'): PagePayload {
   };
 }
 
+/** Payload with the built-in listing routes in `site.pages`. */
+function withPages(route: string, tags: string, locale = 'root'): PagePayload {
+  return {
+    ...payload(route, locale),
+    site: {
+      ...payload(route, locale).site,
+      pages: { timeline: '/timeline/', categories: '/categories/', tags },
+    },
+  };
+}
+
 describe('seoPageType', () => {
   it('marks the default-locale home as website', () => {
     expect(seoPageType(payload('/'))).toBe('website');
@@ -50,6 +61,29 @@ describe('seoPageType', () => {
     // An article that merely lives under a category-named directory is not
     // an archive: only the exact `<prefix>/<kind>/<name>` shape counts.
     expect(seoPageType(payload('/category/news/extra'))).toBe('article');
+  });
+
+  it('marks the built-in listing pages as website via site.pages', () => {
+    expect(seoPageType(withPages('/timeline/', '/tags/'))).toBe('website');
+    expect(seoPageType(withPages('/categories/', '/tags/'))).toBe('website');
+    // Locale-prefixed listing routes match the same way.
+    expect(seoPageType(withPages('/en/tags/', '/en/tags/', 'en'))).toBe(
+      'website',
+    );
+  });
+
+  it('keeps a content page on a listing-shaped route an article when disabled', () => {
+    // `pages.tags` disabled: its key is absent, so /tags stays a content page.
+    const partial = {
+      ...payload('/tags'),
+      site: {
+        ...payload('/tags').site,
+        pages: { timeline: '/timeline/', categories: '/categories/' },
+      },
+    };
+    expect(seoPageType(partial)).toBe('article');
+    // No listing config at all: listing-shaped routes are content pages.
+    expect(seoPageType(payload('/timeline/'))).toBe('article');
   });
 });
 

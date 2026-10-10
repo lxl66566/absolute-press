@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { ArticleInfo, LocaleInfo } from '../../../shared/types.ts';
 import {
-  assertNoArchiveCollisions,
+  assertNoSyntheticCollisions,
   groupArchiveArticles,
   type ArchivePage,
+  type SyntheticRoute,
 } from '../archive.ts';
 import type { PageSource } from '../pages.ts';
 
@@ -45,6 +46,10 @@ function archive(
   title: string,
 ): ArchivePage {
   return { route, title, locale: LOCALE, kind, articles: [] };
+}
+
+function listing(route: string, kind: SyntheticRoute['kind']): SyntheticRoute {
+  return { route, kind, title: kind };
 }
 
 describe('groupArchiveArticles', () => {
@@ -95,10 +100,10 @@ describe('groupArchiveArticles', () => {
   });
 });
 
-describe('assertNoArchiveCollisions', () => {
+describe('assertNoSyntheticCollisions', () => {
   it('fails when an archive route collides with a page route', () => {
     expect(() =>
-      assertNoArchiveCollisions(
+      assertNoSyntheticCollisions(
         [page('/category/foo', 'category/foo.md')],
         [archive('/category/foo', 'category', 'foo')],
       ),
@@ -109,7 +114,7 @@ describe('assertNoArchiveCollisions', () => {
 
   it('fails when two archives share a route', () => {
     expect(() =>
-      assertNoArchiveCollisions(
+      assertNoSyntheticCollisions(
         [],
         [archive('/tag/x', 'tag', 'x'), archive('/tag/x', 'tag', 'X')],
       ),
@@ -118,13 +123,41 @@ describe('assertNoArchiveCollisions', () => {
     );
   });
 
+  it('fails when a listing page collides with a content page', () => {
+    expect(() =>
+      assertNoSyntheticCollisions(
+        [page('/timeline/', 'timeline/index.md')],
+        [listing('/timeline/', 'timeline')],
+      ),
+    ).toThrow(
+      /duplicate route \/timeline\/: timeline listing "timeline" and page \/content\/timeline\/index\.md both map to it/,
+    );
+  });
+
+  it('fails when a listing page collides with an archive', () => {
+    expect(() =>
+      assertNoSyntheticCollisions(
+        [],
+        [
+          archive('/categories', 'category', 'x'),
+          listing('/categories', 'categories'),
+        ],
+      ),
+    ).toThrow(
+      /duplicate route \/categories: category archive "x" and categories listing "categories" both map to it/,
+    );
+  });
+
   it('passes on distinct routes', () => {
     expect(() =>
-      assertNoArchiveCollisions(
+      assertNoSyntheticCollisions(
         [page('/blog/foo', 'blog/foo.md')],
         [
           archive('/category/foo', 'category', 'foo'),
           archive('/tag/foo', 'tag', 'foo'),
+          listing('/timeline/', 'timeline'),
+          listing('/categories/', 'categories'),
+          listing('/tags/', 'tags'),
         ],
       ),
     ).not.toThrow();
@@ -134,7 +167,7 @@ describe('assertNoArchiveCollisions', () => {
   // variants inside archives are merged earlier by groupArchiveArticles.
   it('treats routes differing only in case as distinct', () => {
     expect(() =>
-      assertNoArchiveCollisions(
+      assertNoSyntheticCollisions(
         [page('/category/foo', 'category/foo.md')],
         [archive('/category/Foo', 'category', 'Foo')],
       ),

@@ -907,14 +907,7 @@ describe('SiteStore profile', () => {
 
     const home = payloadOf(store.devHtml('/') ?? '');
     expect(home.site).toMatchObject({
-      profile: {
-        articles: 2,
-        categories: [{ name: 'Rust', count: 2, route: '/category/Rust' }],
-        tags: [
-          { name: 't', count: 2, route: '/tag/t' },
-          { name: 'u', count: 1, route: '/tag/u' },
-        ],
-      },
+      profile: { articles: 2, categories: 1, tags: 2 },
     });
     // The drawer is site-wide chrome: article payloads carry it too.
     const article = payloadOf(store.devHtml('/a') ?? '');
@@ -943,6 +936,128 @@ describe('SiteStore profile', () => {
     expect(home).not.toContain('ap-home-profile');
     expect(home).toContain('id="ap-toc"');
     expect(payloadOf(home ?? '').site).not.toHaveProperty('profile');
+  });
+});
+
+describe('SiteStore listing pages', () => {
+  const listingFiles = {
+    'index.md': '# Home\n',
+    'a.md': '---\ndate: 2026-10-10\ncategory: Rust\ntag: t\n---\n# A\n',
+    'b.md': '---\ndate: 2025-01-02\ntag: u\n---\n# B\n',
+  };
+
+  it('serves the timeline/categories/tags pages outside the content tree', async () => {
+    const fx = await contentFixture(listingFiles);
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    const timeline = store.devHtml('/timeline/');
+    expect(timeline).toContain('<h1>时间轴</h1>');
+    expect(timeline).toContain('ap-timeline__year">2026');
+    // Article hrefs carry the page's relative base.
+    expect(timeline).toContain('href="../a"');
+    // The timeline never leaks into navbar/sidebar chrome.
+    const payload = payloadOf(timeline ?? '');
+    expect(JSON.stringify(payload.navbar)).not.toContain('timeline');
+
+    const categories = store.devHtml('/categories/');
+    expect(categories).toContain('<h1>分类</h1>');
+    // The listing page sits one level deep: archive hrefs carry '../'.
+    expect(categories).toContain('href="../category/Rust"');
+    expect(store.devHtml('/tags/')).toContain('<h1>标签</h1>');
+
+    // Every payload carries the enabled listing routes (drawer links).
+    const article = payloadOf(store.devHtml('/a') ?? '');
+    expect(article.site).toMatchObject({
+      pages: {
+        timeline: '/timeline/',
+        categories: '/categories/',
+        tags: '/tags/',
+      },
+    });
+  });
+
+  it('emits directory-index files and sitemap entries', async () => {
+    const fx = await contentFixture(listingFiles);
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('timeline/index.html');
+    expect(names).toContain('categories/index.html');
+    expect(names).toContain('tags/index.html');
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).toContain('/timeline/');
+    expect(sitemap).toContain('<loc>https://test.example.com/tags/</loc>');
+  });
+
+  it('disabled pages vanish: no file, dev 404, no payload key, no sitemap entry', async () => {
+    const fx = await contentFixture(listingFiles, {
+      pages: { timeline: false },
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    expect(store.devHtml('/timeline/')).toBeNull();
+    expect(store.devHtml('/categories/')).not.toBeNull();
+
+    const article = payloadOf(store.devHtml('/a') ?? '').site as Record<
+      string,
+      unknown
+    >;
+    expect(article.pages).not.toHaveProperty('timeline');
+    expect(article.pages).toMatchObject({
+      categories: '/categories/',
+      tags: '/tags/',
+    });
+
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    expect(files.map(f => f.fileName)).not.toContain('timeline/index.html');
+    const sitemap = String(
+      files.find(f => f.fileName === 'sitemap.xml')?.source ?? '',
+    );
+    expect(sitemap).not.toContain('/timeline/');
+    expect(sitemap).toContain('/categories/');
+  });
+
+  it('fails the build when a content page occupies a listing route', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'timeline/index.md': '# T\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    expect(() =>
+      store.emitAll({
+        isBuild: true,
+        scriptFile: 'assets/entry.js',
+        cssFiles: [],
+      }),
+    ).toThrow(
+      /duplicate route \/timeline\/: timeline listing "时间轴" and page/,
+    );
+  });
+
+  it('profile card stats default to the enabled listing pages', async () => {
+    const fx = await contentFixture(listingFiles, { profile: {} });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+
+    const home = store.devHtml('/');
+    // Home base is '': the stat links are the bare listing routes.
+    expect(home).toContain('href="timeline/"');
+    expect(home).toContain('href="categories/"');
+    expect(home).toContain('href="tags/"');
   });
 });
 

@@ -242,18 +242,18 @@ profile: {
   name: 'Alice',              // 卡片显示名，默认站点 title
   avatar: '/me.jpg',          // 头像图，默认 nav.logo（都没有则不渲染头像）
   link: '/about',             // 头像+名称包裹的链接，可选
-  articlesLink: '/timeline/', // 「文章」统计数字的链接，可选；不配则统计为纯文本
+  articlesLink: '/timeline/', // 「文章」统计数字的链接，可选；默认链接到时间轴内置页
   exclude: ['/hide/'],        // 计数排除的路由前缀（文章总数与分类/标签计数）
-  drawer: true,               // 移动端抽屉区块开关，配了 profile 默认 true
+  drawer: true,               // 抽屉统计行计数开关，配了 profile 默认 true
 }
 ```
 
 作者主页卡片，严格 opt-in：不配置时框架行为零变化。配置后每个 locale 首页在构建期于正文顶部注入一张静态卡片（头像 / 统计行 / 社交图标行 / 分类+标签 chips，最终 HTML、零客户端 JS，爬虫与 no-JS 直接可见），同时该首页不再输出 TOC 容器（卡片占位轮廓泳道，客户端软导航会自动补回/移除容器）。
 
-- 统计行三项：文章数（配了 `articlesLink` 时是链接）、分类数与标签数（锚到卡片自己的分组锚点，`:target` 闪烁一次）
+- 统计行三项默认链接到内置列表页（文章→`/timeline/`、分类→`/categories/`、标签→`/tags/`）；`pages` 关闭对应页后回退——分类/标签锚到卡片自己的分组锚点（`:target` 闪烁一次），文章保持纯文本，除非配了 `articlesLink`（始终优先）
 - 社交图标行复用 `nav.social`（含内建品牌字形），新标签页打开
 - taxonomy 从该 locale 的文章列表派生（locale 首页已排除），再过滤 `exclude` 前缀；分组与排序同归档页（大小写合并、小写排序），chips 链接 `/category/<name>`、`/tag/<name>`，路由经 encodeURIComponent 并按页面深度加相对前缀
-- 响应式：`<1024px` 卡片隐藏，改由移动端抽屉承接（`drawer: false` 关闭抽屉区块）：抽屉原有头像/站点名/社交图标行不变，其下插入三项纯数字统计行与分类/标签两个原生 `<details>` 折叠组（默认折叠，chips 列表限高 40vh 内部滚动），credits 仍在最后；`1024–1280px` 卡片流入正文顶端；`≥1280px` 站点 CSS 可自行把卡片 skin 进 TOC 泳道
+- 响应式：`<1024px` 卡片隐藏，改由移动端抽屉承接：抽屉社交行下是「文章 / 分类 / 标签」三格统计行（数字在上、标签在下，与卡片统计同形态），每格点击直达内置列表页（见 [pages](#pages)）；配了 `profile` 时格内显示计数（与卡片同源，恒与归档一致），`drawer: false` 只去掉数字、留纯标签入口。`1024–1280px` 卡片流入正文顶端；`≥1280px` 站点 CSS 可自行把卡片 skin 进 TOC 泳道
 
 ## archive
 
@@ -264,6 +264,26 @@ archive: {
 ```
 
 归档页选项：每个分类/标签归档页（`/category/*`、`/tag/*`）的文章分页大小，客户端分页，取值须为不小于 1 的整数；非默认值才写入页面 payload。
+
+## pages
+
+```ts
+pages: {
+  timeline: true,   // 时间轴页（/timeline/），默认 true
+  categories: true, // 分类总览页（/categories/），默认 true
+  tags: true,       // 标签总览页（/tags/），默认 true
+}
+```
+
+框架内置列表页开关。三个页面都是每 locale 一张的合成静态页（最终 HTML、零客户端 JS，爬虫与 no-JS 直接可读），URL 固定为 `<locale>/timeline`、`<locale>/categories`、`<locale>/tags`（canonical 形态遵循 `urls.directoryIndex`），由框架在构建期生成，永不出现在 navbar/sidebar。
+
+- **时间轴**：全站文章按日期倒序、按年份分组的「日期 · 标题」行；数据集与 profile 卡的文章计数同源（`profile.exclude` 同步排除，未配置 profile 即全量，locale 首页除外），所以卡片「文章」计数恒等于时间轴行数；无日期文章归入「未注明日期」组排在最后
+- **分类 / 标签总览**：chips 云，列出该 locale 的全部分类/标签（大小写合并、计数徽章，与归档页同派生），点击进入对应归档页
+- **入口**：移动端抽屉社交行下的「文章 / 分类 / 标签」三格统计行（配了 `profile` 时格内带计数）；home 的 profile 卡统计数字默认链接到这三个页面；桌面端经 profile 卡或直达 URL 访问
+- **关闭**：设为 `false` 后页面不产出（URL 落 404），抽屉统计格与卡片统计链接一并消失，sitemap 同步移除
+- 内容页面占用同一路由（如 `timeline/index.md` 对 `/timeline/`）构建期直接报错——删除内容页或关闭对应内置页
+
+文档 / landing 站不需要这些页面时逐项设 `false` 即可。
 
 ## urls
 

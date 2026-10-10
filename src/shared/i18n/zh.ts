@@ -47,6 +47,17 @@ export const zh = {
     tagTitle: '标签：{name}',
     empty: '该分组下暂无文章',
   },
+  listing: {
+    /** Titles of the built-in listing pages (config `pages`). */
+    timeline: '时间轴',
+    categories: '分类',
+    tags: '标签',
+    /** Drawer stats labels linking to the built-in pages; `articles` reads
+     * as the entry name (the page itself stays 时间轴). */
+    articles: '文章',
+    /** Year group heading of the timeline for articles without a date. */
+    undated: '未注明日期',
+  },
   pagination: {
     prev: '上一页',
     next: '下一页',

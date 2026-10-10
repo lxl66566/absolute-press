@@ -1,5 +1,9 @@
 import { foucScript } from '../../shared/prefs.ts';
-import { parseArchiveRoute, seoPageType } from '../../shared/seo.ts';
+import {
+  isListingPage,
+  parseArchiveRoute,
+  seoPageType,
+} from '../../shared/seo.ts';
 import type { LocaleInfo, PagePayload } from '../../shared/types.ts';
 import { escapeHtml } from '../escape.ts';
 import { applyAssetBase } from './assets.ts';
@@ -162,7 +166,13 @@ function jsonLdOf(
   const { site, page } = input.payload;
   const inLanguage = input.locale.lang;
   if (seoPageType(input.payload) === 'website') {
-    if (parseArchiveRoute(page.route) !== null) return null;
+    // Synthetic listing pages (archives + built-in listing pages) carry none.
+    if (
+      parseArchiveRoute(page.route) !== null ||
+      isListingPage(input.payload)
+    ) {
+      return null;
+    }
     return {
       '@context': 'https://schema.org',
       '@type': 'WebSite',

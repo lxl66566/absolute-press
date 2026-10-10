@@ -47,6 +47,17 @@ export const en = {
     tagTitle: 'Tag: {name}',
     empty: 'No articles in this group',
   },
+  listing: {
+    /** Titles of the built-in listing pages (config `pages`). */
+    timeline: 'Timeline',
+    categories: 'Categories',
+    tags: 'Tags',
+    /** Drawer stats labels linking to the built-in pages; `articles` reads
+     * as the entry name (the page itself stays Timeline). */
+    articles: 'Posts',
+    /** Year group heading of the timeline for articles without a date. */
+    undated: 'Undated',
+  },
   pagination: {
     prev: 'Previous',
     next: 'Next',

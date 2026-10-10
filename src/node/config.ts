@@ -342,7 +342,10 @@ export interface ProfileConfig {
   articlesLink?: string;
   /** Route prefixes excluded from the article count and the taxonomy chips. */
   exclude?: string[];
-  /** Mobile drawer profile section; default true once `profile` is set. */
+  /**
+   * Count badges of the mobile drawer's listing nav row (the built-in
+   * timeline/categories/tags links); default true once `profile` is set.
+   */
   drawer?: boolean;
 }
 
@@ -443,6 +446,8 @@ export interface ResolvedConfig {
   readingTime: boolean;
   /** Home page options (article feed on/off, feed page size). */
   home: Required<NonNullable<SiteConfig['home']>>;
+  /** Built-in listing pages (timeline / categories / tags), all on by default. */
+  pages: Required<NonNullable<SiteConfig['pages']>>;
   /** Author profile options; absent when the site configures no profile. */
   profile?: ResolvedProfile;
   /** Category/tag archive page options. */
@@ -670,6 +675,11 @@ export function resolveConfig(
         1,
         'home.feedPerPage',
       ),
+    },
+    pages: {
+      timeline: config.pages?.timeline ?? true,
+      categories: config.pages?.categories ?? true,
+      tags: config.pages?.tags ?? true,
     },
     ...(resolvedProfile ? { profile: resolvedProfile } : {}),
     archive: {

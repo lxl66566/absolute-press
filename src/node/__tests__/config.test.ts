@@ -545,6 +545,28 @@ describe('resolveConfig onScan', () => {
   });
 });
 
+describe('resolveConfig pages', () => {
+  it('defaults every listing page to enabled', () => {
+    expect(resolveConfig(baseConfig(), '/root').pages).toEqual({
+      timeline: true,
+      categories: true,
+      tags: true,
+    });
+  });
+
+  it('keeps explicit switches', () => {
+    expect(
+      resolveConfig(
+        {
+          ...baseConfig(),
+          pages: { timeline: false, categories: true, tags: false },
+        },
+        '/root',
+      ).pages,
+    ).toEqual({ timeline: false, categories: true, tags: false });
+  });
+});
+
 /** Module-scope hook so the passthrough test compares one stable reference. */
 function scanHook(): { pages: number } {
   return { pages: 0 };

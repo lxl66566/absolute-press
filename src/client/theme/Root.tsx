@@ -1,12 +1,7 @@
 import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
-import type {
-  PagePayload,
-  ProfileChip,
-  ProfileTaxonomy,
-  SidebarItem,
-} from '../../shared/types';
+import type { PagePayload, SidebarItem } from '../../shared/types';
 import { ArchiveView } from './ArchiveView';
 import { ArticleFooter, FooterCredits } from './ArticleFooter';
 import { ArticleMeta } from './ArticleMeta';
@@ -16,8 +11,8 @@ import { cx } from './cx';
 import './MobileDrawer.css';
 import { FaIcon } from './FaIcon';
 import { HomeFeed } from './HomeFeed';
-import { useMessages, type Messages } from './i18n';
-import { ArrowUpIcon, ChevronDownIcon, RssIcon } from './icons';
+import { useMessages } from './i18n';
+import { ArrowUpIcon, RssIcon } from './icons';
 import { InlineToc } from './InlineToc';
 import { parseArchiveRoute, withBase } from './links';
 import { NavBar } from './NavBar';
@@ -67,80 +62,63 @@ function drawerCollapsed(
   return new Set(allGroupKeys(items).filter(key => !open.has(key)));
 }
 
-/** One collapsible chip group of the drawer profile section. */
-function DrawerProfileGroup(props: {
-  label: string;
-  chips: ProfileChip[];
-  /** Category chips carry count badges; tag chips stay plain. */
-  counts: boolean;
-}): SolidElement {
+/**
+ * Drawer stats row (config `pages`): the original three-number strip
+ * (count over label, like the profile card's stats row) where each cell
+ * links to its built-in page — timeline / categories / tags. Counts come
+ * from the profile stats when the drawer section is on (config `profile`);
+ * without a profile the cells degrade to plain text labels. Replaces both
+ * the old collapsible chip groups and the one-row-per-page interim.
+ */
+function DrawerListings(props: { payload: PagePayload }): SolidElement {
+  const t = useMessages(() => props.payload.site);
+  const entries = (): { route: string; label: string; count?: number }[] => {
+    const pages = props.payload.site.pages;
+    if (!pages) return [];
+    const stats = props.payload.site.profile;
+    const list: { route: string; label: string; count?: number }[] = [];
+    if (pages.timeline !== undefined) {
+      list.push({
+        route: pages.timeline,
+        label: t.listing.articles,
+        ...(stats ? { count: stats.articles } : {}),
+      });
+    }
+    if (pages.categories !== undefined) {
+      list.push({
+        route: pages.categories,
+        label: t.listing.categories,
+        ...(stats ? { count: stats.categories } : {}),
+      });
+    }
+    if (pages.tags !== undefined) {
+      list.push({
+        route: pages.tags,
+        label: t.listing.tags,
+        ...(stats ? { count: stats.tags } : {}),
+      });
+    }
+    return list;
+  };
   return (
-    <details class="ap-drawer-profile__group">
-      <summary class="ap-drawer-profile__summary">
-        <ChevronDownIcon class="ap-drawer-profile__chevron" />
-        <span class="ap-drawer-profile__label">{props.label}</span>
-        <span class="ap-drawer-profile__count">{props.chips.length}</span>
-      </summary>
-      <ul class="ap-drawer-profile__chips">
-        <For each={props.chips}>
-          {chip => (
-            <li>
-              <a
-                class="ap-drawer-profile__chip"
-                href={withBase(clientBase(), chip.route)}
-                onClick={closeDrawer}
-              >
-                {chip.name}
-                {props.counts && (
-                  <span class="ap-drawer-profile__chip-count">
-                    {chip.count}
-                  </span>
-                )}
-              </a>
-            </li>
+    <Show when={entries().length > 0}>
+      <div class="ap-drawer-stats">
+        <For each={entries()}>
+          {entry => (
+            <a
+              class="ap-drawer-stats__cell"
+              href={withBase(clientBase(), entry.route)}
+              onClick={closeDrawer}
+            >
+              <Show when={entry.count !== undefined}>
+                <b>{entry.count}</b>
+              </Show>
+              <span>{entry.label}</span>
+            </a>
           )}
         </For>
-      </ul>
-    </details>
-  );
-}
-
-/**
- * Drawer profile section (config `profile`, mobile only): a plain-number
- * stats row plus the category/tag chip groups behind native disclosures.
- */
-function DrawerProfile(props: {
-  profile: ProfileTaxonomy;
-  msg: Messages;
-}): SolidElement {
-  const t = props.msg;
-  return (
-    <div class="ap-drawer-profile">
-      <div class="ap-drawer-profile__stats">
-        <span class="ap-drawer-profile__stat">
-          <b>{props.profile.articles}</b>
-          <span>{t.profile.posts}</span>
-        </span>
-        <span class="ap-drawer-profile__stat">
-          <b>{props.profile.categories.length}</b>
-          <span>{t.profile.categories}</span>
-        </span>
-        <span class="ap-drawer-profile__stat">
-          <b>{props.profile.tags.length}</b>
-          <span>{t.profile.tags}</span>
-        </span>
       </div>
-      <DrawerProfileGroup
-        label={t.profile.categories}
-        chips={props.profile.categories}
-        counts
-      />
-      <DrawerProfileGroup
-        label={t.profile.tags}
-        chips={props.profile.tags}
-        counts={false}
-      />
-    </div>
+    </Show>
   );
 }
 
@@ -148,9 +126,9 @@ function DrawerProfile(props: {
 function DrawerFooter(props: { payload: PagePayload }): SolidElement {
   const t = useMessages(() => props.payload.site);
   const base = clientBase;
-  // The profile section (config `profile`) inserts between the social row
-  // and the credits; the brand row above stays exactly as before.
-  const profile = () => props.payload.site.profile;
+  // The listing row (config `pages`, with the profile stats when on)
+  // inserts between the social row and the credits; the brand row above
+  // stays exactly as before.
   return (
     <div class="ap-drawer-footer">
       <Show when={props.payload.site.logo}>
@@ -190,9 +168,7 @@ function DrawerFooter(props: { payload: PagePayload }): SolidElement {
           <RssIcon class="size-5" />
         </a>
       </div>
-      <Show when={profile()}>
-        {p => <DrawerProfile profile={p()} msg={t} />}
-      </Show>
+      <DrawerListings payload={props.payload} />
       {/* Site credits: on mobile the desktop footer is hidden, so the
           line lives here at the drawer's bottom instead. */}
       <div class="ap-drawer-footer__credits">

@@ -1,8 +1,9 @@
 /**
  * Build-time author profile: per-locale taxonomy derivation (shared by the
- * static home card and the drawer's payload site block) and the static card
- * HTML. Like the RecentArticles build component, the card is final static
- * HTML — crawlers and no-JS clients see it without hydration.
+ * static home card, the drawer's payload stats and the built-in listing
+ * pages) and the static card HTML. Like the RecentArticles build component,
+ * the card is final static HTML — crawlers and no-JS clients see it without
+ * hydration.
  */
 import { BUILTIN_SOCIAL_ICONS } from '../../shared/brand-icons.ts';
 import { messagesForLang } from '../../shared/i18n/index.ts';
@@ -25,40 +26,61 @@ const CATS_ANCHOR = 'ap-home-profile-cats';
 const TAGS_ANCHOR = 'ap-home-profile-tags';
 
 /**
- * Profile data of one locale: the locale's article list (buildArticles
- * output — locale homes already excluded) minus the `profile.exclude` routes,
- * grouped exactly like the archive pages (case merging, lowercase order), so
- * chip counts always agree with the archives.
+ * The article list every profile-taxonomy consumer derives from: the
+ * locale's article list (buildArticles output — locale homes already
+ * excluded) minus the `profile.exclude` routes. Undefined profile config
+ * keeps the list intact. The timeline page shares this set, so the
+ * profile card's article count always equals the timeline's row count.
  */
+export function profileKeptArticles(
+  profile: ResolvedProfile | undefined,
+  articles: ArticleInfo[],
+): ArticleInfo[] {
+  return profile
+    ? articles.filter(a => !isNavExcluded(a.route, profile.exclude))
+    : articles;
+}
+
+/**
+ * Chip lists of one locale, grouped exactly like the archive pages (case
+ * merging, lowercase order), so chip counts always agree with the archives.
+ */
+export function buildTaxonomy(
+  articles: ArticleInfo[],
+  locale: LocaleInfo,
+): { categoryChips: ProfileChip[]; tagChips: ProfileChip[] } {
+  const chips = (kind: 'category' | 'tag'): ProfileChip[] =>
+    groupArchiveArticles(articles, kind).map(group => ({
+      name: group.name,
+      count: group.articles.length,
+      route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}`,
+    }));
+  return { categoryChips: chips('category'), tagChips: chips('tag') };
+}
+
+/** Profile data of one locale (see profileKeptArticles / buildTaxonomy). */
 export function buildSiteProfile(
   profile: ResolvedProfile,
   articles: ArticleInfo[],
   locale: LocaleInfo,
 ): SiteProfile {
-  const kept = articles.filter(a => !isNavExcluded(a.route, profile.exclude));
-  const chips = (kind: 'category' | 'tag'): ProfileChip[] =>
-    groupArchiveArticles(kept, kind).map(group => ({
-      name: group.name,
-      count: group.articles.length,
-      route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}`,
-    }));
+  const kept = profileKeptArticles(profile, articles);
   return {
+    articles: kept.length,
+    ...buildTaxonomy(kept, locale),
     name: profile.name,
     ...(profile.avatar ? { avatar: profile.avatar } : {}),
     ...(profile.link ? { link: profile.link } : {}),
     ...(profile.articlesLink ? { articlesLink: profile.articlesLink } : {}),
-    articles: kept.length,
-    categories: chips('category'),
-    tags: chips('tag'),
   };
 }
 
-/** Payload view of the profile data: taxonomy only, no card identity. */
-export function drawerProfileOf(data: SiteProfile): ProfileTaxonomy {
+/** Payload view of the profile data: plain counts, no chips, no identity. */
+export function drawerStatsOf(data: SiteProfile): ProfileTaxonomy {
   return {
     articles: data.articles,
-    categories: data.categories,
-    tags: data.tags,
+    categories: data.categoryChips.length,
+    tags: data.tagChips.length,
   };
 }
 
@@ -140,6 +162,17 @@ export interface ProfileCardContext {
   social: SocialEntry[];
   /** Full config icons map (site-trusted svg strings). */
   icons: Record<string, string>;
+  /**
+   * Built-in listing page routes of this locale (config `pages`): the
+   * default stat-link targets. A disabled page falls back — categories and
+   * tags anchor to the card's own chip groups, the article count renders
+   * as plain text unless `profile.articlesLink` is set.
+   */
+  pages?: {
+    timeline?: string;
+    categories?: string;
+    tags?: string;
+  };
 }
 
 /**
@@ -160,16 +193,28 @@ export function renderProfileCard(
     : '';
   const link =
     data.link === undefined ? undefined : linkHref(ctx.base, data.link);
+  const articlesHref =
+    data.articlesLink === undefined ? ctx.pages?.timeline : data.articlesLink;
   const stats = [
     statHtml(
       data.articles,
       t.posts,
-      data.articlesLink === undefined
-        ? undefined
-        : linkHref(ctx.base, data.articlesLink),
+      articlesHref === undefined ? undefined : linkHref(ctx.base, articlesHref),
     ),
-    statHtml(data.categories.length, t.categories, `#${CATS_ANCHOR}`),
-    statHtml(data.tags.length, t.tags, `#${TAGS_ANCHOR}`),
+    statHtml(
+      data.categoryChips.length,
+      t.categories,
+      ctx.pages?.categories === undefined
+        ? `#${CATS_ANCHOR}`
+        : linkHref(ctx.base, ctx.pages.categories),
+    ),
+    statHtml(
+      data.tagChips.length,
+      t.tags,
+      ctx.pages?.tags === undefined
+        ? `#${TAGS_ANCHOR}`
+        : linkHref(ctx.base, ctx.pages.tags),
+    ),
   ].join('');
   const social = ctx.social
     .map(s => {
@@ -188,8 +233,8 @@ export function renderProfileCard(
     wrapLink(link, name, 'ap-home-profile__name') +
     `<div class="ap-home-profile__stats">${stats}</div>` +
     `<div class="ap-home-profile__social">${social}</div>` +
-    groupHtml('category', data.categories, t.categories, ctx.base) +
-    groupHtml('tag', data.tags, t.tags, ctx.base) +
+    groupHtml('category', data.categoryChips, t.categories, ctx.base) +
+    groupHtml('tag', data.tagChips, t.tags, ctx.base) +
     `</div></section>`
   );
 }
