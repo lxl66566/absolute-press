@@ -37,6 +37,8 @@ export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
   if (typeof feed === 'boolean') frontmatter.feed = feed;
   const overview = raw['overview'];
   if (typeof overview === 'boolean') frontmatter.overview = overview;
+  const description = raw['description'];
+  if (typeof description === 'string') frontmatter.description = description;
 
   if (filePath !== undefined) {
     const unknown = Object.keys(raw).filter(key => !KNOWN_KEYS.has(key));
@@ -58,6 +60,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   'icon',
   'feed',
   'overview',
+  'description',
 ]);
 
 /**

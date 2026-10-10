@@ -540,6 +540,7 @@ describe('renderShell JSON-LD', () => {
     const data = jsonLd(
       shell('/guide/a', {
         payload: article,
+        ogImage: '/logo.jpg',
         author: { name: 'Alice', url: 'https://example.com/about' },
       }),
     );
@@ -550,9 +551,15 @@ describe('renderShell JSON-LD', () => {
       url: 'https://example.com/guide/a',
       mainEntityOfPage: 'https://example.com/guide/a',
       description: 'Page summary.',
+      image: 'https://example.com/logo.jpg',
       datePublished: '2026-01-02T00:00:00.000Z',
       dateModified: '2026-02-03T00:00:00.000Z',
       inLanguage: 'zh-CN',
+      publisher: {
+        '@type': 'Organization',
+        name: 'Site',
+        url: 'https://example.com',
+      },
       author: {
         '@type': 'Person',
         name: 'Alice',

@@ -189,9 +189,19 @@ function jsonLdOf(
     url,
     mainEntityOfPage: url,
     description,
+    // Share-card image passthrough (absolute URL, same value as og:image)
+    // for search rich-result eligibility.
+    ...(input.ogImage
+      ? { image: ogImageUrl(input.hostname, input.ogImage) }
+      : {}),
     ...(page.createdAt ? { datePublished: page.createdAt } : {}),
     ...(page.updatedAt ? { dateModified: page.updatedAt } : {}),
     inLanguage,
+    publisher: {
+      '@type': 'Organization',
+      name: site.title,
+      url: input.hostname,
+    },
     ...(input.author
       ? {
           author: {

@@ -32,8 +32,14 @@ function currentWidth(): number {
   return width !== undefined && width > 0 ? width : 288;
 }
 
+// Focusable separator (widget role): ARIA requires an aria-valuenow within
+// [min, max]. Every write path funnels through applyWidth/resetWidth, so the
+// signal stays in sync with the persisted value.
+const [announcedWidth, setAnnouncedWidth] = createSignal(SIDEBAR_MIN_WIDTH_PX);
+
 function applyWidth(px: number): void {
   document.documentElement.style.setProperty(SIDEBAR_WIDTH_CSS_VAR, `${px}px`);
+  setAnnouncedWidth(px);
 }
 
 function saveWidth(px: number): void {
@@ -51,6 +57,9 @@ function resetWidth(): void {
     // storage unavailable — the inline override still clears below
   }
   document.documentElement.style.removeProperty(SIDEBAR_WIDTH_CSS_VAR);
+  // The stylesheet default takes over once the override clears; a forced
+  // layout read picks the restored width back up for the announcement.
+  setAnnouncedWidth(currentWidth());
 }
 
 /**
@@ -137,12 +146,23 @@ function onResizeKeyDown(e: KeyboardEvent): void {
  * width. Pre-paint restore lives in the shell's FOUC script.
  */
 function SidebarResizer(props: { label: string }): SolidElement {
+  // The FOUC bootstrap restores the persisted width before this chunk runs,
+  // so the mount-time read announces the real width, not the clamp floor.
+  createEffect(
+    () => 0,
+    () => {
+      setAnnouncedWidth(currentWidth());
+    },
+  );
   return (
     <div
       class="ap-sidebar-resizer hidden lg:block"
       role="separator"
       aria-orientation="vertical"
       aria-label={props.label}
+      aria-valuemin={SIDEBAR_MIN_WIDTH_PX}
+      aria-valuemax={SIDEBAR_MAX_WIDTH_PX}
+      aria-valuenow={announcedWidth()}
       title={props.label}
       tabindex="0"
       onPointerDown={onResizePointerDown}

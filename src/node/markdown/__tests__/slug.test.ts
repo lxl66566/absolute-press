@@ -116,6 +116,14 @@ describe('heading slug', () => {
     expect(result.html).toContain('<h1 id="second">Second</h1>');
   });
 
+  it('keeps escaped chars in the title and heading text', () => {
+    // markdown-it 14+ emits escaped chars as text_special; the display text
+    // must keep them (`\_` losing the `_` entirely broke <title> extraction).
+    const result = md.render('# 绝对值\\_x 的存在证明', ENV);
+    expect(result.title).toBe('绝对值_x 的存在证明');
+    expect(result.headings[0]?.text).toBe('绝对值_x 的存在证明');
+  });
+
   it('returns null title without an h1', () => {
     expect(md.render('## Only h2', ENV).title).toBeNull();
   });

@@ -20,6 +20,11 @@ export interface PageFrontmatter {
    * link target and a sidebar member.
    */
   overview?: boolean;
+  /**
+   * Explicit meta/og description override; absent pages keep the derived
+   * content excerpt. RSS item descriptions always use the content excerpt.
+   */
+  description?: string;
 }
 
 export interface Heading {

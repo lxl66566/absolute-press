@@ -159,3 +159,22 @@ test('folder rows survive the 375px drawer', async ({ page }) => {
   await expect(page).toHaveURL(/\/guide\/advanced\/deep$/);
   await expect(drawer).not.toHaveClass(/ap-open/);
 });
+
+test('drawer tree mounts on first open, not at hydration', async ({ page }) => {
+  page.setViewportSize({ width: 375, height: 667 });
+  await page.goto('/guide/advanced/deep');
+  // Hydration marker: the hamburger toggle is client-rendered.
+  const toggle = page.getByRole('button', { name: '打开菜单' });
+  await expect(toggle).toBeVisible();
+  // Hydrated but never opened: the whole-article tree stays unmounted (the
+  // DOM savings the lazy mount exists for).
+  await expect(page.locator('.ap-drawer-tree')).toHaveCount(0);
+  await toggle.click();
+  await expect(page.locator('.ap-drawer-tree a').first()).toBeVisible();
+  // Closing hides the panel without unmounting the tree (the toggle's
+  // accessible name flips with the open state).
+  await page.getByRole('button', { name: '关闭菜单' }).click();
+  const drawer = page.locator('#ap-nav .ap-drawer-panel');
+  await expect(drawer).not.toHaveClass(/ap-open/);
+  await expect(page.locator('.ap-drawer-tree')).toHaveCount(1);
+});

@@ -136,7 +136,7 @@ function DrawerFooter(props: { payload: PagePayload }): SolidElement {
           <img
             class="ap-drawer-footer__avatar"
             src={withBase(base(), logo())}
-            alt=""
+            alt={props.payload.site.title}
           />
         )}
       </Show>
@@ -185,6 +185,18 @@ function DrawerFooter(props: { payload: PagePayload }): SolidElement {
  */
 function MobileDrawer(props: { payload: PagePayload }): SolidElement {
   const t = useMessages(() => props.payload.site);
+  // The whole-article tree (plus the footer) mounts on the first open, not
+  // at hydration: the closed drawer is display-only until then, so pages
+  // ship one tree (the desktop rail's) instead of two for every visitor.
+  // Closing hides without unmounting, keeping the drawer's state and the
+  // open/close transition cheap after the first use.
+  const [contentMounted, setContentMounted] = createSignal(false);
+  createEffect(
+    () => drawerOpen(),
+    open => {
+      if (open) setContentMounted(true);
+    },
+  );
   // First level only; the active path starts expanded so the current page
   // is visible without extra taps.
   const [collapsedKeys, setCollapsedKeys] = createSignal<ReadonlySet<string>>(
@@ -239,19 +251,21 @@ function MobileDrawer(props: { payload: PagePayload }): SolidElement {
         class={cx('ap-drawer-panel', drawerOpen() && 'ap-open')}
         aria-hidden={drawerOpen() ? 'false' : 'true'}
       >
-        <ul class="ap-drawer-tree">
-          <SidebarTree
-            items={props.payload.sidebar}
-            collapsed={collapsedKeys}
-            toggle={toggle}
-            onNavigate={closeDrawer}
-            headingToggles
-            activeLinkClass="ap-drawer-link-active bg-[var(--c-bg-soft)]"
-            msg={t}
-            icons={props.payload.site.icons}
-          />
-        </ul>
-        <DrawerFooter payload={props.payload} />
+        <Show when={contentMounted()}>
+          <ul class="ap-drawer-tree">
+            <SidebarTree
+              items={props.payload.sidebar}
+              collapsed={collapsedKeys}
+              toggle={toggle}
+              onNavigate={closeDrawer}
+              headingToggles
+              activeLinkClass="ap-drawer-link-active bg-[var(--c-bg-soft)]"
+              msg={t}
+              icons={props.payload.site.icons}
+            />
+          </ul>
+          <DrawerFooter payload={props.payload} />
+        </Show>
       </nav>
     </>
   );

@@ -189,7 +189,7 @@ export function renderProfileCard(
   const avatar = data.avatar
     ? `<img class="ap-home-profile__avatar-img" src="${escapeHtml(
         linkHref(ctx.base, data.avatar),
-      )}" alt="">`
+      )}" alt="${escapeHtml(data.name)}">`
     : '';
   const link =
     data.link === undefined ? undefined : linkHref(ctx.base, data.link);

@@ -117,6 +117,19 @@ describe('parseFrontmatter overview', () => {
   });
 });
 
+describe('parseFrontmatter description', () => {
+  it('extracts strings and drops non-string values', () => {
+    expect(
+      parseFrontmatter('---\ndescription: Site summary.\n---\n\nx').frontmatter,
+    ).toEqual({
+      description: 'Site summary.',
+    });
+    expect(
+      parseFrontmatter('---\ndescription: [a, b]\n---\n\nx').frontmatter,
+    ).toEqual({});
+  });
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
 });

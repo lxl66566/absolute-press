@@ -37,11 +37,19 @@ export function anchorText(token: Token): string {
   return out;
 }
 
-/** Plain display text of an inline token (no HTML); line breaks become spaces. */
+/**
+ * Plain display text of an inline token (no HTML); line breaks become spaces.
+ * `text_special` carries escaped/entity chars (markdown-it 14+): skipping it
+ * would drop them from the title/TOC text (`\_` losing its `_` entirely).
+ */
 function displayText(token: Token): string {
   let out = '';
   for (const child of token.children ?? []) {
-    if (child.type === 'text' || child.type === 'code_inline')
+    if (
+      child.type === 'text' ||
+      child.type === 'text_special' ||
+      child.type === 'code_inline'
+    )
       out += child.content;
     else if (child.type === 'softbreak' || child.type === 'hardbreak')
       out += ' ';

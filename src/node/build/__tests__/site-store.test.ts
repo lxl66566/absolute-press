@@ -610,7 +610,7 @@ describe('SiteStore', () => {
     const assets = {
       isBuild: true,
       scriptFile: 'assets/entry-a1b2.js',
-      cssFiles: [],
+      cssFiles: ['assets/entry-c3d4.css'],
     };
 
     const plain = new SiteStore(fx.config);
@@ -620,7 +620,8 @@ describe('SiteStore', () => {
       files.find(f => f.fileName === '_headers')?.source ?? '',
     );
     // Content-hashed assets get immutable caching; the entry file name is
-    // plumbed from the build bundle into the modulepreload Link header.
+    // plumbed from the build bundle into the modulepreload Link header, and
+    // its stylesheets ride along as preloads for the Early Hints response.
     expect(headers).toContain('/assets/*');
     expect(headers).toContain(
       'Cache-Control: public, max-age=31536000, immutable',
@@ -629,7 +630,8 @@ describe('SiteStore', () => {
     expect(headers).toContain('/assets/katex/*');
     expect(headers).toContain('Cache-Control: public, max-age=86400');
     expect(headers).toContain(
-      'Link: </assets/entry-a1b2.js>; rel=modulepreload',
+      'Link: </assets/entry-a1b2.js>; rel=modulepreload, ' +
+        '</assets/entry-c3d4.css>; rel=preload; as=style',
     );
 
     // A user-provided public/_headers takes over; the build must not emit

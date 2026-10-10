@@ -580,7 +580,11 @@ export class SiteStore {
     const entry: RenderedEntry = {
       mtimeMs: file.mtimeMs,
       result,
-      excerpt: plainExcerpt(result.html, META_EXCERPT_LIMIT),
+      // An explicit frontmatter description overrides the derived excerpt
+      // (feeds keep their own content-derived descriptions).
+      excerpt:
+        result.frontmatter.description?.trim() ||
+        plainExcerpt(result.html, META_EXCERPT_LIMIT),
     };
     this.rendered.set(page.filePath, entry);
     return entry;
@@ -1542,7 +1546,7 @@ export class SiteStore {
     } else {
       out.push({
         fileName: '_headers',
-        source: renderCloudflareHeaders(assets.scriptFile),
+        source: renderCloudflareHeaders(assets.scriptFile, assets.cssFiles),
       });
     }
     return out;
