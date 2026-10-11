@@ -25,9 +25,10 @@ export interface XListCell {
   /** Bare-number score emphasis (legacy high/low score colors). */
   score?: 'is-high-score' | 'is-low-score';
   /**
-   * Numeric header-sort key (score columns). A column is sortable when every
-   * cell carries a key or is an empty placeholder; cells without a key sink
-   * to the bottom in both directions.
+   * Numeric header-sort key (score columns). A column where every cell
+   * carries a key or is an empty placeholder sorts numerically (desc first,
+   * cells without a key sink to the bottom in both directions); every other
+   * column sorts by cell text.
    */
   sortValue?: number;
 }
@@ -71,8 +72,11 @@ export interface XListProps {
   inlineCount?: number;
   /** Search box. @default true */
   searchable?: boolean;
-  /** Header-click sorting (title column + meta columns). @default true */
-  sortable?: boolean;
+  /**
+   * Which headers get sort triangles: `true` (default) all, `false` none,
+   * or an explicit whitelist of `'title'` / visible meta column indexes.
+   */
+  sortable?: boolean | ReadonlyArray<'title' | number>;
   /** Expandable rows with body slots. @default true */
   collapsible?: boolean;
   /** Entry count line in the toolbar. @default true */
@@ -85,4 +89,13 @@ export interface XListProps {
    * rows stay accounted for.
    */
   filters?: readonly XListFilter[];
+  /**
+   * Custom header-sort comparators keyed by `title` or a visible meta
+   * column index. Each replaces that column's built-in rule (natural title
+   * order / `sortValue` numeric / cell text); the framework flips the
+   * arguments for descending, so the comparator always reads ascending.
+   */
+  sorters?: Partial<
+    Record<'title' | number, (a: XListItem, b: XListItem) => number>
+  >;
 }

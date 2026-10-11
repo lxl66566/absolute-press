@@ -158,9 +158,9 @@ A remote URL `src` passes to the client as-is; relative paths (`./` `../`) and s
 
 ## ExpandableList
 
-An expandable table list: entry data plus one markdown block per entry, aimed at search/sort/expand-style long lists (100+ entries are fine). At build time entries render into a static table (fully expanded without JS, indexed by SEO as usual); after activation it offers search, sorting, expand/collapse all, and per-row folding. A hint bubble saying "Click a table row to expand its details!" sits above the table, rows end with an arrow that rotates with the expand state, and expandable rows get a theme-colored outline on hover.
+An expandable table list: entry data plus one markdown block per entry, aimed at search/sort/expand-style long lists (100+ entries are fine). At build time entries render into a static table (fully expanded without JS, indexed by SEO as usual); after activation it offers search, header-click sorting, and per-row folding. The "Click a table row to expand its details!" hint bubble, the search box, and the "n / n items" count line can each be hidden with a prop. Rows end with an arrow that rotates with the expand state, and expandable rows get a theme-colored outline on hover.
 
-Entries are separated by `@@@ Title` lines (up to 3 leading spaces; the title is single-line plain text); content before the first `@@@` is the preamble, rendered statically above the toolbar. Entry bodies are regular markdown — containers, tables, images, and code blocks all work. The list below is fully operational — try searching "container" or "inline code", then sort by title:
+Entries are separated by `@@@ Title` lines (up to 3 leading spaces; the title is single-line plain text); content before the first `@@@` is the preamble, rendered statically above the toolbar. Entry bodies are regular markdown — containers, tables, images, and code blocks all work. The list below is fully operational — try searching "container" or "inline code":
 
 <ExpandableList>
 
@@ -229,17 +229,17 @@ Entry content renders independently at build time.
 
 Props (all optional):
 
-- `:searchable="false"` / `:sortable="false"`: hide the search box / sort dropdown (mind the `:` prefix; the string `"false"` also counts as off)
-- `:columns='["Title","Length",…]'`: header labels; item 1 is the title column; omit it to render no header row
+- `:searchable="false"` / `:sortable="false"` / `:showCount="false"` / `:hint="false"`: hide the search box / header sort triangles / count line / expand hint bubble (mind the `:` prefix; the string `"false"` also counts as off). `:sortable` also accepts a JSON array whitelist (`:sortable='["title", 0]'` — `"title"` for the title column, numbers for meta column indexes) that draws triangles only on those headers
+- `:columns='["Title","Length",…]'`: header labels; item 1 is the title column; omit it to render no header row. The sort triangles live in the headers, so sorting is only available when `columns` is set
 - UI strings follow the page language: matched by `<html lang>` prefix (`en-US` → English, unregistered languages fall back to Chinese), no prop needed
 
-With search and sort off, the toolbar keeps only the expand/collapse buttons and the count:
+With search and sort off, the toolbar keeps only the count (`:showCount="false"` removes it too):
 
 <ExpandableList :searchable="false" :sortable="false">
 
 @@@ Folding only
 
-With search and sort off, per-entry folding and expand/collapse all still work.
+With search and sort off, per-entry folding still works.
 
 @@@ Second entry
 
@@ -254,7 +254,7 @@ A shorter toolbar, a quieter list.
 
 @@@ Folding only
 
-With search and sort off, per-entry folding and expand/collapse all still work.
+With search and sort off, per-entry folding still works.
 
 @@@ Second entry
 
@@ -299,7 +299,7 @@ Behavior details:
 - Headings (`##`) inside entries do not enter the page TOC; footnote ids are namespaced per fragment and never clash with the host page
 - The static HTML is a fully expanded table (good for SEO and no-JS reading); after activation everything collapses by default, causing one layout settle
 - Islands inside entries (the ZoomedImg above) activate; entries remount when search/sort removes and returns them — heavy lazy-loading islands like Mermaid/G2Plot are best placed sparingly
-- Search is multi-keyword AND substring matching (case-insensitive, hits title/meta/body); sorting uses `localeCompare` natural comparison
+- Search is multi-keyword AND substring matching (case-insensitive, hits title/meta/body); headers click-cycle their sort (asc → desc → default) with `localeCompare` natural comparison (digit runs compare numerically, case-insensitive) across the title and meta columns, available once `:columns` provides headers
 - Customization: style classes live under the `.ap-xlist*` namespace (`src/client/islands/ExpandableList.css`), all driven by `--c-*` theme variables — override the variables to restyle; UI strings live in the `xlist` section of `shared/i18n` (zh is the shape source of truth)
 
 ## Giscus
@@ -412,7 +412,7 @@ Implementation details of pipeline splitting and activation timing are in [Desig
 
 ### Data-driven tables (XList)
 
-ExpandableList reads its row data from `@@` meta lines, recognizing badges and scores from content; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (title column asc → desc → default; numeric columns desc → asc → default, cells without a sort key sinking to the bottom), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
+ExpandableList reads its row data from `@@` meta lines, recognizing badges and scores from content; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (every column sortable by default: `sortValue` numeric columns sort desc → asc → default, the rest by natural cell-text order asc → desc → default; `sorters` overrides the comparator per column), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
 
 A minimal wrapper (the data module `games.ts` exports an array):
 
@@ -467,11 +467,12 @@ The entry body is plain markdown.
 Behavior notes:
 
 - `slotItems(childrenHtml, data, baseKey, build, label)` pairs bodies with data by slot title: duplicate base keys get `#2`, `#3` suffixes in order (`assignSlotKeys` is exported separately so validation tools share the rule with the component), a slot matching no data item is dropped with a console warning, and data rows without a slot still render (just not expandable)
-- `XList` props: `columns` header labels, `inlineCount` trailing meta columns folded into the title cell, `searchable` / `sortable` / `collapsible` toggles (all on by default; turn everything off for a plain display table), `filters` exclusion filters (checking one hides rows carrying its `filterFlags`; the count line keeps showing visible / total)
+- `XList` props: `columns` header labels, `inlineCount` trailing meta columns folded into the title cell, `searchable` / `sortable` / `collapsible` / `showCount` / `hint` toggles (all on by default; turn everything off for a plain display table), `filters` exclusion filters (checking one hides rows carrying its `filterFlags`; the count line keeps showing visible / total)
+- sorting: the title column and every meta header are clickable by default (`sortable`: `true` all on (default) / `false` all off / an array of `'title'` and meta column indexes to enable just those). A column whose cells all carry a `sortValue` or are empty placeholders sorts numerically (descending first, keyless cells sinking); every other column sorts by natural cell-text comparison. Pass `sorters` as `{ title | columnIndex: (a, b) => number }` to override a column's comparator (the framework only flips the arguments for descending)
 - the sort key of a numeric column is the cell's `sortValue`: a header becomes clickable only when every cell in the column carries a key or an empty placeholder
 - rich title cells use `titleParts` (link/badge/`fold` parts; `fold` renders through the `Fold` primitive's two-line clamp), for tables whose first column is itself a link
 - nested islands inside slot bodies are re-activated after filter/sort rebuilds
-- without JS the static skeleton still shows every entry; UI copy follows the page language (`xlist` section of `shared/i18n`), styles reuse the ExpandableList `.ap-xlist*` contract with the sorter/filter increment in `src/client/xlist/XList.css`
+- without JS the static skeleton still shows every entry; UI copy follows the page language (`xlist` section of `shared/i18n`), styles reuse the ExpandableList `.ap-xlist*` contract with the sort state machine in `src/client/xlist/sort.ts`, the sort triangles in `Sorter.tsx`, and the sorter/filter styles in `src/client/xlist/XList.css`
 
 ### Reading site-wide data (site-data)
 

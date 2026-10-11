@@ -5,6 +5,15 @@ import { hydrateIslands } from '../runtime/hydrate';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { Fold } from './Fold';
+import {
+  itemComparator,
+  nextSortDir,
+  numericColumns,
+  resolveSortable,
+  sortableHeader,
+  type SortState,
+} from './sort';
+import { Sorter } from './Sorter';
 import { htmlText } from './static';
 import type { XListCell, XListItem, XListPart, XListProps } from './types';
 
@@ -14,22 +23,6 @@ import type { XListCell, XListItem, XListPart, XListProps } from './types';
 // XList.css adds only the controls this component renders.
 import '../islands/ExpandableList.css';
 import './XList.css';
-
-/** Active header sort: `title` or a visible meta column index + direction. */
-interface SortState {
-  col: 'title' | number;
-  dir: 'asc' | 'desc';
-}
-
-/** First click direction: titles read naturally ascending, scores descending
- * (none -> desc -> asc -> none cycle). */
-const firstDir = (col: SortState['col']): 'asc' | 'desc' =>
-  col === 'title' ? 'asc' : 'desc';
-
-/** Natural title order: base-insensitive, digit runs compared numerically. */
-function compareTitles(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-}
 
 let uidSeq = 0;
 
@@ -82,47 +75,15 @@ function PartsView(props: { parts: readonly XListPart[] }): SolidElement {
   );
 }
 
-/** Legacy SortIndicator port: stacked triangles, the active one accent-lit. */
-function Sorter(props: {
-  label: string;
-  hint: string;
-  dir: 'asc' | 'desc' | 'none';
-  onToggle: () => void;
-}): SolidElement {
-  return (
-    <button
-      type="button"
-      class="ap-xlist__sorter"
-      onClick={props.onToggle}
-      title={props.hint}
-    >
-      <span class="ap-xlist__sorter-label">{props.label}</span>
-      <span class="ap-xlist__sorter-icons" aria-hidden="true">
-        <span
-          class={cx(
-            'ap-xlist__sorter-tri is-up',
-            props.dir === 'asc' && 'is-active',
-          )}
-        />
-        <span
-          class={cx(
-            'ap-xlist__sorter-tri is-down',
-            props.dir === 'desc' && 'is-active',
-          )}
-        />
-      </span>
-    </button>
-  );
-}
-
 /**
  * Data-driven entry table: typed items in, header-click sorting (title +
- * numeric columns) / search / exclusion filters / expandable rows out.
- * Sites register a thin island in config `entryListIslands`, map their TS
- * data module through `slotItems`, and hand the items to this component.
- * Row bodies are the `@@@` slot bodies of the build-time pipeline; nested
- * islands inside a body are hydrated by the root MutationObserver below
- * (initial mount and every filter/sort rebuild alike).
+ * meta columns; score columns via `sortValue`, everything else by natural
+ * cell-text order, per-column overrides via `sorters`) / search / exclusion
+ * filters / expandable rows out. Sites register a thin island in config
+ * `entryListIslands`, map their TS data module through `slotItems`, and hand
+ * the items to this component. Row bodies are the `@@@` slot bodies of the
+ * build-time pipeline; nested islands inside a body are hydrated by the root
+ * MutationObserver below (initial mount and every filter/sort rebuild alike).
  */
 export function XList(props: XListProps): SolidElement {
   // Islands carry no locale prop: derive messages from the page language.
@@ -159,29 +120,15 @@ export function XList(props: XListProps): SolidElement {
       .filter(term => term !== ''),
   );
 
-  /** Visible meta columns where every cell is scored or an empty `-`
-   * placeholder sort numerically (score columns). */
-  const sortableColumns = createMemo(() => {
-    const sortable = new Set<number>();
-    for (let col = 0; col < visibleMetaCount(); col++) {
-      let ranked = 0;
-      let ok = true;
-      for (const entry of indexed()) {
-        const cell = entry.item.cells[col];
-        if (cell === undefined) {
-          ok = false;
-          break;
-        }
-        if (cell.sortValue !== undefined) ranked += 1;
-        else if (!cell.empty) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok && ranked > 0) sortable.add(col);
-    }
-    return sortable;
-  });
+  /** Visible meta columns that sort numerically (score columns); the rest
+   * sort by natural cell-text order. */
+  const numericCols = createMemo(() =>
+    numericColumns(props.items, visibleMetaCount()),
+  );
+
+  /** Whether one column's first click sorts descending (score columns). */
+  const isNumericCol = (col: SortState['col']): boolean =>
+    col !== 'title' && numericCols().has(col);
 
   const columnSortDir = (col: SortState['col']): 'asc' | 'desc' | 'none' => {
     const state = sort();
@@ -200,19 +147,8 @@ export function XList(props: XListProps): SolidElement {
         : undefined;
   };
 
-  /** Cycle one header: first click sorts (asc for titles, desc for scores),
-   * second flips, third returns to default. */
   const cycleSort = (col: SortState['col']): void => {
-    const state = sort();
-    if (state === null || state.col !== col) {
-      setSort({ col, dir: firstDir(col) });
-      return;
-    }
-    if (state.dir === firstDir(col)) {
-      setSort({ col, dir: state.dir === 'asc' ? 'desc' : 'asc' });
-      return;
-    }
-    setSort(null);
+    setSort(nextSortDir(sort(), col, isNumericCol(col)));
   };
 
   const filtered = createMemo(() => {
@@ -235,27 +171,12 @@ export function XList(props: XListProps): SolidElement {
           );
     const state = sort();
     if (state === null) return base;
-    if (state.col === 'title') {
-      return base.toSorted((x, y) =>
-        state.dir === 'asc'
-          ? compareTitles(x.item.title, y.item.title)
-          : compareTitles(y.item.title, x.item.title),
-      );
-    }
-    const col = state.col;
-    return base.toSorted((x, y) => {
-      const xValue = x.item.cells[col]?.sortValue;
-      const yValue = y.item.cells[col]?.sortValue;
-      // Unscored rows sink regardless of direction.
-      if (xValue === undefined && yValue === undefined) return 0;
-      if (yValue === undefined) return -1;
-      if (xValue === undefined) return 1;
-      return state.dir === 'asc' ? xValue - yValue : yValue - xValue;
-    });
+    const compare = itemComparator(state, numericCols(), props.sorters);
+    return base.toSorted((x, y) => compare(x.item, y.item));
   });
 
   const collapsible = () => props.collapsible ?? true;
-  const sortable = () => props.sortable ?? true;
+  const sortableSpec = () => resolveSortable(props.sortable);
   const showCount = () => props.showCount ?? true;
   const showHint = () => props.hint ?? true;
   const expandable = (entry: IndexedItem): boolean =>
@@ -387,9 +308,16 @@ export function XList(props: XListProps): SolidElement {
                   <th
                     class="ap-xlist__th ap-xlist__th--title"
                     scope="col"
-                    aria-sort={sortable() ? ariaSort('title') : undefined}
+                    aria-sort={
+                      sortableHeader(sortableSpec(), 'title')
+                        ? ariaSort('title')
+                        : undefined
+                    }
                   >
-                    <Show when={sortable()} fallback={props.columns?.[0] ?? ''}>
+                    <Show
+                      when={sortableHeader(sortableSpec(), 'title')}
+                      fallback={props.columns?.[0] ?? ''}
+                    >
                       <Sorter
                         label={props.columns?.[0] ?? ''}
                         hint={t.xlist.sortToggle}
@@ -409,13 +337,13 @@ export function XList(props: XListProps): SolidElement {
                         class="ap-xlist__th"
                         scope="col"
                         aria-sort={
-                          sortableColumns().has(col())
+                          sortableHeader(sortableSpec(), col())
                             ? ariaSort(col())
                             : undefined
                         }
                       >
                         <Show
-                          when={sortableColumns().has(col())}
+                          when={sortableHeader(sortableSpec(), col())}
                           fallback={header}
                         >
                           <Sorter

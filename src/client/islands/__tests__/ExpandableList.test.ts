@@ -72,6 +72,7 @@ describe('parseChildren', () => {
     ]);
     expect(parsed.items[0]!.metaCells[0]).toMatchObject({
       score: 'is-high-score',
+      text: '10',
       empty: false,
       date: false,
     });
@@ -260,6 +261,7 @@ describe('inline column redistribution', () => {
   it('splits cells into visible columns plus inline html', () => {
     const cells = ['a', 'b', 'c', 'd', 'e'].map(html => ({
       html,
+      text: html,
       empty: false,
       date: false,
       segments: [],

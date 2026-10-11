@@ -23,6 +23,8 @@ export interface CellSegment {
 export interface XListCell {
   /** Inline HTML of the cell as rendered at build time. */
   html: string;
+  /** Plain text of the cell (tags stripped) — natural-sort key. */
+  text: string;
   /** Legacy bare-number score emphasis. */
   score?: 'is-high-score' | 'is-low-score';
   /** `-` placeholder (legacy "no score" marker) renders dimmed. */
@@ -236,6 +238,7 @@ function toCell(html: string): XListCell {
   const text = cellText(html).trim();
   return {
     html,
+    text,
     score: scoreClass(html),
     empty: text === '-',
     // One-line date cells (`2026-09-24 ~ ?`): CSS reserves the full token width.
@@ -289,6 +292,7 @@ export function splitVisibleCells(
   while (visible.length < visibleCount) {
     visible.push({
       html: '',
+      text: '',
       empty: false,
       date: false,
       segments: [],

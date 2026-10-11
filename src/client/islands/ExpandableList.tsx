@@ -6,6 +6,15 @@ import { normalizeColumns } from '../../shared/columns';
 import { hydrateIslands } from '../runtime/hydrate';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
+import {
+  compareNatural,
+  nextSortDir,
+  ordered,
+  resolveSortable,
+  sortableHeader,
+  type SortState,
+} from '../xlist/sort';
+import { Sorter } from '../xlist/Sorter';
 // Pure parse/cell logic lives in expandable-list-parse.ts (also imported by
 // the unit tests); this file keeps the island's UI only.
 import {
@@ -36,8 +45,12 @@ export interface ExpandableListProps {
   childrenHtml?: string;
   /** Search box on by default; disable with `:searchable="false"`. */
   searchable?: boolean | string;
-  /** Header sort triangles on by default (needs `columns`); disable with `:sortable="false"`. */
-  sortable?: boolean | string;
+  /**
+   * Header sort triangles on by default (needs `columns`); disable with
+   * `:sortable="false"` or whitelist columns with a JSON array:
+   * `:sortable='["title", 0]'` ('title' + visible meta column indexes).
+   */
+  sortable?: boolean | string | ReadonlyArray<'title' | number>;
   /** Entry count line ("4 / 4 条") on by default; disable with `:showCount="false"`. */
   showCount?: boolean | string;
   /** The "click a row to expand" bubble on by default; disable with `:hint="false"`. */
@@ -114,6 +127,7 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   const visibleMetaCount = Math.max(0, metaCount - inlineIndexes.size);
 
   const [query, setQuery] = createSignal('');
+  const [sort, setSort] = createSignal<SortState | null>(null);
   const [open, setOpen] = createSignal<ReadonlySet<number>>(new Set());
 
   const terms = createMemo(() =>
@@ -124,13 +138,62 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
       .filter(term => term !== ''),
   );
 
+  // Table column index -> metaCells index (inline columns stay in the title
+  // cell and are not sortable).
+  const visibleMetaIndexes: readonly number[] = Array.from(
+    { length: metaCount },
+    (_, index) => index,
+  ).filter(index => !inlineIndexes.has(index));
+
+  const sortableSpec = resolveSortable(props.sortable);
+
+  const columnSortDir = (col: SortState['col']): 'asc' | 'desc' | 'none' => {
+    const state = sort();
+    return state !== null && state.col === col ? state.dir : 'none';
+  };
+
+  /** `th[aria-sort]` value of one sortable column's current direction. */
+  const ariaSort = (
+    col: SortState['col'],
+  ): 'ascending' | 'descending' | undefined => {
+    const dir = columnSortDir(col);
+    return dir === 'asc'
+      ? 'ascending'
+      : dir === 'desc'
+        ? 'descending'
+        : undefined;
+  };
+
+  const cycleSort = (col: SortState['col']): void => {
+    setSort(nextSortDir(sort(), col, false));
+  };
+
   const filtered = createMemo(() => {
     const needle = terms();
-    return needle.length === 0
-      ? parsed.items
-      : parsed.items.filter(item =>
-          needle.every(term => item.haystack.includes(term)),
-        );
+    const base =
+      needle.length === 0
+        ? parsed.items
+        : parsed.items.filter(item =>
+            needle.every(term => item.haystack.includes(term)),
+          );
+    const state = sort();
+    if (state === null) return base;
+    if (state.col === 'title') {
+      return base.toSorted(
+        ordered(state.dir, (a, b) => compareNatural(a.title, b.title)),
+      );
+    }
+    // Meta columns sort by natural cell-text order (the island's cells are
+    // untyped HTML; numeric keys are the XList's data-driven path).
+    const metaIndex = visibleMetaIndexes[state.col] ?? -1;
+    return base.toSorted(
+      ordered(state.dir, (a, b) =>
+        compareNatural(
+          a.metaCells[metaIndex]?.text ?? '',
+          b.metaCells[metaIndex]?.text ?? '',
+        ),
+      ),
+    );
   });
 
   const isOpen = (id: number): boolean => open().has(id);
@@ -222,13 +285,49 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
             <Show when={cols}>
               <thead>
                 <tr class="ap-xlist__head-row">
-                  <th class="ap-xlist__th ap-xlist__th--title" scope="col">
-                    {cols?.[0] ?? ''}
+                  <th
+                    class="ap-xlist__th ap-xlist__th--title"
+                    scope="col"
+                    aria-sort={
+                      sortableHeader(sortableSpec, 'title')
+                        ? ariaSort('title')
+                        : undefined
+                    }
+                  >
+                    <Show
+                      when={sortableHeader(sortableSpec, 'title')}
+                      fallback={cols?.[0] ?? ''}
+                    >
+                      <Sorter
+                        label={cols?.[0] ?? ''}
+                        hint={t.xlist.sortToggle}
+                        dir={columnSortDir('title')}
+                        onToggle={() => cycleSort('title')}
+                      />
+                    </Show>
                   </th>
                   <For each={metaHeaders()}>
-                    {header => (
-                      <th class="ap-xlist__th" scope="col">
-                        {header}
+                    {(header, col) => (
+                      <th
+                        class="ap-xlist__th"
+                        scope="col"
+                        aria-sort={
+                          sortableHeader(sortableSpec, col())
+                            ? ariaSort(col())
+                            : undefined
+                        }
+                      >
+                        <Show
+                          when={sortableHeader(sortableSpec, col())}
+                          fallback={header}
+                        >
+                          <Sorter
+                            label={header}
+                            hint={t.xlist.sortToggle}
+                            dir={columnSortDir(col())}
+                            onToggle={() => cycleSort(col())}
+                          />
+                        </Show>
                       </th>
                     )}
                   </For>

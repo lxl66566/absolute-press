@@ -158,9 +158,9 @@ sequenceDiagram
 
 ## ExpandableList
 
-可展开表格列表：条目数据 + 每条一段 markdown 内容，面向「搜索/排序/展开收起」式长列表（条目数 100+ 也没问题）。构建期把条目渲染成一张静态表格（无 JS 时全部展开，SEO 照常收录），激活后提供搜索、排序、全部展开/收起与单行折叠；表格上方常驻一个「点击表格行可以展开详细内容哦！」的提示气泡，行尾有随展开状态旋转的箭头，可展开行 hover 时有主题色描边。
+可展开表格列表：条目数据 + 每条一段 markdown 内容，面向「搜索/排序/展开收起」式长列表（条目数 100+ 也没问题）。构建期把条目渲染成一张静态表格（无 JS 时全部展开，SEO 照常收录），激活后提供搜索、表头点击排序与单行折叠；「点击表格行可以展开详细内容哦！」提示气泡、搜索框与「n / n 条」计数行都可用 prop 逐个隐藏。行尾有随展开状态旋转的箭头，可展开行 hover 时有主题色描边。
 
-条目用 `@@@ 标题` 行分隔（行首 ≤3 空格缩进，标题是单行纯文本）；第一个 `@@@` 之前的内容是 preamble，静态显示在工具栏上方。条目正文就是普通 markdown，容器、表格、图片、代码块都可用。下面这个列表可以实际操作——试试搜索「容器」、「行内代码」，再按标题排序：
+条目用 `@@@ 标题` 行分隔（行首 ≤3 空格缩进，标题是单行纯文本）；第一个 `@@@` 之前的内容是 preamble，静态显示在工具栏上方。条目正文就是普通 markdown，容器、表格、图片、代码块都可用。下面这个列表可以实际操作——试试搜索「容器」、「行内代码」：
 
 <ExpandableList>
 
@@ -229,17 +229,17 @@ sequenceDiagram
 
 Props（均可选）：
 
-- `:searchable="false"` / `:sortable="false"`：隐藏搜索框 / 排序下拉框（注意 `:` 前缀，字符串 `"false"` 也按关闭处理）
-- `:columns='["标题","时长",…]'`：表头标签，第 1 项为标题列；不传则不渲染表头行
+- `:searchable="false"` / `:sortable="false"` / `:showCount="false"` / `:hint="false"`：隐藏搜索框 / 表头排序三角 / 计数行 / 展开提示气泡（注意 `:` 前缀，字符串 `"false"` 也按关闭处理）。`:sortable` 还可传 JSON 数组白名单（`:sortable='["title", 0]'`，`"title"` 为标题列、数字为 meta 列号），只在这些表头画三角
+- `:columns='["标题","时长",…]'`：表头标签，第 1 项为标题列；不传则不渲染表头行。排序三角画在表头里，所以排序只在传了 `columns` 时可用
 - UI 文案跟随页面语言：按 `<html lang>` 前缀匹配（`en-US` → 英文，未注册语言回退中文），无需任何 prop
 
-关闭搜索与排序后，工具栏只剩展开/收起按钮和计数：
+关闭搜索与排序后，工具栏只剩计数（`:showCount="false"` 可以连它也去掉）：
 
 <ExpandableList :searchable="false" :sortable="false">
 
 @@@ 只剩折叠
 
-关闭搜索与排序后，单条折叠与全部展开/收起仍然可用。
+关闭搜索与排序后，单条折叠仍然可用。
 
 @@@ 第二条
 
@@ -254,7 +254,7 @@ Props（均可选）：
 
 @@@ 只剩折叠
 
-关闭搜索与排序后，单条折叠与全部展开/收起仍然可用。
+关闭搜索与排序后，单条折叠仍然可用。
 
 @@@ 第二条
 
@@ -299,7 +299,7 @@ Props（均可选）：
 - 条目内的标题（`##`）不进页面 TOC；脚注 id 按片段隔离，不与宿主页冲突
 - 静态 HTML 是全展开的表格（利于 SEO 与无 JS 阅读），激活后默认全部收起，会有一次布局收拢
 - 条目内的 island（如上例 ZoomedImg）支持激活；条目因搜索/排序离开列表再回来时会重新挂载，Mermaid/G2Plot 这类懒加载重组件建议慎放
-- 搜索为多关键字 AND 子串匹配（不区分大小写，命中标题/meta/正文）；排序用 `localeCompare` 自然比较
+- 搜索为多关键字 AND 子串匹配（不区分大小写，命中标题/meta/正文）；表头点击循环排序（升→降→默认），标题列与 meta 列都按 `localeCompare` 自然比较（数字串按数值、忽略大小写），需要 `:columns` 提供表头
 - 定制：样式类在 `.ap-xlist*` 命名空间下（`src/client/islands/ExpandableList.css`），全部走 `--c-*` 主题变量，覆盖变量即可换肤；UI 文案在 `shared/i18n` 的 `xlist` 段（zh 为 shape 真相源）
 
 ## Giscus
@@ -412,7 +412,7 @@ export default Notice;
 
 ### 数据驱动表格（XList）
 
-ExpandableList 的行数据来自 `@@` meta 行，徽章与评分靠内容识别；条目多、meta 列需要精确控制时，更稳的做法是 TS 数据模块做单一数据源，markdown 只留 `@@@` 插槽正文。`absolute-press/client` 导出的 `XList` 组件与配套装配工具就是这条路径：站点写一个薄包装 island，把数据映射成类型化条目交给 `XList`，即可得到表头点击循环排序（标题列 升→降→默认；数值列 降→升→默认，无排序键的单元格沉底）、多关键字搜索（含隐藏别名）、工具栏排除过滤器、富标题格（链接/badge/折叠文本）与可展开行。
+ExpandableList 的行数据来自 `@@` meta 行，徽章与评分靠内容识别；条目多、meta 列需要精确控制时，更稳的做法是 TS 数据模块做单一数据源，markdown 只留 `@@@` 插槽正文。`absolute-press/client` 导出的 `XList` 组件与配套装配工具就是这条路径：站点写一个薄包装 island，把数据映射成类型化条目交给 `XList`，即可得到表头点击循环排序（所有列默认可排序：带 `sortValue` 的数值列按数值 降→升→默认，其余列按单元格文本自然序 升→降→默认；`sorters` 可按列覆盖比较器）、多关键字搜索（含隐藏别名）、工具栏排除过滤器、富标题格（链接/badge/折叠文本）与可展开行。
 
 一个最小包装（数据模块 `games.ts` 导出数组）：
 
@@ -467,11 +467,11 @@ export default GameList;
 行为要点：
 
 - `slotItems(childrenHtml, data, baseKey, build, label)` 按插槽标题配对数据与正文：重复 base key 依序得 `#2`、`#3` 后缀（`assignSlotKeys` 单独导出，校验工具与组件共用同一规则），失配插槽在控制台告警后丢弃，无插槽的数据行照常渲染（只是不可展开）
-- `XList` props：`columns` 表头标签、`inlineCount` 尾部 meta 列并入标题格、`searchable` / `sortable` / `collapsible` 开关（默认全开，纯展示表格可全关）、`filters` 排除过滤器（勾选隐藏带对应 `filterFlags` 的行，计数行仍显示 可见 / 总数）
-- 数值列的排序键是 cell 的 `sortValue`：一列所有单元格带键或是空占位，表头才可点击排序
+- `XList` props：`columns` 表头标签、`inlineCount` 尾部 meta 列并入标题格、`searchable` / `sortable` / `collapsible` / `showCount` / `hint` 开关（默认全开，纯展示表格可全关）、`filters` 排除过滤器（勾选隐藏带对应 `filterFlags` 的行，计数行仍显示 可见 / 总数）
+- 排序：标题列与所有 meta 列的表头默认可点击（`sortable`：`true` 全开（默认）/ `false` 全关 / `'title'` 与 meta 列号数组只开指定列）。一列所有单元格带 `sortValue` 或是空占位时按数值排序（降序优先，无键单元格沉底）；其余列按单元格文本自然比较。`sorters` 传 `{ title | 列号: (a, b) => number }` 按列覆盖为自定义比较器（框架只负责降序翻转参数）
 - 富标题格用 `titleParts`（链接/badge/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接的表格
 - 插槽正文里的嵌套 island 在过滤/排序重建后自动重新激活
-- 无 JS 时静态骨架照常展示全部条目；UI 文案跟随页面语言（`shared/i18n` 的 `xlist` 段），样式复用 ExpandableList 的 `.ap-xlist*` 契约，排序三角与过滤器在 `src/client/xlist/XList.css`
+- 无 JS 时静态骨架照常展示全部条目；UI 文案跟随页面语言（`shared/i18n` 的 `xlist` 段），样式复用 ExpandableList 的 `.ap-xlist*` 契约，排序状态机在 `src/client/xlist/sort.ts`、排序三角在 `Sorter.tsx`、过滤器与三角样式在 `src/client/xlist/XList.css`
 
 ### 站点 island 读取全站数据（site-data）
 
