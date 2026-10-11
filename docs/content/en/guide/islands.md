@@ -384,6 +384,7 @@ Key points: the module default-exports an `IslandComponent` (`import type { Isla
 | `flagOn(value, fallback?)`        | parse a boolean prop: JSON booleans, `"false"`/`"0"`, and bare attributes handled uniformly                                                 |
 | `pageMessages()`                  | UI message table by `<html lang>` (unknown languages fall back to Chinese)                                                                  |
 | `formatMessage(tpl, params)`      | fill `{key}` placeholders in message templates                                                                                              |
+| `Fold`                            | inline fold primitive: two-line clamp with a right fade, click to expand; short content never reads as interactive                          |
 
 These are the same building blocks the built-in islands use — for example, ExpandableList's search toggle uses `flagOn`, its table class names use `cx`, and its toolbar strings use `pageMessages()` + `formatMessage`. A minimal combined example:
 

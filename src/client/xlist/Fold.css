@@ -1,0 +1,37 @@
+/*
+ * Fold primitive styles — inline two-line clamp with a right fade, click to
+ * expand (is-foldable / is-expanded states from Fold.tsx). The base clamp is
+ * 99 rather than none so the collapsed state only swaps the line count, and
+ * the expanded state leaves the -webkit-box formatting context via block.
+ */
+
+@layer ap-chrome {
+  .ap-fold {
+    cursor: default;
+  }
+
+  .ap-fold__content {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 99;
+    overflow: hidden;
+  }
+
+  .ap-fold.is-foldable {
+    cursor: pointer;
+  }
+
+  .ap-fold:not(.is-expanded) .ap-fold__content {
+    -webkit-line-clamp: 2;
+  }
+
+  /* Only foldable content gets the fade: short clamped text is already
+   * complete, a fade would claim a continuation that does not exist. */
+  .ap-fold.is-foldable:not(.is-expanded) .ap-fold__content {
+    mask-image: linear-gradient(to right, #000 calc(100% - 2em), transparent);
+  }
+
+  .ap-fold.is-expanded .ap-fold__content {
+    display: block;
+  }
+}

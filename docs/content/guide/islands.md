@@ -384,6 +384,7 @@ export default Counter;
 | `flagOn(value, fallback?)`        | 解析布尔 prop：JSON 布尔、`"false"`/`"0"`、裸属性统一处理                      |
 | `pageMessages()`                  | 按 `<html lang>` 取 UI 文案表（未知语言回退中文）                              |
 | `formatMessage(tpl, params)`      | 填充文案模板里的 `{key}` 占位符                                                |
+| `Fold`                            | 行内折叠原语：两行钳制 + 右侧渐隐，点击展开/收起；短内容不会显示为可折叠       |
 
 这些就是内置 island 用的同一批积木——例如 ExpandableList 的搜索框开关用 `flagOn`、表格类名用 `cx`、工具栏文案用 `pageMessages()` + `formatMessage`。一个组合使用的最小示例：
 

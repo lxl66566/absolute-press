@@ -14,6 +14,9 @@ export { flagOn } from './islands/props';
 export { formatMessage, pageMessages } from './theme/i18n';
 export type { Messages } from './theme/i18n';
 export { mountComponent } from './dom';
+// Inline fold primitive (two-line clamp + expand on click); the xlist fold
+// parts render through it, site islands can reuse it directly.
+export { Fold } from './xlist/Fold';
 // Shared data contracts: sites customizing chrome (navbar/sidebar/archive)
 // or islands consume the payload types through this entry.
 export type {
