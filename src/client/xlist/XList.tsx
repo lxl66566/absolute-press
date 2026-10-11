@@ -1,11 +1,13 @@
-import { createMemo, createSignal, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 import { hydrateIslands } from '../runtime/hydrate';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { Fold } from './Fold';
+import { RevealRow } from './RevealRow';
 import {
+  columnSortDir,
   itemComparator,
   nextSortDir,
   numericColumns,
@@ -13,9 +15,10 @@ import {
   sortableHeader,
   type SortState,
 } from './sort';
-import { Sorter } from './Sorter';
+import { SortHeader } from './Sorter';
 import { htmlText } from './static';
 import type { XListCell, XListItem, XListPart, XListProps } from './types';
+import { nextXListUid } from './uid';
 
 // The interactive half renders on top of the shared ap-xlist DOM contract:
 // base table/toolbar/badge/reveal styles ship in the ExpandableList sheet
@@ -24,16 +27,12 @@ import type { XListCell, XListItem, XListPart, XListProps } from './types';
 import '../islands/ExpandableList.css';
 import './XList.css';
 
-let uidSeq = 0;
-
 interface IndexedItem {
   /** Stable position in the items array: expand-state + aria ids. */
   id: number;
   item: XListItem;
   /** Precomputed search haystack. */
   haystack: string;
-  /** bodyHtml text content, computed once. */
-  bodyText: string;
 }
 
 function PartView(props: { part: XListPart }): SolidElement {
@@ -88,7 +87,7 @@ function PartsView(props: { parts: readonly XListPart[] }): SolidElement {
 export function XList(props: XListProps): SolidElement {
   // Islands carry no locale prop: derive messages from the page language.
   const t = pageMessages();
-  const uid = `ap-xlist-${++uidSeq}`;
+  const uid = nextXListUid();
 
   const indexed = createMemo<IndexedItem[]>(() =>
     props.items.map((item, id) => {
@@ -96,7 +95,7 @@ export function XList(props: XListProps): SolidElement {
         item.bodyHtml === undefined ? '' : htmlText(item.bodyHtml);
       const haystack =
         `${item.key}\n${item.title}\n${item.cells.map(cell => cell.text).join('\n')}\n${bodyText}\n${item.searchExtra ?? ''}`.toLowerCase();
-      return { id, item, haystack, bodyText };
+      return { id, item, haystack };
     }),
   );
 
@@ -129,23 +128,6 @@ export function XList(props: XListProps): SolidElement {
   /** Whether one column's first click sorts descending (score columns). */
   const isNumericCol = (col: SortState['col']): boolean =>
     col !== 'title' && numericCols().has(col);
-
-  const columnSortDir = (col: SortState['col']): 'asc' | 'desc' | 'none' => {
-    const state = sort();
-    return state !== null && state.col === col ? state.dir : 'none';
-  };
-
-  /** `th[aria-sort]` value of one sortable column's current direction. */
-  const ariaSort = (
-    col: SortState['col'],
-  ): 'ascending' | 'descending' | undefined => {
-    const dir = columnSortDir(col);
-    return dir === 'asc'
-      ? 'ascending'
-      : dir === 'desc'
-        ? 'descending'
-        : undefined;
-  };
 
   const cycleSort = (col: SortState['col']): void => {
     setSort(nextSortDir(sort(), col, isNumericCol(col)));
@@ -226,6 +208,7 @@ export function XList(props: XListProps): SolidElement {
         // filter/sort rebuilds, HMR — converges by itself.
         const mo = new MutationObserver(() => hydrateIslands(el));
         mo.observe(el, { childList: true, subtree: true });
+        onCleanup(() => mo.disconnect());
       }}
     >
       <Show
@@ -305,27 +288,14 @@ export function XList(props: XListProps): SolidElement {
             <Show when={props.columns}>
               <thead>
                 <tr class="ap-xlist__head-row">
-                  <th
-                    class="ap-xlist__th ap-xlist__th--title"
-                    scope="col"
-                    aria-sort={
-                      sortableHeader(sortableSpec(), 'title')
-                        ? ariaSort('title')
-                        : undefined
-                    }
-                  >
-                    <Show
-                      when={sortableHeader(sortableSpec(), 'title')}
-                      fallback={props.columns?.[0] ?? ''}
-                    >
-                      <Sorter
-                        label={props.columns?.[0] ?? ''}
-                        hint={t.xlist.sortToggle}
-                        dir={columnSortDir('title')}
-                        onToggle={() => cycleSort('title')}
-                      />
-                    </Show>
-                  </th>
+                  <SortHeader
+                    title
+                    label={props.columns?.[0] ?? ''}
+                    sortable={sortableHeader(sortableSpec(), 'title')}
+                    dir={columnSortDir(sort(), 'title')}
+                    hint={t.xlist.sortToggle}
+                    onToggle={() => cycleSort('title')}
+                  />
                   <For
                     each={(props.columns ?? []).slice(
                       1,
@@ -333,27 +303,13 @@ export function XList(props: XListProps): SolidElement {
                     )}
                   >
                     {(header, col) => (
-                      <th
-                        class="ap-xlist__th"
-                        scope="col"
-                        aria-sort={
-                          sortableHeader(sortableSpec(), col())
-                            ? ariaSort(col())
-                            : undefined
-                        }
-                      >
-                        <Show
-                          when={sortableHeader(sortableSpec(), col())}
-                          fallback={header}
-                        >
-                          <Sorter
-                            label={header}
-                            hint={t.xlist.sortToggle}
-                            dir={columnSortDir(col())}
-                            onToggle={() => cycleSort(col())}
-                          />
-                        </Show>
-                      </th>
+                      <SortHeader
+                        label={header}
+                        sortable={sortableHeader(sortableSpec(), col())}
+                        dir={columnSortDir(sort(), col())}
+                        hint={t.xlist.sortToggle}
+                        onToggle={() => cycleSort(col())}
+                      />
                     )}
                   </For>
                 </tr>
@@ -378,7 +334,8 @@ export function XList(props: XListProps): SolidElement {
                           expandableRow()
                             ? (e: MouseEvent) => {
                                 if (
-                                  (e.target as HTMLElement).closest('a, button')
+                                  e.target instanceof Element &&
+                                  e.target.closest('a, button')
                                 )
                                   return;
                                 toggle(rowId());
@@ -438,39 +395,12 @@ export function XList(props: XListProps): SolidElement {
                           )}
                         </For>
                       </tr>
-                      <Show when={expandableRow()}>
-                        <tr
-                          class={cx(
-                            'ap-xlist__reveal-row',
-                            isOpen(rowId()) && 'is-open',
-                          )}
-                        >
-                          <td
-                            class="ap-xlist__reveal-cell"
-                            colspan={visibleMetaCount() + 1}
-                          >
-                            {/* Shared .ap-collapse mechanics (theme.css),
-                                inverted: the reveal starts collapsed and
-                                drops ap-collapsed to open. */}
-                            <div
-                              class={cx(
-                                'ap-xlist__reveal ap-collapse',
-                                !isOpen(rowId()) && 'ap-collapsed',
-                              )}
-                              id={`${uid}-${rowId()}`}
-                            >
-                              {/* Inner wrapper carries padding: a 0fr grid row
-                                  cannot compress it. */}
-                              <div class="ap-xlist__body">
-                                <div
-                                  class="ap-xlist__body-inner"
-                                  innerHTML={entry.item.bodyHtml}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      </Show>
+                      <RevealRow
+                        id={`${uid}-${rowId()}`}
+                        open={isOpen(rowId())}
+                        colspan={visibleMetaCount() + 1}
+                        html={entry.item.bodyHtml ?? ''}
+                      />
                     </>
                   );
                 }}

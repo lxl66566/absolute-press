@@ -70,8 +70,27 @@ export function nextSortDir(
   const first = firstSortDir(numeric);
   if (state === null || state.col !== col) return { col, dir: first };
   if (state.dir === first)
-    return { col, dir: state.dir === 'asc' ? 'desc' : 'asc' };
+    return { col, dir: first === 'asc' ? 'desc' : 'asc' };
   return null;
+}
+
+/** Current direction of one column under an active (or absent) sort state. */
+export function columnSortDir(
+  state: SortState | null,
+  col: SortState['col'],
+): 'asc' | 'desc' | 'none' {
+  return state !== null && state.col === col ? state.dir : 'none';
+}
+
+/** `th[aria-sort]` value of one direction. */
+export function ariaSortValue(
+  dir: 'asc' | 'desc' | 'none',
+): 'ascending' | 'descending' | undefined {
+  return dir === 'asc'
+    ? 'ascending'
+    : dir === 'desc'
+      ? 'descending'
+      : undefined;
 }
 
 /**
@@ -91,10 +110,12 @@ export function itemComparator(
   }
   const col = state.col;
   if (numeric.has(col)) {
+    // Deliberately NOT ordered(): swapping the arguments would flip the
+    // sinking direction too. The undefined guards run before the value
+    // comparison, so keyless cells sink in BOTH directions.
     return (a, b) => {
       const aValue = a.cells[col]?.sortValue;
       const bValue = b.cells[col]?.sortValue;
-      // Unscored rows sink regardless of direction.
       if (aValue === undefined && bValue === undefined) return 0;
       if (bValue === undefined) return -1;
       if (aValue === undefined) return 1;

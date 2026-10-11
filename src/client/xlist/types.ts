@@ -6,11 +6,11 @@
 /** One inline piece of a meta cell. */
 export type XListPart =
   | { kind: 'text'; text: string }
-  | { kind: 'badge'; text: string; cls: string }
+  | { kind: 'badge'; text: string; cls: `is-${BadgeTone}` }
   | { kind: 'link'; href: string; text: string }
   | { kind: 'fold'; text: string };
 
-/** Badge tone class suffix (`is-<tone>`). */
+/** Badge tone class suffix (`is-<tone>`); the CSS defines exactly these. */
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'note';
 
 /** One meta cell: ordered inline parts + presentation flags. */

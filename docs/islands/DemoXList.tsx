@@ -1,6 +1,7 @@
 // Consumed through the package self-reference, exactly like a site island.
 import { slotItems, XList } from 'absolute-press/client';
 import type {
+  BadgeTone,
   IslandProps,
   XListFilter,
   XListItem,
@@ -43,7 +44,7 @@ const TOOLS: readonly DemoTool[] = [
 
 const COLUMNS = ['工具', '语言', 'Stars', '状态'];
 
-const STATUS_TONES: Record<DemoTool['status'], string> = {
+const STATUS_TONES: Record<DemoTool['status'], `is-${BadgeTone}`> = {
   活跃: 'is-success',
   缓慢: 'is-warning',
   停更: 'is-danger',
@@ -57,7 +58,7 @@ const INACTIVE_FILTER: XListFilter = {
 
 const text = (value: string): XListPart => ({ kind: 'text', text: value });
 
-const badge = (value: string, cls: string): XListPart => ({
+const badge = (value: string, cls: `is-${BadgeTone}`): XListPart => ({
   kind: 'badge',
   text: value,
   cls,

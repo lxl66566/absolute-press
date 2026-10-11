@@ -384,7 +384,7 @@ Key points: the module default-exports an `IslandComponent` (`import type { Isla
 | `flagOn(value, fallback?)`        | parse a boolean prop: JSON booleans, `"false"`/`"0"`, and bare attributes handled uniformly                                                 |
 | `pageMessages()`                  | UI message table by `<html lang>` (unknown languages fall back to Chinese)                                                                  |
 | `formatMessage(tpl, params)`      | fill `{key}` placeholders in message templates                                                                                              |
-| `Fold`                            | inline fold primitive: two-line clamp with a right fade, click to expand; short content never reads as interactive                          |
+| `Fold`                            | inline fold primitive: two-line clamp with a right fade, click or Enter/Space to expand; short content never reads as interactive           |
 
 These are the same building blocks the built-in islands use — for example, ExpandableList's search toggle uses `flagOn`, its table class names use `cx`, and its toolbar strings use `pageMessages()` + `formatMessage`. A minimal combined example:
 
@@ -504,7 +504,7 @@ Behavior notes:
 - `XList` props: `columns` header labels, `inlineCount` trailing meta columns folded into the title cell, `searchable` / `sortable` / `collapsible` / `showCount` / `hint` toggles (all on by default; turn everything off for a plain display table), `filters` exclusion filters (checking one hides rows carrying its `filterFlags`; the count line keeps showing visible / total)
 - sorting: the title column and every meta header are clickable by default (`sortable`: `true` all on (default) / `false` all off / an array of `'title'` and meta column indexes to enable just those). A column whose cells all carry a `sortValue` or are empty placeholders sorts numerically (descending first, keyless cells sinking); every other column sorts by natural cell-text comparison. Pass `sorters` as `{ title | columnIndex: (a, b) => number }` to override a column's comparator (the framework only flips the arguments for descending)
 - the sort key of a numeric column is the cell's `sortValue`: a header becomes clickable only when every cell in the column carries a key or an empty placeholder
-- rich title cells use `titleParts` (link/badge/`fold` parts; `fold` renders through the `Fold` primitive's two-line clamp), for tables whose first column is itself a link
+- rich title cells use `titleParts` (link/badge/`fold` parts; `fold` renders through the `Fold` primitive's two-line clamp), for tables whose first column is itself a link; keep `fold` on non-expandable rows only — an expandable row's click semantics belong to the whole row, and mixing in a fold makes the click target ambiguous
 - nested islands inside slot bodies are re-activated after filter/sort rebuilds
 - without JS the static skeleton still shows every entry; UI copy follows the page language (`xlist` section of `shared/i18n`), styles reuse the ExpandableList `.ap-xlist*` contract with the sort state machine in `src/client/xlist/sort.ts`, the sort triangles in `Sorter.tsx`, and the sorter/filter styles in `src/client/xlist/XList.css`
 

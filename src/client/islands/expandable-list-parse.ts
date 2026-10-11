@@ -4,6 +4,7 @@
  * Solid, no DOM beyond parseChildren's DOMParser — unit-testable in
  * isolation (see __tests__/ExpandableList.test.ts).
  */
+import { zipStaticRows } from '../xlist/static';
 
 /** One semantic pill inside a meta cell (legacy Badge / OrderBadge port). */
 export interface CellBadge {
@@ -20,7 +21,7 @@ export interface CellSegment {
 }
 
 /** Parsed meta cell: precomputed presentation flags for the table renderer. */
-export interface XListCell {
+export interface ParsedCell {
   /** Inline HTML of the cell as rendered at build time. */
   html: string;
   /** Plain text of the cell (tags stripped) — natural-sort key. */
@@ -36,12 +37,12 @@ export interface XListCell {
   badged: boolean;
 }
 
-export interface XListItem {
+export interface ParsedEntry {
   /** Original position in the markdown; stable sort/search identity. */
   id: number;
   title: string;
   /** Parsed meta cells in column order (before any `inline` redistribution). */
-  metaCells: XListCell[];
+  metaCells: ParsedCell[];
   html: string;
   /** Lowercased title + body text for substring search. */
   haystack: string;
@@ -233,7 +234,7 @@ export function cellSegments(html: string): CellSegment[] {
   return segments;
 }
 
-function toCell(html: string): XListCell {
+function toCell(html: string): ParsedCell {
   const segments = cellSegments(html);
   const text = cellText(html).trim();
   return {
@@ -250,7 +251,7 @@ function toCell(html: string): XListCell {
 
 /**
  * Date-like meta cells (`2026-09-24 ~ ?`) must keep one-line width.
- * Exported for tests; the component reads the precomputed `XListCell.date`.
+ * Exported for tests; the component reads the precomputed `ParsedCell.date`.
  */
 export function isDateCellText(text: string): boolean {
   return text.includes(' ~ ') || /\d{4}[-.]\d{1,2}/.test(text);
@@ -272,18 +273,18 @@ export function inlineColumnIndexes(
 
 export interface SplitCells {
   /** Cells that stay as table columns, padded to the visible column count. */
-  visible: XListCell[];
+  visible: ParsedCell[];
   /** Raw HTML of the inlined cells (title-cell content). */
   inlineHtml: string;
 }
 
 /** Redistribute a row's cells into table columns + title-inline content. */
 export function splitVisibleCells(
-  cells: readonly XListCell[],
+  cells: readonly ParsedCell[],
   inlineIndexes: ReadonlySet<number>,
   visibleCount: number,
 ): SplitCells {
-  const visible: XListCell[] = [];
+  const visible: ParsedCell[] = [];
   const inline: string[] = [];
   cells.forEach((cell, index) => {
     if (inlineIndexes.has(index)) inline.push(cell.html);
@@ -317,7 +318,7 @@ export function visibleHeaders(
 
 interface ParsedChildren {
   preamble: string;
-  items: XListItem[];
+  items: ParsedEntry[];
 }
 
 /** Extract items back out of the build-time static HTML. */
@@ -325,17 +326,12 @@ export function parseChildren(childrenHtml: string): ParsedChildren {
   const doc = new DOMParser().parseFromString(childrenHtml, 'text/html');
   const root = doc.querySelector('.ap-xlist');
   const preamble = root?.querySelector('.ap-xlist__preamble')?.innerHTML ?? '';
-  // Item rows (title + meta cells) and body rows are sibling <tr>s in the
-  // static table; zip them back together by position.
-  const itemRows = [...(root?.querySelectorAll('.ap-xlist__item') ?? [])];
-  const bodyRows = [...(root?.querySelectorAll('.ap-xlist__item-body') ?? [])];
-  const items: XListItem[] = itemRows.map((el, index) => {
+  const items = zipStaticRows(root).map(({ row, body }, index) => {
     const title =
-      el.querySelector('.ap-xlist__item-title')?.textContent?.trim() ?? '';
-    const metaCells = [...el.querySelectorAll('.ap-xlist__item-meta')].map(
+      row.querySelector('.ap-xlist__item-title')?.textContent?.trim() ?? '';
+    const metaCells = [...row.querySelectorAll('.ap-xlist__item-meta')].map(
       cell => toCell(cell.innerHTML),
     );
-    const body = bodyRows[index];
     const metaText = metaCells.map(cell => cellText(cell.html)).join('\n');
     return {
       id: index,

@@ -374,17 +374,17 @@ export default Counter;
 
 `absolute-press/client` 还导出一组内置 island 同款的公共工具，站点 island 直接 import 即可，不必重复造轮子或深 import 内部路径：
 
-| 导出                              | 用途                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------ |
-| `pagePayload()`                   | 读当前页 payload（locale、base、标题、navbar/sidebar 等），软导航自动跟随      |
-| `hydrateIslands(root?)`           | 激活 `root` 下 `[data-ap-island]` 占位；island 重建 DOM 后重新激活嵌套 island  |
-| `islandRegistry()`                | 当前完整 island 注册表（内置 + 站点）                                          |
-| `mountComponent(comp, el, props)` | 把 Solid 组件挂到已有 DOM 节点（MPA 下直接挂载，非整页激活），事件委托开箱即用 |
-| `cx(...cls)`                      | 条件 className 拼接（静态字符串，UnoCSS 可扫描）                               |
-| `flagOn(value, fallback?)`        | 解析布尔 prop：JSON 布尔、`"false"`/`"0"`、裸属性统一处理                      |
-| `pageMessages()`                  | 按 `<html lang>` 取 UI 文案表（未知语言回退中文）                              |
-| `formatMessage(tpl, params)`      | 填充文案模板里的 `{key}` 占位符                                                |
-| `Fold`                            | 行内折叠原语：两行钳制 + 右侧渐隐，点击展开/收起；短内容不会显示为可折叠       |
+| 导出                              | 用途                                                                                    |
+| --------------------------------- | --------------------------------------------------------------------------------------- |
+| `pagePayload()`                   | 读当前页 payload（locale、base、标题、navbar/sidebar 等），软导航自动跟随               |
+| `hydrateIslands(root?)`           | 激活 `root` 下 `[data-ap-island]` 占位；island 重建 DOM 后重新激活嵌套 island           |
+| `islandRegistry()`                | 当前完整 island 注册表（内置 + 站点）                                                   |
+| `mountComponent(comp, el, props)` | 把 Solid 组件挂到已有 DOM 节点（MPA 下直接挂载，非整页激活），事件委托开箱即用          |
+| `cx(...cls)`                      | 条件 className 拼接（静态字符串，UnoCSS 可扫描）                                        |
+| `flagOn(value, fallback?)`        | 解析布尔 prop：JSON 布尔、`"false"`/`"0"`、裸属性统一处理                               |
+| `pageMessages()`                  | 按 `<html lang>` 取 UI 文案表（未知语言回退中文）                                       |
+| `formatMessage(tpl, params)`      | 填充文案模板里的 `{key}` 占位符                                                         |
+| `Fold`                            | 行内折叠原语：两行钳制 + 右侧渐隐，点击或 Enter/Space 展开/收起；短内容不会显示为可折叠 |
 
 这些就是内置 island 用的同一批积木——例如 ExpandableList 的搜索框开关用 `flagOn`、表格类名用 `cx`、工具栏文案用 `pageMessages()` + `formatMessage`。一个组合使用的最小示例：
 
@@ -503,7 +503,7 @@ export default GameList;
 - `slotItems(childrenHtml, data, baseKey, build, label)` 按插槽标题配对数据与正文：重复 base key 依序得 `#2`、`#3` 后缀（`assignSlotKeys` 单独导出，校验工具与组件共用同一规则），失配插槽在控制台告警后丢弃，无插槽的数据行照常渲染（只是不可展开）
 - `XList` props：`columns` 表头标签、`inlineCount` 尾部 meta 列并入标题格、`searchable` / `sortable` / `collapsible` / `showCount` / `hint` 开关（默认全开，纯展示表格可全关）、`filters` 排除过滤器（勾选隐藏带对应 `filterFlags` 的行，计数行仍显示 可见 / 总数）
 - 排序：标题列与所有 meta 列的表头默认可点击（`sortable`：`true` 全开（默认）/ `false` 全关 / `'title'` 与 meta 列号数组只开指定列）。一列所有单元格带 `sortValue` 或是空占位时按数值排序（降序优先，无键单元格沉底）；其余列按单元格文本自然比较。`sorters` 传 `{ title | 列号: (a, b) => number }` 按列覆盖为自定义比较器（框架只负责降序翻转参数）
-- 富标题格用 `titleParts`（链接/badge/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接的表格
+- 富标题格用 `titleParts`（链接/badge/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接的表格；`fold` 只放在不可展开的行里——可展开行的点击语义属于整行，混入 fold 会让点击目标含混
 - 插槽正文里的嵌套 island 在过滤/排序重建后自动重新激活
 - 无 JS 时静态骨架照常展示全部条目；UI 文案跟随页面语言（`shared/i18n` 的 `xlist` 段），样式复用 ExpandableList 的 `.ap-xlist*` 契约，排序状态机在 `src/client/xlist/sort.ts`、排序三角在 `Sorter.tsx`、过滤器与三角样式在 `src/client/xlist/XList.css`
 

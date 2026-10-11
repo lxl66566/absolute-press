@@ -6,7 +6,9 @@ import { normalizeColumns } from '../../shared/columns';
 import { hydrateIslands } from '../runtime/hydrate';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
+import { RevealRow } from '../xlist/RevealRow';
 import {
+  columnSortDir,
   compareNatural,
   nextSortDir,
   ordered,
@@ -14,7 +16,8 @@ import {
   sortableHeader,
   type SortState,
 } from '../xlist/sort';
-import { Sorter } from '../xlist/Sorter';
+import { SortHeader } from '../xlist/Sorter';
+import { nextXListUid } from '../xlist/uid';
 // Pure parse/cell logic lives in expandable-list-parse.ts (also imported by
 // the unit tests); this file keeps the island's UI only.
 import {
@@ -24,7 +27,7 @@ import {
   splitVisibleCells,
   visibleHeaders,
 } from './expandable-list-parse';
-import type { XListItem } from './expandable-list-parse';
+import type { ParsedEntry } from './expandable-list-parse';
 import { flagOn } from './props';
 
 import './ExpandableList.css';
@@ -72,11 +75,9 @@ export interface ExpandableListProps {
 }
 
 /** An entry without body markdown cannot expand. */
-function isExpandableRow(item: XListItem): boolean {
+function isExpandableRow(item: ParsedEntry): boolean {
   return item.html.trim() !== '';
 }
-
-let seq = 0;
 
 /** Render a cell's segments: plain HTML parts keep the build-time markup,
  * keyword parts become legacy-style pills. Segments run together with a
@@ -111,7 +112,7 @@ function SegmentsView(props: { html: string }): SolidElement {
 export function ExpandableList(props: ExpandableListProps): SolidElement {
   // Islands carry no locale prop: derive messages from the page language.
   const t = pageMessages();
-  const uid = `ap-xlist-${++seq}`;
+  const uid = nextXListUid();
   const parsed = parseChildren(props.childrenHtml ?? '');
   const cols = normalizeColumns(props.columns);
   const inlineNames = normalizeColumns(props.inline);
@@ -146,23 +147,6 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   ).filter(index => !inlineIndexes.has(index));
 
   const sortableSpec = resolveSortable(props.sortable);
-
-  const columnSortDir = (col: SortState['col']): 'asc' | 'desc' | 'none' => {
-    const state = sort();
-    return state !== null && state.col === col ? state.dir : 'none';
-  };
-
-  /** `th[aria-sort]` value of one sortable column's current direction. */
-  const ariaSort = (
-    col: SortState['col'],
-  ): 'ascending' | 'descending' | undefined => {
-    const dir = columnSortDir(col);
-    return dir === 'asc'
-      ? 'ascending'
-      : dir === 'desc'
-        ? 'descending'
-        : undefined;
-  };
 
   const cycleSort = (col: SortState['col']): void => {
     setSort(nextSortDir(sort(), col, false));
@@ -285,50 +269,23 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
             <Show when={cols}>
               <thead>
                 <tr class="ap-xlist__head-row">
-                  <th
-                    class="ap-xlist__th ap-xlist__th--title"
-                    scope="col"
-                    aria-sort={
-                      sortableHeader(sortableSpec, 'title')
-                        ? ariaSort('title')
-                        : undefined
-                    }
-                  >
-                    <Show
-                      when={sortableHeader(sortableSpec, 'title')}
-                      fallback={cols?.[0] ?? ''}
-                    >
-                      <Sorter
-                        label={cols?.[0] ?? ''}
-                        hint={t.xlist.sortToggle}
-                        dir={columnSortDir('title')}
-                        onToggle={() => cycleSort('title')}
-                      />
-                    </Show>
-                  </th>
+                  <SortHeader
+                    title
+                    label={cols?.[0] ?? ''}
+                    sortable={sortableHeader(sortableSpec, 'title')}
+                    dir={columnSortDir(sort(), 'title')}
+                    hint={t.xlist.sortToggle}
+                    onToggle={() => cycleSort('title')}
+                  />
                   <For each={metaHeaders()}>
                     {(header, col) => (
-                      <th
-                        class="ap-xlist__th"
-                        scope="col"
-                        aria-sort={
-                          sortableHeader(sortableSpec, col())
-                            ? ariaSort(col())
-                            : undefined
-                        }
-                      >
-                        <Show
-                          when={sortableHeader(sortableSpec, col())}
-                          fallback={header}
-                        >
-                          <Sorter
-                            label={header}
-                            hint={t.xlist.sortToggle}
-                            dir={columnSortDir(col())}
-                            onToggle={() => cycleSort(col())}
-                          />
-                        </Show>
-                      </th>
+                      <SortHeader
+                        label={header}
+                        sortable={sortableHeader(sortableSpec, col())}
+                        dir={columnSortDir(sort(), col())}
+                        hint={t.xlist.sortToggle}
+                        onToggle={() => cycleSort(col())}
+                      />
                     )}
                   </For>
                 </tr>
@@ -439,35 +396,12 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                           )}
                         </For>
                       </tr>
-                      <tr
-                        class={cx(
-                          'ap-xlist__reveal-row',
-                          isOpen(item.id) && 'is-open',
-                        )}
-                      >
-                        <td
-                          class="ap-xlist__reveal-cell"
-                          colspan={visibleMetaCount + 1}
-                        >
-                          <div
-                            class={cx(
-                              'ap-xlist__reveal ap-collapse',
-                              !isOpen(item.id) && 'ap-collapsed',
-                            )}
-                            id={`${uid}-${item.id}`}
-                          >
-                            {/* Inner wrapper carries padding: a 0fr grid row
-                                cannot compress it, and on `.ap-xlist__body`
-                                it used to leak a sliver under collapsed rows. */}
-                            <div class="ap-xlist__body">
-                              <div
-                                class="ap-xlist__body-inner"
-                                innerHTML={item.html}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                      <RevealRow
+                        id={`${uid}-${item.id}`}
+                        open={isOpen(item.id)}
+                        colspan={visibleMetaCount + 1}
+                        html={item.html}
+                      />
                     </>
                   );
                 }}

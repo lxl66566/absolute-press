@@ -6,10 +6,9 @@
  */
 
 @layer ap-chrome {
-  .ap-fold {
-    cursor: default;
-  }
-
+  /* No base cursor: non-foldable folds inherit the surrounding cursor
+   * (pointer inside expandable xlist rows, default in plain prose), so an
+   * inert fold never punches a hole in a row-level cursor. */
   .ap-fold__content {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -19,6 +18,11 @@
 
   .ap-fold.is-foldable {
     cursor: pointer;
+  }
+
+  .ap-fold.is-foldable:focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: -1px;
   }
 
   .ap-fold:not(.is-expanded) .ap-fold__content {

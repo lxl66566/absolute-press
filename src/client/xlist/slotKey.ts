@@ -11,14 +11,14 @@ export function assignSlotKeys<T>(
   baseKey: (item: T) => string,
 ): { item: T; key: string }[] {
   const used = new Set<string>();
+  // Highest suffix consumed per base key (1 = the bare key only), so the
+  // next duplicate starts past everything taken so far.
   const counts = new Map<string, number>();
   return items.map(item => {
     const base = baseKey(item);
     let key = base;
     if (used.has(key)) {
-      const seen = (counts.get(base) ?? 1) + 1;
-      counts.set(base, seen);
-      let suffix = seen;
+      let suffix = (counts.get(base) ?? 1) + 1;
       while (used.has(`${base}#${suffix}`)) suffix += 1;
       key = `${base}#${suffix}`;
       counts.set(base, suffix);
