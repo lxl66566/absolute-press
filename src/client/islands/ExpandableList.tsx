@@ -27,8 +27,8 @@ import './ExpandableList.css';
  * delimiters, see src/node/markdown/entries.ts) and renders each entry as a
  * table row: title cell + one meta cell per `@@` column, followed by a
  * full-width row with the entry body. This component parses the static
- * table back into items (expandable-list-parse.ts) and adds search / sort /
- * expand-all / per-row toggles. Nested islands inside entries (e.g.
+ * table back into items (expandable-list-parse.ts) and adds search /
+ * header sort / per-row toggles. Nested islands inside entries (e.g.
  * ZoomedImg) are re-hydrated whenever their item re-enters the rendered
  * list.
  */
@@ -36,8 +36,12 @@ export interface ExpandableListProps {
   childrenHtml?: string;
   /** Search box on by default; disable with `:searchable="false"`. */
   searchable?: boolean | string;
-  /** Title sort control on by default; disable with `:sortable="false"`. */
+  /** Header sort triangles on by default (needs `columns`); disable with `:sortable="false"`. */
   sortable?: boolean | string;
+  /** Entry count line ("4 / 4 条") on by default; disable with `:showCount="false"`. */
+  showCount?: boolean | string;
+  /** The "click a row to expand" bubble on by default; disable with `:hint="false"`. */
+  hint?: boolean | string;
   /**
    * Column header labels: entry 0 names the title column, the rest name the
    * `@@` meta columns. Pass as JSON: `:columns='["游戏名", "时长"]'`.
@@ -52,19 +56,6 @@ export interface ExpandableListProps {
    * columns.
    */
   inline?: unknown;
-}
-
-type SortMode = 'default' | 'title-asc' | 'title-desc';
-
-const SORT_MODES: readonly SortMode[] = ['default', 'title-asc', 'title-desc'];
-
-function isSortMode(value: string): value is SortMode {
-  return (SORT_MODES as readonly string[]).includes(value);
-}
-
-/** Natural title order: base-insensitive, digit runs compared numerically. */
-function compareTitles(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
 /** An entry without body markdown cannot expand. */
@@ -123,7 +114,6 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   const visibleMetaCount = Math.max(0, metaCount - inlineIndexes.size);
 
   const [query, setQuery] = createSignal('');
-  const [sort, setSort] = createSignal<SortMode>('default');
   const [open, setOpen] = createSignal<ReadonlySet<number>>(new Set());
 
   const terms = createMemo(() =>
@@ -136,19 +126,11 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
 
   const filtered = createMemo(() => {
     const needle = terms();
-    const base =
-      needle.length === 0
-        ? parsed.items
-        : parsed.items.filter(item =>
-            needle.every(term => item.haystack.includes(term)),
-          );
-    const mode = sort();
-    if (mode === 'default') return base;
-    return base.toSorted((a, b) =>
-      mode === 'title-asc'
-        ? compareTitles(a.title, b.title)
-        : compareTitles(b.title, a.title),
-    );
+    return needle.length === 0
+      ? parsed.items
+      : parsed.items.filter(item =>
+          needle.every(term => item.haystack.includes(term)),
+        );
   });
 
   const isOpen = (id: number): boolean => open().has(id);
@@ -158,21 +140,11 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
     else next.add(id);
     setOpen(next);
   };
-  // Statement-position calls: the Setter generic infers U from the contextual
-  // return type, so expression-position calls against `(): void` arrows
-  // resolve U to void and fail to typecheck.
-  const expandAll = (): void => {
-    setOpen(new Set(filtered().map(item => item.id)));
-  };
-  const collapseAll = (): void => {
-    setOpen(new Set<number>());
-  };
-
-  const onSortChange = (value: string): void => {
-    if (isSortMode(value)) setSort(value);
-  };
 
   const hasExpandable = parsed.items.some(isExpandableRow);
+  const searchable = flagOn(props.searchable, true);
+  const showCount = flagOn(props.showCount, true);
+  const showHint = flagOn(props.hint, true);
 
   const metaHeaders = (): readonly string[] =>
     cols === undefined
@@ -201,43 +173,29 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
       <Show when={parsed.preamble.trim() !== ''}>
         <div class="ap-xlist__preamble" innerHTML={parsed.preamble} />
       </Show>
-      <div class="ap-xlist__toolbar">
-        <Show when={flagOn(props.searchable, true)}>
-          <input
-            class="ap-xlist__search"
-            type="search"
-            placeholder={t.xlist.searchPlaceholder}
-            aria-label={t.xlist.searchPlaceholder}
-            value={query()}
-            onInput={e => setQuery(e.currentTarget.value)}
-          />
-        </Show>
-        <Show when={flagOn(props.sortable, true)}>
-          <select
-            class="ap-xlist__sort"
-            aria-label={t.xlist.sortLabel}
-            value={sort()}
-            onChange={e => onSortChange(e.currentTarget.value)}
-          >
-            <option value="default">{t.xlist.sortDefault}</option>
-            <option value="title-asc">{t.xlist.sortTitleAsc}</option>
-            <option value="title-desc">{t.xlist.sortTitleDesc}</option>
-          </select>
-        </Show>
-        <button type="button" class="ap-xlist__btn" onClick={expandAll}>
-          {t.xlist.expandAll}
-        </button>
-        <button type="button" class="ap-xlist__btn" onClick={collapseAll}>
-          {t.xlist.collapseAll}
-        </button>
-        <span class="ap-xlist__count" role="status">
-          {formatMessage(t.xlist.count, {
-            shown: filtered().length,
-            total: parsed.items.length,
-          })}
-        </span>
-      </div>
-      <Show when={hasExpandable && parsed.items.length > 0}>
+      <Show when={searchable || showCount}>
+        <div class="ap-xlist__toolbar">
+          <Show when={searchable}>
+            <input
+              class="ap-xlist__search"
+              type="search"
+              placeholder={t.xlist.searchPlaceholder}
+              aria-label={t.xlist.searchPlaceholder}
+              value={query()}
+              onInput={e => setQuery(e.currentTarget.value)}
+            />
+          </Show>
+          <Show when={showCount}>
+            <span class="ap-xlist__count" role="status">
+              {formatMessage(t.xlist.count, {
+                shown: filtered().length,
+                total: parsed.items.length,
+              })}
+            </span>
+          </Show>
+        </div>
+      </Show>
+      <Show when={showHint && hasExpandable && parsed.items.length > 0}>
         <p class="ap-xlist__hint">{t.xlist.expandHint}</p>
       </Show>
       <Show

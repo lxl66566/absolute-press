@@ -87,14 +87,8 @@ export const zh = {
   },
   xlist: {
     searchPlaceholder: '搜索条目…',
-    sortLabel: '排序方式',
-    sortDefault: '默认排序',
-    sortTitleAsc: '按标题升序',
-    sortTitleDesc: '按标题降序',
-    /** Tooltip of the header sorter buttons (XList). */
+    /** Tooltip of the header sorter buttons. */
     sortToggle: '点击切换排序',
-    expandAll: '全部展开',
-    collapseAll: '全部收起',
     expandHint: '点击表格行可以展开详细内容哦！',
     count: '{shown} / {total} 条',
     empty: '没有匹配的条目',

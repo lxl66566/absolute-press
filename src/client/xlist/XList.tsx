@@ -256,6 +256,8 @@ export function XList(props: XListProps): SolidElement {
 
   const collapsible = () => props.collapsible ?? true;
   const sortable = () => props.sortable ?? true;
+  const showCount = () => props.showCount ?? true;
+  const showHint = () => props.hint ?? true;
   const expandable = (entry: IndexedItem): boolean =>
     collapsible() && (entry.item.bodyHtml?.trim() ?? '') !== '';
 
@@ -305,47 +307,57 @@ export function XList(props: XListProps): SolidElement {
         mo.observe(el, { childList: true, subtree: true });
       }}
     >
-      <div class="ap-xlist__toolbar">
-        <Show when={props.searchable ?? true}>
-          <input
-            class="ap-xlist__search"
-            type="search"
-            placeholder={t.xlist.searchPlaceholder}
-            aria-label={t.xlist.searchPlaceholder}
-            value={query()}
-            onInput={e => setQuery(e.currentTarget.value)}
-          />
-        </Show>
-        <Show when={props.filters !== undefined && props.filters.length > 0}>
-          <For each={props.filters}>
-            {filter => (
-              <label
-                class={cx(
-                  'ap-xlist__filter',
-                  hiddenFilters().has(filter.id) && 'is-active',
-                )}
-                title={filter.hint}
-              >
-                <input
-                  type="checkbox"
-                  checked={hiddenFilters().has(filter.id)}
-                  onChange={e =>
-                    toggleFilter(filter.id, e.currentTarget.checked)
-                  }
-                />
-                <span>{filter.label}</span>
-              </label>
-            )}
-          </For>
-        </Show>
-        <span class="ap-xlist__count" role="status">
-          {formatMessage(t.xlist.count, {
-            shown: filtered().length,
-            total: indexed().length,
-          })}
-        </span>
-      </div>
-      <Show when={collapsible() && hasExpandable()}>
+      <Show
+        when={
+          (props.searchable ?? true) ||
+          (props.filters !== undefined && props.filters.length > 0) ||
+          showCount()
+        }
+      >
+        <div class="ap-xlist__toolbar">
+          <Show when={props.searchable ?? true}>
+            <input
+              class="ap-xlist__search"
+              type="search"
+              placeholder={t.xlist.searchPlaceholder}
+              aria-label={t.xlist.searchPlaceholder}
+              value={query()}
+              onInput={e => setQuery(e.currentTarget.value)}
+            />
+          </Show>
+          <Show when={props.filters !== undefined && props.filters.length > 0}>
+            <For each={props.filters}>
+              {filter => (
+                <label
+                  class={cx(
+                    'ap-xlist__filter',
+                    hiddenFilters().has(filter.id) && 'is-active',
+                  )}
+                  title={filter.hint}
+                >
+                  <input
+                    type="checkbox"
+                    checked={hiddenFilters().has(filter.id)}
+                    onChange={e =>
+                      toggleFilter(filter.id, e.currentTarget.checked)
+                    }
+                  />
+                  <span>{filter.label}</span>
+                </label>
+              )}
+            </For>
+          </Show>
+          <Show when={showCount()}>
+            <span class="ap-xlist__count" role="status">
+              {formatMessage(t.xlist.count, {
+                shown: filtered().length,
+                total: indexed().length,
+              })}
+            </span>
+          </Show>
+        </div>
+      </Show>
+      <Show when={showHint() && collapsible() && hasExpandable()}>
         <p class="ap-xlist__hint">{t.xlist.expandHint}</p>
       </Show>
       <Show

@@ -71,10 +71,14 @@ export interface XListProps {
   inlineCount?: number;
   /** Search box. @default true */
   searchable?: boolean;
-  /** Header-click sorting (title column + numeric columns). @default true */
+  /** Header-click sorting (title column + meta columns). @default true */
   sortable?: boolean;
   /** Expandable rows with body slots. @default true */
   collapsible?: boolean;
+  /** Entry count line in the toolbar. @default true */
+  showCount?: boolean;
+  /** The "click a row to expand" bubble under the toolbar. @default true */
+  hint?: boolean;
   /**
    * Toolbar exclusion filters: checking one hides rows whose `filterFlags`
    * carry its id. The count line keeps showing visible / total so hidden

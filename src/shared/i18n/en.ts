@@ -86,14 +86,8 @@ export const en = {
   },
   xlist: {
     searchPlaceholder: 'Filter entries…',
-    sortLabel: 'Sort order',
-    sortDefault: 'Default order',
-    sortTitleAsc: 'Title ascending',
-    sortTitleDesc: 'Title descending',
-    /** Tooltip of the header sorter buttons (XList). */
+    /** Tooltip of the header sorter buttons. */
     sortToggle: 'Click to change sort order',
-    expandAll: 'Expand all',
-    collapseAll: 'Collapse all',
     expandHint: 'Click a table row to expand its details!',
     count: '{shown} / {total} items',
     empty: 'No matching entries',
