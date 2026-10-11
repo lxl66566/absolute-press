@@ -17,6 +17,20 @@ export { mountComponent } from './dom';
 // Inline fold primitive (two-line clamp + expand on click); the xlist fold
 // parts render through it, site islands can reuse it directly.
 export { Fold } from './xlist/Fold';
+// Data-driven entry lists (config `entryListIslands`): typed TS data + `@@@`
+// slot bodies -> interactive table. Sites write a thin island wrapper that
+// maps their data module onto XList via slotItems.
+export { XList } from './xlist/XList';
+export type {
+  BadgeTone,
+  XListCell,
+  XListFilter,
+  XListItem,
+  XListPart,
+  XListProps,
+} from './xlist/types';
+export { slotItems } from './xlist/items';
+export { assignSlotKeys } from './xlist/slotKey';
 // Shared data contracts: sites customizing chrome (navbar/sidebar/archive)
 // or islands consume the payload types through this entry.
 export type {

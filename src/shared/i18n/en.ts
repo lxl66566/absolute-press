@@ -90,6 +90,8 @@ export const en = {
     sortDefault: 'Default order',
     sortTitleAsc: 'Title ascending',
     sortTitleDesc: 'Title descending',
+    /** Tooltip of the header sorter buttons (XList). */
+    sortToggle: 'Click to change sort order',
     expandAll: 'Expand all',
     collapseAll: 'Collapse all',
     expandHint: 'Click a table row to expand its details!',

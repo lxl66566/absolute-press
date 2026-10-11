@@ -410,6 +410,69 @@ When a site island wants ExpandableList's "`@@@` entries + static table skeleton
 
 Implementation details of pipeline splitting and activation timing are in [Design and implementation: the islands runtime](./design/islands-runtime.md).
 
+### Data-driven tables (XList)
+
+ExpandableList reads its row data from `@@` meta lines, recognizing badges and scores from content; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (title column asc → desc → default; numeric columns desc → asc → default, cells without a sort key sinking to the bottom), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
+
+A minimal wrapper (the data module `games.ts` exports an array):
+
+```ts
+import { createMemo } from 'solid-js';
+import { slotItems, XList } from 'absolute-press/client';
+import type { IslandComponent, XListItem } from 'absolute-press/client';
+
+import games from './games';
+
+const COLUMNS = ['Game', 'Hours', 'Score'];
+
+function toItem(g: (typeof games)[number], key: string): XListItem {
+  return {
+    key,
+    title: g.name,
+    // Aliases that match the search but never show in the table
+    searchExtra: g.aliases.join('/'),
+    cells: [
+      { parts: [{ kind: 'text', text: g.hours }], text: g.hours },
+      {
+        parts: [{ kind: 'text', text: String(g.score) }],
+        text: String(g.score),
+        sortValue: g.score,
+      },
+    ],
+  };
+}
+
+const GameList: IslandComponent = props => {
+  const items = createMemo(() =>
+    slotItems(props.childrenHtml ?? '', games, g => g.name, toItem, 'GameList'),
+  );
+  return <XList items={items()} columns={COLUMNS} />;
+};
+
+export default GameList;
+```
+
+Registration matches any other site island on the entry pipeline: list it under config `islands` as `GameList: '…/GameList.tsx'` and add the name to `entryListIslands` (previous section) so the `@@@` slot bodies run through the build-time pipeline; the markdown keeps only the tag and the slots:
+
+```md
+<GameList>
+
+@@@ CLANNAD
+
+The entry body is plain markdown.
+
+</GameList>
+```
+
+Behavior notes:
+
+- `slotItems(childrenHtml, data, baseKey, build, label)` pairs bodies with data by slot title: duplicate base keys get `#2`, `#3` suffixes in order (`assignSlotKeys` is exported separately so validation tools share the rule with the component), a slot matching no data item is dropped with a console warning, and data rows without a slot still render (just not expandable)
+- `XList` props: `columns` header labels, `inlineCount` trailing meta columns folded into the title cell, `searchable` / `sortable` / `collapsible` toggles (all on by default; turn everything off for a plain display table), `filters` exclusion filters (checking one hides rows carrying its `filterFlags`; the count line keeps showing visible / total)
+- the sort key of a numeric column is the cell's `sortValue`: a header becomes clickable only when every cell in the column carries a key or an empty placeholder
+- rich title cells use `titleParts` (link/badge/`fold` parts; `fold` renders through the `Fold` primitive's two-line clamp), for tables whose first column is itself a link
+- nested islands inside slot bodies are re-activated after filter/sort rebuilds
+- without JS the static skeleton still shows every entry; UI copy follows the page language (`xlist` section of `shared/i18n`), styles reuse the ExpandableList `.ap-xlist*` contract with the sorter/filter increment in `src/client/xlist/XList.css`
+
 ### Reading site-wide data (site-data)
 
 Islands that need the site-wide page inventory (archive indexes, stat cards) need not scan content themselves: the site config's `onScan` hook receives the page inventory after each scan and returns arbitrary JSON data, which is injected into the `virtual:absolute-press/site-data` virtual module. An island imports that module directly; its default export is the `onScan` return value. In dev, content edits trigger a fresh scan and the data refreshes automatically. The hook signature and the `SiteScanPage` fields are in the [configuration reference](./configuration.md#onscan):

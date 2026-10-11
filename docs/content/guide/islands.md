@@ -410,6 +410,69 @@ export default Notice;
 
 管线拆分与激活时序的实现细节见[设计与实现：islands 运行时](./design/islands-runtime.md)。
 
+### 数据驱动表格（XList）
+
+ExpandableList 的行数据来自 `@@` meta 行，徽章与评分靠内容识别；条目多、meta 列需要精确控制时，更稳的做法是 TS 数据模块做单一数据源，markdown 只留 `@@@` 插槽正文。`absolute-press/client` 导出的 `XList` 组件与配套装配工具就是这条路径：站点写一个薄包装 island，把数据映射成类型化条目交给 `XList`，即可得到表头点击循环排序（标题列 升→降→默认；数值列 降→升→默认，无排序键的单元格沉底）、多关键字搜索（含隐藏别名）、工具栏排除过滤器、富标题格（链接/badge/折叠文本）与可展开行。
+
+一个最小包装（数据模块 `games.ts` 导出数组）：
+
+```ts
+import { createMemo } from 'solid-js';
+import { slotItems, XList } from 'absolute-press/client';
+import type { IslandComponent, XListItem } from 'absolute-press/client';
+
+import games from './games';
+
+const COLUMNS = ['游戏名', '时长', '评分'];
+
+function toItem(g: (typeof games)[number], key: string): XListItem {
+  return {
+    key,
+    title: g.name,
+    // 命中搜索但不在表格里显示的别名
+    searchExtra: g.aliases.join('/'),
+    cells: [
+      { parts: [{ kind: 'text', text: g.hours }], text: g.hours },
+      {
+        parts: [{ kind: 'text', text: String(g.score) }],
+        text: String(g.score),
+        sortValue: g.score,
+      },
+    ],
+  };
+}
+
+const GameList: IslandComponent = props => {
+  const items = createMemo(() =>
+    slotItems(props.childrenHtml ?? '', games, g => g.name, toItem, 'GameList'),
+  );
+  return <XList items={items()} columns={COLUMNS} />;
+};
+
+export default GameList;
+```
+
+注册与其他走条目管线的站点 island 相同：配置 `islands` 登记 `GameList: '…/GameList.tsx'`，并把名字加进 `entryListIslands`（上一节），`@@@` 插槽正文才会走构建期管线；markdown 里只剩标签与插槽：
+
+```md
+<GameList>
+
+@@@ CLANNAD
+
+条目正文就是普通 markdown。
+
+</GameList>
+```
+
+行为要点：
+
+- `slotItems(childrenHtml, data, baseKey, build, label)` 按插槽标题配对数据与正文：重复 base key 依序得 `#2`、`#3` 后缀（`assignSlotKeys` 单独导出，校验工具与组件共用同一规则），失配插槽在控制台告警后丢弃，无插槽的数据行照常渲染（只是不可展开）
+- `XList` props：`columns` 表头标签、`inlineCount` 尾部 meta 列并入标题格、`searchable` / `sortable` / `collapsible` 开关（默认全开，纯展示表格可全关）、`filters` 排除过滤器（勾选隐藏带对应 `filterFlags` 的行，计数行仍显示 可见 / 总数）
+- 数值列的排序键是 cell 的 `sortValue`：一列所有单元格带键或是空占位，表头才可点击排序
+- 富标题格用 `titleParts`（链接/badge/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接的表格
+- 插槽正文里的嵌套 island 在过滤/排序重建后自动重新激活
+- 无 JS 时静态骨架照常展示全部条目；UI 文案跟随页面语言（`shared/i18n` 的 `xlist` 段），样式复用 ExpandableList 的 `.ap-xlist*` 契约，排序三角与过滤器在 `src/client/xlist/XList.css`
+
 ### 站点 island 读取全站数据（site-data）
 
 需要全站页面清单的 island（归档索引、统计卡片这类）不必自己扫内容：站点配置的 `onScan` 钩子每轮扫描后拿到页面清单并返回任意 JSON 数据，返回值注入 `virtual:absolute-press/site-data` 虚拟模块。island 直接 import 这个模块，default export 就是 `onScan` 的返回值；dev 下内容编辑触发新一轮扫描，数据自动刷新。配置签名与 `SiteScanPage` 字段见[配置参考](./configuration.md#onscan)：
