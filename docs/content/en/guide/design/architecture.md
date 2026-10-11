@@ -57,7 +57,9 @@ Dev mode has no bundle phase: the plugin registers `appType: 'custom'`, and midd
 - Render-blocking stylesheets. KaTeX's ~23KB CSS is injected only when the page renders formulas; the CSS of dynamic chunks (Mermaid, DocSearch, etc.) does not go into head — Vite's preload runtime injects it on demand.
 - body: mount points, rendered body HTML, payload JSON, entry script.
 
-The payload is a serialized `PagePayload` (type defined in `src/shared/types.ts`) inside `<script type="application/json" id="__AP_DATA__">`, carrying the nav tree, sidebar tree, page meta, and site integration config. Serializing all client-side data into HTML at build time means the runtime never needs a data endpoint. During serialization `<` is escaped to `\u003c` so a `</script>` inside the JSON cannot close the tag early.
+The payload is a serialized `PagePayload` (type defined in `src/shared/types.ts`) inside `<script type="application/json" id="__AP_DATA__">`, carrying the page meta and site integration config — plus, in dev, the nav tree, sidebar tree, and icon table. Serializing all client-side data into HTML (or a shared asset) at build time means the runtime never needs a data endpoint. During serialization `<` is escaped to `\u003c` so a `</script>` inside the JSON cannot close the tag early.
+
+The build additionally externalizes each locale's chrome triplet — `site.icons` (the icon table), `navbar`, `sidebar` — into a content-hashed shared module `assets/chrome-<hash>.js` (`export default`-ing a `PageChrome`; see `build/chrome-asset.ts`): the three blocks are byte-identical for every page of a locale, and on sites registering a full icon library the table alone can take two thirds of the homepage document. The page payload keeps only a `chrome` field pointing at the module (page-relative), the head preloads it with `modulepreload`, and the client entry and the soft-navigation router run `ensureChrome()` before any chrome mounts; `pagePayload()` merges the data back on read, so the contract for site islands does not change. The module rides the immutable `/assets/*` cache rule — page navigations and prerenders stop re-shipping and re-parsing the data. Dev keeps it inline and emits no such file.
 
 ## Mount contract
 
@@ -73,9 +75,16 @@ The shell body always outputs four mount points (plus `#ap-footer` for the foote
 The execution sequence of `entry.tsx` is short enough to read in full:
 
 ```ts
-function main(): void {
-  const payload = pagePayload();
+async function main(): Promise<void> {
+  let payload = pagePayload();
   if (!payload) return;
+  // Build output loads the shared chrome module (icons/navbar/sidebar)
+  const chromeUrl = chromeUrlOf(payload, document.baseURI);
+  if (chromeUrl !== null) {
+    if (!(await ensureChrome(chromeUrl))) return;
+    payload = pagePayload();
+    if (!payload) return;
+  }
   mountTheme(payload);
   registerIslands();
   hydrateIslands();

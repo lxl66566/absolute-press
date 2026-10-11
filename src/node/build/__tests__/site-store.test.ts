@@ -648,6 +648,124 @@ describe('SiteStore', () => {
     warned.mockRestore();
   });
 
+  it('externalizes chrome into a shared hashed asset; dev keeps it inline', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'guide/a.md':
+          '---\nicon: solid/flag\ncategory:\n  - news\n---\n\n# A\n',
+      },
+      { icons: { 'solid/flag': '<svg>flag</svg>' } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    // Exactly one chrome module for the single locale...
+    const chromeNames = files
+      .map(f => f.fileName)
+      .filter(n => /^assets\/chrome-[0-9a-f]{8}\.js$/.test(n));
+    expect(chromeNames).toHaveLength(1);
+    const module = String(
+      files.find(f => f.fileName === chromeNames[0])?.source ?? '',
+    );
+    // ...carrying the navbar/sidebar trees and the site's icon subset.
+    expect(module).toMatch(/^export default \{/);
+    expect(module).toContain('"guide"');
+    expect(module).toContain('"solid/flag"');
+    expect(module).not.toContain('"page"');
+
+    const html = String(
+      files.find(f => f.fileName === 'guide/a.html')?.source ?? '',
+    );
+    // Payload references the asset (page-relative) and drops the inline trees.
+    const payload = payloadOf(html);
+    expect(payload.chrome).toBe(`../${chromeNames[0]}`);
+    expect(payload.navbar).toBeUndefined();
+    expect(payload.sidebar).toBeUndefined();
+    expect((payload.site as Record<string, unknown>).icons).toBeUndefined();
+    // Head preloads the module next to the entry script.
+    expect(html).toContain(
+      `<link rel="modulepreload" href="../${chromeNames[0]}">`,
+    );
+    // Root-page and depth-1 references share one asset, base-adjusted.
+    const home = payloadOf(
+      String(files.find(f => f.fileName === 'index.html')?.source ?? ''),
+    );
+    expect(home.chrome).toBe(chromeNames[0]);
+    const deep = payloadOf(
+      String(
+        files.find(f => f.fileName === 'category/news.html')?.source ?? '',
+      ),
+    );
+    expect(deep.chrome).toBe(`../${chromeNames[0]}`);
+
+    // Dev: no asset, no reference — the trees stay inline.
+    const devStore = new SiteStore(fx.config);
+    await devStore.sync('dev');
+    const devHtml = devStore.devHtml('/guide/a') ?? '';
+    const devPayload = payloadOf(devHtml);
+    expect(devPayload.chrome).toBeUndefined();
+    expect(devPayload.navbar).toEqual(expect.any(Array));
+    expect(devPayload.sidebar).toEqual(expect.any(Array));
+    expect(devStore.devHtml('/guide/a')).not.toContain('chrome-');
+  });
+
+  it('emits one chrome asset per differing locale and scopes _headers rules', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'guide/a.md': '# A\n',
+        'en/index.md': '# EN Home\n',
+        'en/guide/a.md': '# A (EN)\n',
+      },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const chromeNames = files
+      .map(f => f.fileName)
+      .filter(n => /^assets\/chrome-[0-9a-f]{8}\.js$/.test(n));
+    // The locales' trees differ (EN entries live under /en), so their chrome
+    // hashes differ.
+    expect(chromeNames).toHaveLength(2);
+    const home = payloadOf(
+      String(files.find(f => f.fileName === 'index.html')?.source ?? ''),
+    );
+    const enHome = payloadOf(
+      String(files.find(f => f.fileName === 'en/index.html')?.source ?? ''),
+    );
+    expect(typeof home.chrome).toBe('string');
+    expect(enHome.chrome).not.toBe(home.chrome);
+    expect(chromeNames).toContain(
+      (home.chrome as string).replace(/^\.\.\//, ''),
+    );
+
+    // Early-Hints Link: default chrome on the root rule, EN chrome scoped
+    // to the EN prefix.
+    const headers = String(
+      files.find(f => f.fileName === '_headers')?.source ?? '',
+    );
+    const defaultChrome = (home.chrome as string).replace(/^\.\.\//, '');
+    expect(headers).toContain(
+      `Link: </assets/entry.js>; rel=modulepreload, ` +
+        `</${defaultChrome}>; rel=modulepreload`,
+    );
+    expect(headers).toContain('/en/*');
+    expect(headers).toContain(
+      `Link: </assets/entry.js>; rel=modulepreload, ` +
+        `</${(enHome.chrome as string).replace('../', '')}>; rel=modulepreload`,
+    );
+  });
+
   it('injects the katex stylesheet on math pages only (dev)', async () => {
     const fx = await contentFixture({
       'math.md': '# Math\n\n$E=mc^2$\n',

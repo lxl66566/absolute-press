@@ -197,7 +197,7 @@ export function SideBar(props: { payload: PagePayload }): SolidElement {
   createEffect(
     () => clientRoute(),
     current => {
-      const keys = activeGroupKeys(props.payload.sidebar, current);
+      const keys = activeGroupKeys(props.payload.sidebar ?? [], current);
       setCollapsedKeys(prev => {
         if (!keys.some(key => prev.has(key))) return prev;
         const next = new Set(prev);
@@ -237,7 +237,7 @@ export function SideBar(props: { payload: PagePayload }): SolidElement {
       <nav class="text-sm">
         <ul class="ap-sidebar-tree">
           <SidebarTree
-            items={props.payload.sidebar}
+            items={props.payload.sidebar ?? []}
             collapsed={collapsedKeys}
             toggle={toggleGroup}
             msg={t}

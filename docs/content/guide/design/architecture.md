@@ -57,7 +57,9 @@ dev 模式没有 bundle 阶段：插件注册 `appType: 'custom'`，中间件按
 - 阻塞渲染的样式表。KaTeX 的约 23KB CSS 只在页面渲染出公式时才注入；动态 chunk（Mermaid、DocSearch 等）的 CSS 不进 head，由 Vite 的 preload 运行时按需注入。
 - body：挂载点、渲染好的正文 HTML、payload JSON、入口 script。
 
-payload 是 `<script type="application/json" id="__AP_DATA__">` 里的序列化 `PagePayload`（类型定义在 `src/shared/types.ts`），装着导航树、侧边栏树、页面 meta、站点集成配置。构建期把客户端要用的数据全部序列化进 HTML，运行时就不需要再请求任何数据接口。序列化时把 `<` 转义为 `\u003c`，防止 JSON 里的 `</script>` 提前闭合标签。
+payload 是 `<script type="application/json" id="__AP_DATA__">` 里的序列化 `PagePayload`（类型定义在 `src/shared/types.ts`），装着页面 meta、站点集成配置，以及（dev 下）导航树、侧边栏树与图标表。构建期把客户端要用的数据全部序列化进 HTML 或共享资产，运行时就不需要再请求任何数据接口。序列化时把 `<` 转义为 `\u003c`，防止 JSON 里的 `</script>` 提前闭合标签。
+
+构建产物还把每个 locale 的 chrome 三件套——`site.icons`（图标表）、`navbar`、`sidebar`——外置成按内容 hash 命名的共享模块 `assets/chrome-<hash>.js`（`export default` 一个 `PageChrome`，见 `build/chrome-asset.ts`）：这三块对同 locale 的每一页完全相同，图标表在注册了全量图标库的站点上能占到首页文档的三分之二。页面 payload 只留一个 `chrome` 字段指向该模块（页相对路径），head 里同步 `modulepreload`；客户端入口与软导航路由在挂载 chrome 前 `ensureChrome()` 加载模块，`pagePayload()` 读取时把数据合并回来——对站点 island 来说契约不变。模块走 `/assets/*` 的 immutable 缓存，翻页与预渲染不再重复传输与解析这份数据；dev 保持内联，不产生该文件。
 
 ## 挂载契约
 
@@ -73,9 +75,16 @@ shell 的 body 固定输出四个挂载点（另有 `#ap-footer` 放页脚）：
 `entry.tsx` 的执行序列很短，可以完整看：
 
 ```ts
-function main(): void {
-  const payload = pagePayload();
+async function main(): Promise<void> {
+  let payload = pagePayload();
   if (!payload) return;
+  // 构建产物在此加载共享 chrome 模块（icons/navbar/sidebar）
+  const chromeUrl = chromeUrlOf(payload, document.baseURI);
+  if (chromeUrl !== null) {
+    if (!(await ensureChrome(chromeUrl))) return;
+    payload = pagePayload();
+    if (!payload) return;
+  }
   mountTheme(payload);
   registerIslands();
   hydrateIslands();

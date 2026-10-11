@@ -272,6 +272,20 @@ export interface SiteProfile {
   articlesLink?: string;
 }
 
+/**
+ * The per-locale chrome fields of `PagePayload` (`site.icons`, `navbar`,
+ * `sidebar`) as the externalized build asset ships them: one
+ * content-hashed `assets/chrome-<hash>.js` ES module per locale,
+ * `export default`-ing exactly this shape. Dev keeps them inline.
+ */
+export interface PageChrome {
+  /** Site-registered icons referenced by the site's pages (subset of config
+   * `icons`); absent when the site registers none. */
+  icons?: Record<string, string>;
+  navbar: NavItem[];
+  sidebar: SidebarItem[];
+}
+
 /** Everything serialized into `<script id="__AP_DATA__">` of one page. */
 export interface PagePayload {
   site: {
@@ -301,7 +315,11 @@ export interface PagePayload {
      * (config `footer.credit`); absent keeps the default credits.
      */
     footerCredit?: string;
-    /** Site-registered icons referenced by pages in this payload (subset of config `icons`). */
+    /**
+     * Site-registered icons referenced by the site's pages (subset of config
+     * `icons`). Absent on build payloads — icons ride the shared chrome
+     * asset (`chrome` field) and the client merges them back at read time.
+     */
     icons?: Record<string, string>;
     /** Brand image for the navbar/drawer, resolved against the page base. */
     logo?: string;
@@ -327,9 +345,26 @@ export interface PagePayload {
       tags?: string;
     };
   };
-  navbar: NavItem[];
-  /** Sidebar section resolved for this page. */
-  sidebar: SidebarItem[];
+  /**
+   * Navbar tree of the page's locale. Absent on build payloads — the tree
+   * rides the shared chrome asset (`chrome` field); the client loads the
+   * module before mounting and `pagePayload()` merges it back in.
+   */
+  navbar?: NavItem[];
+  /**
+   * Sidebar tree resolved for the page's locale. Absent on build payloads
+   * — see `navbar` / the `chrome` field.
+   */
+  sidebar?: SidebarItem[];
+  /**
+   * Build only: document-relative URL of the page locale's shared chrome
+   * asset — a content-hashed ES module `export default`-ing `PageChrome`
+   * (icons + navbar + sidebar), identical for every page of the locale and
+   * cached immutable. When present, those three fields are omitted here and
+   * `pagePayload()` merges the loaded module's data back in; dev payloads
+   * keep everything inline and omit this field.
+   */
+  chrome?: string;
   page: PageMeta;
   /** Present only on home / archive pages. */
   articles?: ArticleInfo[];

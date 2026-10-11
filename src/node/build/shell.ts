@@ -273,9 +273,15 @@ export function renderShell(input: ShellInput): string {
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     // Earliest discovery: modulepreload lets the entry chunk download while
-    // the rest of a large head/body is still streaming in.
+    // the rest of a large head/body is still streaming in. The shared chrome
+    // asset (icons/navbar/sidebar of the page's locale) rides the same
+    // mechanism: the entry dynamic-imports it before mounting, and preloading
+    // starts that fetch at parse time instead of after entry execution.
     ...(input.modulepreload
       ? [`<link rel="modulepreload" href="${escapeHtml(withBase(scriptSrc))}">`]
+      : []),
+    ...(payload.chrome
+      ? [`<link rel="modulepreload" href="${escapeHtml(payload.chrome)}">`]
       : []),
     `<title>${escapeHtml(title)}</title>`,
     ...(input.favicon ? [faviconLink(input.favicon, withBase)] : []),

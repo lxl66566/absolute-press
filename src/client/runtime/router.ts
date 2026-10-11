@@ -20,6 +20,7 @@ import {
   initCanonicalPrefix,
 } from './head';
 import { hydrateIslands } from './islands';
+import { chromeUrlOf, ensureChrome, mergeChrome } from './payload';
 import type { RouterEntryState, ScrollDecision } from './scroll-restore';
 import { resolveScrollTarget } from './scroll-restore';
 import { initTabsPersistence } from './tabs';
@@ -160,6 +161,10 @@ function applyScrollTarget(decision: ScrollDecision, hash: string): void {
 
 async function navigate(href: string, push: boolean): Promise<void> {
   const seq = ++navSeq;
+  // Absolute target URL: href may be route-relative (graph nodes call
+  // navigateTo with page-relative routes), and the chrome reference below
+  // resolves against the target — a relative base would throw.
+  const target = new URL(href, location.href).href;
   let page: {
     payload: PagePayload;
     content: Element;
@@ -169,7 +174,7 @@ async function navigate(href: string, push: boolean): Promise<void> {
     fetched: Document;
   };
   try {
-    const response = await fetch(href);
+    const response = await fetch(target);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const doc = new DOMParser().parseFromString(
       await response.text(),
@@ -179,8 +184,19 @@ async function navigate(href: string, push: boolean): Promise<void> {
     const incoming = doc.getElementById('ap-content');
     if (data === undefined || data === '' || incoming === null)
       throw new Error('payload missing');
+    const parsed = JSON.parse(data) as PagePayload;
+    // Build payloads reference their locale's chrome module instead of
+    // inlining it. Same-locale navigations resolve instantly (module
+    // already loaded); a locale crossing imports the target's module
+    // BEFORE the swap, so the remounts below and every later
+    // pagePayload() read see the right chrome. A failed load falls back
+    // to a full page load like any other router failure.
+    const chromeUrl = chromeUrlOf(parsed, target);
+    if (chromeUrl !== null && !(await ensureChrome(chromeUrl))) {
+      throw new Error('chrome asset missing');
+    }
     page = {
-      payload: JSON.parse(data) as PagePayload,
+      payload: mergeChrome(parsed),
       content: incoming,
       title: doc.title,
       rawJson: data,

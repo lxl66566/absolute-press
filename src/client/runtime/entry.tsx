@@ -9,15 +9,24 @@ import '../styles/content.css'; // after theme.css (list rhythm, tasklist accent
 import '../styles/sidebar.css'; // after theme.css so it wins ties (import order matters)
 import { initCodeTools } from './code-tools';
 import { hydrateIslands, registerIslands } from './islands';
-import { pagePayload } from './payload';
+import { chromeUrlOf, ensureChrome, pagePayload } from './payload';
 import { initLightbox } from './photoswipe';
 import { initRouter } from './router';
 import { initTabsPersistence } from './tabs';
 import { initTerms } from './terms';
 
-function main(): void {
-  const payload = pagePayload();
+async function main(): Promise<void> {
+  let payload = pagePayload();
   if (!payload) return;
+  // Build payloads carry their locale's chrome (icons/navbar/sidebar) in a
+  // shared module; it must be loaded and merged before any chrome mounts.
+  // Dev keeps the data inline and skips this entirely.
+  const chromeUrl = chromeUrlOf(payload, document.baseURI);
+  if (chromeUrl !== null) {
+    if (!(await ensureChrome(chromeUrl))) return;
+    payload = pagePayload();
+    if (!payload) return;
+  }
   mountTheme(payload);
   registerIslands();
   hydrateIslands();
@@ -29,7 +38,9 @@ function main(): void {
   initRouter();
 }
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', main, { once: true });
+  document.addEventListener('DOMContentLoaded', () => void main(), {
+    once: true,
+  });
 } else {
-  main();
+  void main();
 }

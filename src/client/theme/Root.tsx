@@ -200,14 +200,14 @@ function MobileDrawer(props: { payload: PagePayload }): SolidElement {
   // First level only; the active path starts expanded so the current page
   // is visible without extra taps.
   const [collapsedKeys, setCollapsedKeys] = createSignal<ReadonlySet<string>>(
-    drawerCollapsed(props.payload.sidebar, clientRoute()),
+    drawerCollapsed(props.payload.sidebar ?? [], clientRoute()),
   );
   // Client-side navigation re-derives the expanded path per route, exactly
   // like a full page load would.
   createEffect(
     () => clientRoute(),
     route => {
-      setCollapsedKeys(drawerCollapsed(props.payload.sidebar, route));
+      setCollapsedKeys(drawerCollapsed(props.payload.sidebar ?? [], route));
     },
   );
   const toggle = (key: string): void => {
@@ -254,7 +254,7 @@ function MobileDrawer(props: { payload: PagePayload }): SolidElement {
         <Show when={contentMounted()}>
           <ul class="ap-drawer-tree">
             <SidebarTree
-              items={props.payload.sidebar}
+              items={props.payload.sidebar ?? []}
               collapsed={collapsedKeys}
               toggle={toggle}
               onNavigate={closeDrawer}

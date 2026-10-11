@@ -501,6 +501,28 @@ describe('renderShell modulepreload', () => {
   it('emits no modulepreload when not requested (dev)', () => {
     expect(shell('/a')).not.toContain('modulepreload');
   });
+
+  it('preloads the payload chrome asset next to the entry preload', () => {
+    // Build shape: chrome replaces the inline navbar/sidebar fields.
+    const html = shell('/a/b', {
+      payload: {
+        ...payload('/a/b'),
+        navbar: undefined,
+        sidebar: undefined,
+        chrome: '../assets/chrome-9f1c2d3e.js',
+      },
+    });
+    const link =
+      '<link rel="modulepreload" href="../assets/chrome-9f1c2d3e.js">';
+    expect(html).toContain(link);
+    expect(indexOf(html, link)).toBeLessThan(indexOf(html, '<title>'));
+    // The reference stays discoverable for the client loader.
+    expect(html).toContain('"chrome":"../assets/chrome-9f1c2d3e.js"');
+  });
+
+  it('emits no chrome preload without the payload reference', () => {
+    expect(shell('/a', { modulepreload: true })).not.toContain('chrome-');
+  });
 });
 
 describe('renderShell JSON-LD', () => {

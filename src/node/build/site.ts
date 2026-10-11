@@ -8,6 +8,7 @@ import type {
   ArticleInfo,
   LocaleInfo,
   PageAlternate,
+  PageChrome,
   PageMeta,
   PagePayload,
   ProfileChip,
@@ -35,6 +36,7 @@ import {
   devFsUrl,
 } from './assets.ts';
 import type { DeadLink } from './assets.ts';
+import { chromeAsset } from './chrome-asset.ts';
 import { clientEntry } from './clientEntry.ts';
 import {
   BUILD_COMPONENT_RENDERERS,
@@ -112,8 +114,8 @@ interface EmittedPage extends RenderedPage {
 
 /** Navbar/sidebar/article list shared by every payload of one locale. */
 interface LocaleChrome {
-  navbar: PagePayload['navbar'];
-  sidebar: PagePayload['sidebar'];
+  navbar: PageChrome['navbar'];
+  sidebar: PageChrome['sidebar'];
   articles: ArticleInfo[];
   /**
    * `profile.exclude`-filtered article list (the profile card's count and
@@ -172,6 +174,14 @@ interface RenderContext {
   byRoute: Map<string, EmittedPage>;
   /** locale key -> chrome; filled on demand via chromeOf(). */
   chrome: Map<string, LocaleChrome>;
+  /**
+   * locale key -> externalized chrome asset file name ('assets/chrome-*.js').
+   * Filled only by the build emit (emitAll primes every locale before the
+   * page loop); while empty — dev requests — page payloads inline the chrome.
+   */
+  chromeFiles: Map<string, string>;
+  /** Emitted chrome modules keyed by file name (drained by emitAll). */
+  chromeAssets: Map<string, string>;
   /** relPath -> locale key -> page; hreflang counterpart lookup. */
   siblings: Map<string, Map<string, PageSource>>;
   /** Archive key `<kind>/<name>` -> alternates; lazy like the chrome. */
@@ -615,6 +625,8 @@ export class SiteStore {
       pages,
       byRoute: new Map(pages.map(p => [p.route, p])),
       chrome: new Map(),
+      chromeFiles: new Map(),
+      chromeAssets: new Map(),
       siblings: siblingIndex(pages),
       archiveAlternates: null,
       listings: listingPages(this.config),
@@ -670,6 +682,48 @@ export class SiteStore {
       ctx.chrome.set(key, chrome);
     }
     return chrome;
+  }
+
+  /**
+   * Externalized chrome module of one locale (build only): computes it on
+   * first use, registers the asset on the context for emitAll, and returns
+   * the bare file name. Payloads of the locale reference it (the `chrome`
+   * field + the head modulepreload) instead of inlining navbar/sidebar/
+   * icons; dev never calls this and keeps the chrome inline.
+   */
+  private chromeFileOf(ctx: RenderContext, localeKey: string): string {
+    let file = ctx.chromeFiles.get(localeKey);
+    if (file === undefined) {
+      const chrome = this.chromeOf(ctx, localeKey);
+      // Only icons of the integrations block move into the asset;
+      // algolia/social/logo are page-level site fields and stay inline.
+      const { icons } = ctx.integrations;
+      const asset = chromeAsset({
+        ...(icons ? { icons } : {}),
+        navbar: chrome.navbar,
+        sidebar: chrome.sidebar,
+      });
+      file = asset.fileName;
+      ctx.chromeFiles.set(localeKey, file);
+      ctx.chromeAssets.set(file, asset.source);
+    }
+    return file;
+  }
+
+  /**
+   * Top-level chrome fields of one payload: the per-locale trees inline
+   * (dev / unprimed contexts), or a page-relative reference to the shared
+   * chrome asset (build).
+   */
+  private chromeFields(
+    ctx: RenderContext,
+    localeKey: string,
+    route: string,
+  ): Pick<PagePayload, 'navbar' | 'sidebar' | 'chrome'> {
+    const file = ctx.chromeFiles.get(localeKey);
+    if (file !== undefined) return { chrome: baseOf(route) + file };
+    const chrome = this.chromeOf(ctx, localeKey);
+    return { navbar: chrome.navbar, sidebar: chrome.sidebar };
   }
 
   private renderedOf(page: PageSource, ctx: RenderContext): EmittedPage {
@@ -835,8 +889,7 @@ export class SiteStore {
           ? { profile: drawerStatsOf(chrome.profile) }
           : {}),
       }),
-      navbar: chrome.navbar,
-      sidebar: chrome.sidebar,
+      ...this.chromeFields(ctx, page.locale.key, page.route),
       page: this.withAlternates(ctx, page, page.meta),
     };
     // Feed can be disabled site-wide (docs/landing home pages keep their
@@ -1109,7 +1162,8 @@ export class SiteStore {
    * Shared `payload.site` block of one locale's pages; page payloads pass
    * the home/archive/footer/profile knobs as `extra` (archive pages carry
    * only the profile one). Integrations stay last — key order drives the
-   * serialized JSON order.
+   * serialized JSON order. Icons drop out when the locale's chrome ships
+   * as the shared asset (the client merges them back from the module).
    */
   private siteBlock(
     ctx: RenderContext,
@@ -1124,6 +1178,7 @@ export class SiteStore {
     const listingRoutes = locale
       ? listingRoutesOf(this.config, locale)
       : undefined;
+    const { icons, ...integrations } = ctx.integrations;
     return {
       title: this.config.title,
       description: this.config.description,
@@ -1136,7 +1191,8 @@ export class SiteStore {
         : {}),
       ...(listingRoutes ? { pages: listingRoutes } : {}),
       ...extra,
-      ...ctx.integrations,
+      ...(ctx.chromeFiles.has(localeKey) ? {} : icons ? { icons } : {}),
+      ...integrations,
     };
   }
 
@@ -1267,8 +1323,7 @@ export class SiteStore {
           ? { profile: drawerStatsOf(chrome.profile) }
           : {},
       ),
-      navbar: chrome.navbar,
-      sidebar: chrome.sidebar,
+      ...this.chromeFields(ctx, archive.locale.key, archive.route),
       page: alternates ? { ...meta, alternates } : meta,
       articles: archive.articles,
     };
@@ -1329,8 +1384,7 @@ export class SiteStore {
           ? { profile: drawerStatsOf(chrome.profile) }
           : {},
       ),
-      navbar: chrome.navbar,
-      sidebar: chrome.sidebar,
+      ...this.chromeFields(ctx, listing.locale.key, listing.route),
       page: alternates ? { ...meta, alternates } : meta,
     };
     const data: ListingData = {
@@ -1434,6 +1488,12 @@ export class SiteStore {
       );
     }
     const out: EmittedFile[] = [];
+    // Prime every locale's externalized chrome asset before any page
+    // renders: payloads reference the file names (chrome field + head
+    // modulepreload), and _headers needs the locale mapping below.
+    for (const locale of this.config.locales) {
+      this.chromeFileOf(ctx, locale.key);
+    }
     for (const page of this.pages) {
       out.push({
         fileName: routeToFileName(
@@ -1477,6 +1537,11 @@ export class SiteStore {
     }
     for (const [fileName, buf] of this.links.images) {
       out.push({ fileName, source: buf });
+    }
+    // Shared per-locale chrome modules (see chromeFileOf): content-hashed,
+    // immutable-cached, referenced by every page of their locale.
+    for (const [fileName, source] of ctx.chromeAssets) {
+      out.push({ fileName, source });
     }
     // KaTeX css + woff2 fonts ship only when at least one page rendered
     // math; a math-free site carries neither (same check the shell uses).
@@ -1546,7 +1611,16 @@ export class SiteStore {
     } else {
       out.push({
         fileName: '_headers',
-        source: renderCloudflareHeaders(assets.scriptFile, assets.cssFiles),
+        source: renderCloudflareHeaders(
+          assets.scriptFile,
+          assets.cssFiles,
+          // Default locale first: its chrome rides the root `/` rule, every
+          // other locale gets its own prefix-scoped rule.
+          this.config.locales.map(l => ({
+            prefix: l.prefix,
+            file: ctx.chromeFiles.get(l.key) ?? '',
+          })),
+        ),
       });
     }
     return out;
