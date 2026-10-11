@@ -124,7 +124,11 @@ const config: UserConfig = defineConfig({
           // Site-registered island: demonstrates the config `islands`
           // extension point on top of the six framework builtins.
           Counter: 'docs/islands/Counter.tsx',
+          // Data-driven XList demo (guide/islands): registered as an
+          // entry-list island so its `@@@` children split at build time.
+          DemoXList: 'docs/islands/DemoXList.tsx',
         },
+        entryListIslands: ['DemoXList'],
       }),
     ),
   ],

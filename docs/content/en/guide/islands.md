@@ -414,6 +414,40 @@ Implementation details of pipeline splitting and activation timing are in [Desig
 
 ExpandableList reads its row data from `@@` meta lines, recognizing badges and scores from content; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (every column sortable by default: `sortValue` numeric columns sort desc → asc → default, the rest by natural cell-text order asc → desc → default; `sorters` overrides the comparator per column), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
 
+These docs register such an island (`DemoXList`, see the `islands` + `entryListIslands` config in the root `vite.config.ts`). It is fully operational: 语言 sorts by natural text order, Stars numerically (descending first), the 状态 header stays triangle-free by the whitelist, the filter hides inactive projects when checked, and clicking a row expands its slot body:
+
+<DemoXList>
+
+@@@ ripgrep
+
+Recursively search with regex; a fast grep alternative.
+
+@@@ fd
+
+A modern find with intuitive syntax.
+
+@@@ bat
+
+A cat clone with syntax highlighting.
+
+@@@ fzf
+
+The general-purpose fuzzy finder.
+
+@@@ jq
+
+The command-line JSON processor.
+
+@@@ eza
+
+A modern ls, successor of exa.
+
+@@@ xsv
+
+A CSV toolkit, succeeded by qsv.
+
+</DemoXList>
+
 A minimal wrapper (the data module `games.ts` exports an array):
 
 ```ts

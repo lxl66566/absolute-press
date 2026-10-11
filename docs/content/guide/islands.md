@@ -414,6 +414,40 @@ export default Notice;
 
 ExpandableList 的行数据来自 `@@` meta 行，徽章与评分靠内容识别；条目多、meta 列需要精确控制时，更稳的做法是 TS 数据模块做单一数据源，markdown 只留 `@@@` 插槽正文。`absolute-press/client` 导出的 `XList` 组件与配套装配工具就是这条路径：站点写一个薄包装 island，把数据映射成类型化条目交给 `XList`，即可得到表头点击循环排序（所有列默认可排序：带 `sortValue` 的数值列按数值 降→升→默认，其余列按单元格文本自然序 升→降→默认；`sorters` 可按列覆盖比较器）、多关键字搜索（含隐藏别名）、工具栏排除过滤器、富标题格（链接/badge/折叠文本）与可展开行。
 
+本文档站就注册了一个这样的 island（`DemoXList`，配置见根 `vite.config.ts` 的 `islands` + `entryListIslands`）。可以实际操作：语言列按文本自然序、Stars 列按数值排序（降序优先），状态列按白名单不画排序三角，过滤器勾选后隐藏非活跃项目，点行展开插槽正文：
+
+<DemoXList>
+
+@@@ ripgrep
+
+递归正则搜索，grep 的高速替代。
+
+@@@ fd
+
+find 的现代替代，语法直觉。
+
+@@@ bat
+
+带语法高亮的 cat 克隆。
+
+@@@ fzf
+
+通用模糊查找器。
+
+@@@ jq
+
+命令行 JSON 处理器。
+
+@@@ eza
+
+ls 的现代替代，exa 的继任者。
+
+@@@ xsv
+
+CSV 命令行工具箱，已被 qsv 接棒。
+
+</DemoXList>
+
 一个最小包装（数据模块 `games.ts` 导出数组）：
 
 ```ts
