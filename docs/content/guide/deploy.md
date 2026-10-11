@@ -49,7 +49,7 @@ defineSiteConfig({ hostname: 'https://absolute-docs.pages.dev' });
 产物没有服务器端要求，主流平台都是零配置或近零配置：
 
 - **Cloudflare Pages / Netlify / Vercel**：构建命令 `pnpm build`，输出目录填 `build.outDir`；不需要 SPA rewrite（没有 `index.html` 回退的需求，每页都是真实文件）。部署到 Cloudflare Pages 时建议 `urls.directoryIndex: 'bare'`（CF 会把 `/guide/` 308 到 `/guide`，bare 是它的原生形态）
-- **`_headers`（默认产出）**：构建默认在产物根写入 `_headers`——`/assets/*`（内容 hash 命名）获得一年 immutable 缓存头，`/` 带一条指向客户端 entry chunk 的 modulepreload `Link` 头（Cloudflare Pages 把它提升为 Early Hints；Netlify 同样消费该文件，其他主机只当普通文件忽略它）。想在 `public/` 自带 `_headers` 也可以：框架检测到后跳过自己的产出，以你的文件为准（entry 的 hash 文件名每次构建都变，自己维护时记得跟进）
+- **`_headers`（默认产出）**：构建默认在产物根写入 `_headers`——`/assets/*`（内容 hash 命名）获得一年 immutable 缓存头；另有全站 `/*` 规则带一条 `Link` 头：客户端 entry chunk 的 modulepreload、entry CSS 的 `preload; as=style`、本 locale 共享 chrome 模块（navbar/sidebar/图标表，见架构文档）的 modulepreload——每个页面都带 Early Hints 预热，不只首页；非默认 locale 的前缀规则（如 `/en/*`）会以该 locale 自己的 chrome 覆盖（更具体的规则按头名胜出）。Cloudflare Pages 把 Link 提升为 103 Early Hints（对同一 URL 的后续请求生效）；Netlify 同样消费该文件，其他主机只当普通文件忽略它。想在 `public/` 自带 `_headers` 也可以：框架检测到后跳过自己的产出，以你的文件为准（entry 的 hash 文件名每次构建都变，自己维护时记得跟进）
 - **GitHub Pages**：直接发布产物目录即可；`https://user.github.io/repo/` 这类子路径部署依赖上面的相对前缀机制，无需任何 base 配置。默认的 `'slash'` 形态就是 GH 的原生形态（`/guide` 会被 301 到 `/guide/`），无需调整
 - **nginx / Caddy**：`root`（或 `file_server`）指向产物目录即可，不要配 `try_files ... /index.html` 之类的 SPA 回退
 

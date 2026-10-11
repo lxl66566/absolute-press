@@ -9,10 +9,12 @@ export function renderCloudflareHeaders(
   cssFiles: readonly string[],
   /**
    * Externalized chrome assets (see build/chrome-asset.ts), one per locale
-   * in config order: the default locale (prefix '') rides the root `/`
-   * rule, every other locale gets its own prefix-scoped rule so its pages
-   * preload their own chrome. An empty file (never in practice, kept for
-   * direct callers) skips the chrome Link entries.
+   * in config order: the default locale (prefix '') rides the catch-all
+   * `/*` rule — every page ships Early Hints, not just the root — and every
+   * other locale gets its own prefix-scoped rule that overrides it (the
+   * most specific matching rule wins per header), so its pages preload
+   * their own chrome. An empty list (never in practice, kept for direct
+   * callers) emits the Link line without a chrome entry.
    */
   chromeAssets: readonly { prefix: string; file: string }[] = [],
 ): string {
@@ -44,9 +46,11 @@ export function renderCloudflareHeaders(
     '',
   ];
   // Only Cloudflare consumes the Link header (it promotes it to an Early
-  // Hints response); other hosts ignore the whole file.
+  // Hints response on subsequent requests to the same URL); other hosts
+  // ignore the whole file. The catch-all rule gives EVERY page Early Hints;
+  // the locale prefix rules below override it where the chrome differs.
   const [fallback, ...locals] = chromeAssets;
-  rules.push('/', `  Link: ${linkLine(fallback?.file ?? '')}`, '');
+  rules.push('/*', `  Link: ${linkLine(fallback?.file ?? '')}`, '');
   // Non-default locales live under their route prefix; a scoped rule keeps
   // their Early Hints from preloading another locale's chrome module.
   for (const { prefix, file } of locals) {

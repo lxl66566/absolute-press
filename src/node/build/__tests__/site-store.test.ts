@@ -633,6 +633,11 @@ describe('SiteStore', () => {
       'Link: </assets/entry-a1b2.js>; rel=modulepreload, ' +
         '</assets/entry-c3d4.css>; rel=preload; as=style',
     );
+    // Early Hints ride a catch-all rule: every page gets them, not just
+    // the root (the newline pins the match to the bare /* rule, not the
+    // /assets/* one).
+    expect(headers).toContain('/*\n  Link: </assets/entry-a1b2.js>');
+    expect(headers).not.toContain('/\n  Link:');
 
     // A user-provided public/_headers takes over; the build must not emit
     // a second file at the same output path.
@@ -754,14 +759,16 @@ describe('SiteStore', () => {
     const headers = String(
       files.find(f => f.fileName === '_headers')?.source ?? '',
     );
+    // Early Hints on every page: the default chrome rides the catch-all
+    // rule, and the more specific EN prefix rule overrides it so EN pages
+    // preload their own module.
     const defaultChrome = (home.chrome as string).replace(/^\.\.\//, '');
     expect(headers).toContain(
-      `Link: </assets/entry.js>; rel=modulepreload, ` +
+      `/*\n  Link: </assets/entry.js>; rel=modulepreload, ` +
         `</${defaultChrome}>; rel=modulepreload`,
     );
-    expect(headers).toContain('/en/*');
     expect(headers).toContain(
-      `Link: </assets/entry.js>; rel=modulepreload, ` +
+      `/en/*\n  Link: </assets/entry.js>; rel=modulepreload, ` +
         `</${(enHome.chrome as string).replace('../', '')}>; rel=modulepreload`,
     );
   });
