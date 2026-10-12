@@ -4,18 +4,18 @@ import type { Element as SolidElement } from 'solid-js';
 import { cx } from './cx';
 
 /**
- * Normalize a config-registered icon value to a standalone svg string.
- * Values are either a complete `<svg>...</svg>` string or bare inner markup
+ * Normalize an icon markup value to a standalone svg string. Values are
+ * either a complete `<svg>...</svg>` string or bare inner markup
  * (e.g. `<path .../>`), which is wrapped in a 24x24 currentColor svg.
  *
- * The map is the site's own config (trusted); values are still XML-parsed so
- * malformed markup degrades to "no icon" instead of breaking surrounding DOM.
- * The same raw string parses on every render of every row, so results are
- * cached by raw input.
+ * Inputs are site-authored (config `icons` maps, XList icon parts — trusted);
+ * values are still XML-parsed so malformed markup degrades to "no icon"
+ * instead of breaking surrounding DOM. The same raw string parses on every
+ * render of every row, so results are cached by raw input.
  */
 const svgCache = new Map<string, string | null>();
 
-function normalizeSvg(raw: string): string | null {
+export function normalizeSvg(raw: string): string | null {
   const cached = svgCache.get(raw);
   if (cached !== undefined) return cached;
   const trimmed = raw.trim();

@@ -89,7 +89,7 @@ const BADGE_WORDS: Readonly<Record<string, BadgeTone>> = {
   推荐: 'success',
   生肉: 'success',
   无H: 'success',
-  黄文: 'danger',
+  黄文: 'warning',
   学习: 'danger',
   猎奇重口: 'danger',
   惊悚: 'warning',

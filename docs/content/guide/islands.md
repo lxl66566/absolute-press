@@ -503,7 +503,8 @@ export default GameList;
 - `slotItems(childrenHtml, data, baseKey, build, label)` 按插槽标题配对数据与正文：重复 base key 依序得 `#2`、`#3` 后缀（`assignSlotKeys` 单独导出，校验工具与组件共用同一规则），失配插槽在控制台告警后丢弃，无插槽的数据行照常渲染（只是不可展开）
 - `XList` props：`columns` 表头标签、`inlineCount` 尾部 meta 列并入标题格、`searchable` / `sortable` / `collapsible` / `showCount` / `hint` 开关（默认全开，纯展示表格可全关）、`filters` 排除过滤器（勾选隐藏带对应 `filterFlags` 的行，计数行仍显示 可见 / 总数）
 - 排序：标题列与所有 meta 列的表头默认可点击（`sortable`：`true` 全开（默认）/ `false` 全关 / `'title'` 与 meta 列号数组只开指定列）。一列所有单元格带 `sortValue` 或是空占位时按数值排序（降序优先，无键单元格沉底）；其余列按单元格文本自然比较。`sorters` 传 `{ title | 列号: (a, b) => number }` 按列覆盖为自定义比较器（框架只负责降序翻转参数）
-- 富标题格用 `titleParts`（链接/badge/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接的表格；`fold` 只放在不可展开的行里——可展开行的点击语义属于整行，混入 fold 会让点击目标含混
+- 富标题格用 `titleParts`（链接/badge/`icon` 行内图标（站点自备的 svg 字符串，可带 `title` 提示与 `cls` 样式钩子）/`fold` 折叠文本，`fold` 经 `Fold` 原语两行钳制渲染），适合首列本身带链接或图标标记的表格。标题含链接或 fold 的可展开行不再包键盘切换按钮——链接嵌在 `<button>` 里永远无法被 Tab 聚焦——这类行的标题按普通内容渲染，链接/fold 自己接管点击，行内其余区域照常展开；`fold` 也因此只放在不可展开的行里——可展开行的点击语义属于整行，混入 fold 会让点击目标含混
+- meta 单元格的 part 种类：`text` 纯文本 / `badge` 药丸（`cls` 为色调 `is-success|warning|danger|info|note`）/ `link` 外链 / `icon` 行内图标 / `fold` 两行折叠文本 / `break` 单元格内换行
 - 插槽正文里的嵌套 island 在过滤/排序重建后自动重新激活
 - 无 JS 时静态骨架照常展示全部条目；UI 文案跟随页面语言（`shared/i18n` 的 `xlist` 段），样式复用 ExpandableList 的 `.ap-xlist*` 契约，排序状态机在 `src/client/xlist/sort.ts`、排序三角在 `Sorter.tsx`、过滤器与三角样式在 `src/client/xlist/XList.css`
 

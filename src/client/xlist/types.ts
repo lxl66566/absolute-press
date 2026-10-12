@@ -3,12 +3,29 @@
  * + `@@@` slot bodies from the entry-list pipeline (config
  * `entryListIslands`), rendered by XList.tsx.
  */
-/** One inline piece of a meta cell. */
+/**
+ * One inline piece of a meta cell. `break` inserts a line break between
+ * parts; every other kind is one rendered piece.
+ */
 export type XListPart =
   | { kind: 'text'; text: string }
   | { kind: 'badge'; text: string; cls: `is-${BadgeTone}` }
   | { kind: 'link'; href: string; text: string }
-  | { kind: 'fold'; text: string };
+  | { kind: 'fold'; text: string }
+  | { kind: 'break' }
+  | {
+      kind: 'icon';
+      /**
+       * Inline svg markup — a full `<svg>` or bare inner markup (wrapped in
+       * a 24x24 currentColor svg). Site-authored data, same trust level as
+       * config `icons`; XML-parsed so malformed markup degrades to nothing.
+       */
+      svg: string;
+      /** Native tooltip on the icon (e.g. a 推荐 star). */
+      title?: string;
+      /** Extra class hook for site styling (color, cursor). */
+      cls?: string;
+    };
 
 /** Badge tone class suffix (`is-<tone>`); the CSS defines exactly these. */
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'note';

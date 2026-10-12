@@ -159,7 +159,7 @@ describe('badgeClassOf', () => {
     expect(badgeClassOf('等待连载')).toBe('is-warning');
     expect(badgeClassOf('已停止')).toBe('is-danger');
     expect(badgeClassOf('已放弃')).toBe('is-danger');
-    expect(badgeClassOf('黄文')).toBe('is-danger');
+    expect(badgeClassOf('黄文')).toBe('is-warning');
     expect(badgeClassOf('学习')).toBe('is-danger');
     expect(badgeClassOf('日轻')).toBe('is-info');
     expect(badgeClassOf('非严格')).toBe('is-note');

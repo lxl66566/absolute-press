@@ -3,6 +3,7 @@ import type { Element as SolidElement } from 'solid-js';
 
 import { hydrateIslands } from '../runtime/hydrate';
 import { cx } from '../theme/cx';
+import { normalizeSvg } from '../theme/FaIcon';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { Fold } from './Fold';
 import { RevealRow } from './RevealRow';
@@ -51,19 +52,49 @@ function PartView(props: { part: XListPart }): SolidElement {
       );
     case 'fold':
       return <Fold>{props.part.text}</Fold>;
+    case 'icon':
+      return (
+        <span
+          class={cx('ap-xlist__icon', props.part.cls)}
+          title={props.part.title}
+          aria-hidden="true"
+          innerHTML={normalizeSvg(props.part.svg) ?? ''}
+        />
+      );
+    case 'break':
+      return <br />;
     default:
       return <>{props.part.text}</>;
   }
 }
 
-/** Render a cell's parts with legacy spacing (badges carry their own margin). */
+/** Whether a title carries parts that must not nest inside the toggle
+ * button: interactive descendants are unreachable by keyboard there. */
+const interactiveTitle = (parts: readonly XListPart[] | undefined): boolean =>
+  (parts ?? []).some(part => part.kind === 'link' || part.kind === 'fold');
+
+/** Title content shared by the toggle button and the plain-text fallback. */
+function TitleView(props: { item: XListItem }): SolidElement {
+  return (
+    <Show when={props.item.titleParts} fallback={props.item.title}>
+      {parts => <PartsView parts={parts() ?? []} />}
+    </Show>
+  );
+}
+/** Render a cell's parts with legacy spacing (badges carry their own margin;
+ * a `break` is a hard line break, so neither side gets the inter-part space). */
 function PartsView(props: { parts: readonly XListPart[] }): SolidElement {
   return (
     <For each={props.parts}>
       {(part, index) => (
         <>
           <Show
-            when={index() > 0 && props.parts[index() - 1]?.kind !== 'badge'}
+            when={
+              index() > 0 &&
+              props.parts[index() - 1]?.kind !== 'badge' &&
+              props.parts[index() - 1]?.kind !== 'break' &&
+              part.kind !== 'break'
+            }
           >
             {' '}
           </Show>
@@ -350,15 +381,18 @@ export function XList(props: XListProps): SolidElement {
                           id={entry.item.key}
                         >
                           <Show
-                            when={expandableRow()}
+                            // A title with interactive parts (link, fold)
+                            // cannot sit inside the toggle button — keyboard
+                            // users could never reach the link — so such rows
+                            // render plain content; the parts own their
+                            // clicks, the rest of the row still toggles.
+                            when={
+                              expandableRow() &&
+                              !interactiveTitle(entry.item.titleParts)
+                            }
                             fallback={
                               <span class="ap-xlist__title-text">
-                                <Show
-                                  when={entry.item.titleParts}
-                                  fallback={entry.item.title}
-                                >
-                                  {parts => <PartsView parts={parts() ?? []} />}
-                                </Show>
+                                <TitleView item={entry.item} />
                               </span>
                             }
                           >
@@ -369,7 +403,7 @@ export function XList(props: XListProps): SolidElement {
                               aria-controls={`${uid}-${rowId()}`}
                               onClick={() => toggle(rowId())}
                             >
-                              {entry.item.title}
+                              <TitleView item={entry.item} />
                             </button>
                           </Show>
                           <Show when={inline.length > 0}>
