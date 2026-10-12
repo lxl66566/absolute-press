@@ -163,11 +163,14 @@ export function refTitle(ref: ScannedRef): string {
  * Resolve a ref id for a page's locale: the locale's own refs first, then the
  * default locale's. Null when neither holds the id.
  */
+/** Locale/content fields the ref lookup reads; ResolvedConfig satisfies this. */
+export type RefLookupConfig = Pick<ResolvedConfig, 'locales' | 'contentDir'>;
+
 export function lookupRef(
   scan: RefsScan,
   id: string,
   localeKey: string,
-  config: ResolvedConfig,
+  config: RefLookupConfig,
 ): ScannedRef | null {
   return (
     scan.byLocale.get(localeKey)?.get(id) ??
@@ -181,7 +184,7 @@ export function lookupRef(
  * pages live in `<contentDir>/<key>/`. Unprefixed files are the default
  * locale. Used by the renderer's term hooks, which only see MarkdownEnv.
  */
-export function localeKeyOf(config: ResolvedConfig, filePath: string): string {
+export function localeKeyOf(config: RefLookupConfig, filePath: string): string {
   const norm = filePath.split(path.sep).join('/');
   for (const locale of config.locales.slice(1)) {
     const prefix = `${config.contentDir.split(path.sep).join('/')}/${locale.key}/`;

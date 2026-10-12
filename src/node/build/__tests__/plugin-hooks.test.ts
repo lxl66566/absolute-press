@@ -1225,7 +1225,7 @@ describe('absolutePress generateBundle', () => {
     );
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    callHook(
+    await callHook(
       plugin.generateBundle,
       ctx,
       {},
@@ -1273,7 +1273,7 @@ describe('absolutePress generateBundle', () => {
     );
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    callHook(
+    await callHook(
       plugin.generateBundle,
       ctx,
       {},
@@ -1301,7 +1301,7 @@ describe('absolutePress generateBundle', () => {
     await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    callHook(
+    await callHook(
       plugin.generateBundle,
       ctx,
       {},
@@ -1323,7 +1323,7 @@ describe('absolutePress generateBundle', () => {
     await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    expect(() =>
+    await expect(
       callHook(
         plugin.generateBundle,
         ctx,
@@ -1331,7 +1331,7 @@ describe('absolutePress generateBundle', () => {
         bundleOf([cssAsset('assets/x.css')]),
         true,
       ),
-    ).toThrowError(/client entry chunk not found/);
+    ).rejects.toThrowError(/client entry chunk not found/);
   });
 
   it('fails the build on dead links, listing file, line and raw href', async () => {
@@ -1343,7 +1343,7 @@ describe('absolutePress generateBundle', () => {
     );
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    expect(() =>
+    await expect(
       callHook(
         plugin.generateBundle,
         ctx,
@@ -1351,7 +1351,9 @@ describe('absolutePress generateBundle', () => {
         bundleOf([entryChunk(), cssAsset('assets/app.css')]),
         true,
       ),
-    ).toThrowError(/1 dead link\(s\)[\s\S]*index\.md:3 -> \.\/missing\.md/);
+    ).rejects.toThrowError(
+      /1 dead link\(s\)[\s\S]*index\.md:3 -> \.\/missing\.md/,
+    );
   });
 
   it('fails the build on bare links under the strict error policy', async () => {
@@ -1364,7 +1366,7 @@ describe('absolutePress generateBundle', () => {
       userConfig({ strictLinks: 'error' }),
     );
     const ctx = stubBuildCtx();
-    expect(() =>
+    await expect(
       callHook(
         plugin.generateBundle,
         ctx,
@@ -1372,7 +1374,9 @@ describe('absolutePress generateBundle', () => {
         bundleOf([entryChunk(), cssAsset('assets/app.css')]),
         true,
       ),
-    ).toThrowError(/1 bare relative link\(s\)[\s\S]*strictLinks: 'error'/);
+    ).rejects.toThrowError(
+      /1 bare relative link\(s\)[\s\S]*strictLinks: 'error'/,
+    );
   });
 
   it('rejects frontmatter icons missing from the config icons map', async () => {
@@ -1384,7 +1388,7 @@ describe('absolutePress generateBundle', () => {
     );
     const plugin = await buildSidePlugin(root);
     const ctx = stubBuildCtx();
-    expect(() =>
+    await expect(
       callHook(
         plugin.generateBundle,
         ctx,
@@ -1392,7 +1396,7 @@ describe('absolutePress generateBundle', () => {
         bundleOf([entryChunk(), cssAsset('assets/app.css')]),
         true,
       ),
-    ).toThrowError(/icon\(s\) not registered[\s\S]*icon "ghost"/);
+    ).rejects.toThrowError(/icon\(s\) not registered[\s\S]*icon "ghost"/);
   });
 
   it('emits no page html when buildStart never synced (serve-mode gate)', async () => {
@@ -1406,7 +1410,7 @@ describe('absolutePress generateBundle', () => {
     // build may flip the store into sync/scan state.
     await callHook(plugin.buildStart, {});
     const ctx = stubBuildCtx();
-    callHook(
+    await callHook(
       plugin.generateBundle,
       ctx,
       {},

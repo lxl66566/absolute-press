@@ -88,6 +88,12 @@ import {
 } from './refs.ts';
 import { buildRelatedMap } from './related.ts';
 import {
+  POOL_MIN_TASKS,
+  runRenderShards,
+  shardTasks,
+  workerCount,
+} from './render-pool.ts';
+import {
   createdAtOf,
   scanFile,
   scanSite,
@@ -306,17 +312,7 @@ export class SiteStore {
       // merged the defaults), instead of a module-level ambient state.
       code: this.config.code,
       shikiLangs: [...langs],
-      islands: [
-        ...BUILTIN_ISLAND_NAMES,
-        ...Object.keys(this.config.islands),
-      ].map(name => ({
-        name,
-        // Site islands declared as entry-list split their children into
-        // `@@@` entries at build time (data-backed xlist pages).
-        ...(this.config.entryListIslands.includes(name)
-          ? { entryList: true }
-          : {}),
-      })),
+      islands: this.islandSpecs(),
       // Build component tags always resolve for extraction; the disable
       // policy is applied at the marker swap, so disabling never makes the
       // tag fall back to literal text.
@@ -345,6 +341,32 @@ export class SiteStore {
     return langs;
   }
 
+  /** Island extraction set for renderer creation, shared by the main
+   * renderer and the render pool (identical inputs, identical extraction). */
+  private islandSpecs(): { name: string; entryList?: boolean }[] {
+    return [...BUILTIN_ISLAND_NAMES, ...Object.keys(this.config.islands)].map(
+      name => ({
+        name,
+        // Site islands declared as entry-list split their children into
+        // `@@@` entries at build time (data-backed xlist pages).
+        ...(this.config.entryListIslands.includes(name)
+          ? { entryList: true }
+          : {}),
+      }),
+    );
+  }
+
+  /** Ref-file -> locale content root pairs (LinkResolver.setRefs input). */
+  private refRootEntries(): { filePath: string; root: string }[] {
+    if (!this.refs) return [];
+    return [...this.refs.byLocale.values()].flatMap(refs =>
+      [...refs.values()].map(ref => ({
+        filePath: ref.filePath,
+        root: localeContentRoot(this.config, ref.locale),
+      })),
+    );
+  }
+
   /** Full (re)scan; keeps render cache entries (freshness: mtime in build,
    * watcher events in dev — see renderPage). */
   async sync(mode: 'dev' | 'build'): Promise<void> {
@@ -363,14 +385,7 @@ export class SiteStore {
       }
       // Ref markdown links resolve against the locale content root (see
       // LinkResolver.refRoots), not the ref file's own directory.
-      this.links.setRefs(
-        [...this.refs.byLocale.values()].flatMap(refs =>
-          [...refs.values()].map(ref => ({
-            filePath: ref.filePath,
-            root: localeContentRoot(this.config, ref.locale),
-          })),
-        ),
-      );
+      this.links.setRefs(this.refRootEntries());
     } else {
       this.refs = null;
     }
@@ -611,6 +626,85 @@ export class SiteStore {
         html: entry.result.html,
       };
     });
+  }
+
+  /**
+   * Build path only: render the mtime-stale pages in a worker pool before
+   * the emit pass, so renderAll() meets a warm cache. Dev stays out (its
+   * renders are per-request and watcher-driven). Below POOL_MIN_TASKS stale
+   * pages the pool loses to its own process warm-up, and any pool failure
+   * degrades silently to renderAll()'s serial path — the build result is
+   * identical either way, only slower.
+   */
+  private async renderMissing(): Promise<void> {
+    if (this.trustWatcher) return;
+    const stale = this.pages.filter(p => {
+      const cached = this.rendered.get(p.filePath);
+      return cached === undefined || cached.mtimeMs !== this.scanOf(p).mtimeMs;
+    });
+    if (stale.length < POOL_MIN_TASKS) return;
+
+    const common = {
+      pages: this.pages,
+      refRoots: this.refRootEntries(),
+      refs: this.refs?.byLocale ?? new Map(),
+      refsPresent: this.refs?.present ?? false,
+      locales: this.config.locales,
+      contentDir: this.config.contentDir,
+      code: this.config.code,
+      islands: this.islandSpecs(),
+      shikiLangs: [...this.rendererLangs],
+    };
+    const tasks = stale.map(p => {
+      const file = this.scanOf(p);
+      return {
+        filePath: p.filePath,
+        source: file.source,
+        mtimeMs: file.mtimeMs,
+        lang: p.locale.lang,
+      };
+    });
+    const shards = shardTasks(tasks, workerCount(tasks.length)).map(
+      (shardTasksOf, index) => ({ ...common, index, tasks: shardTasksOf }),
+    );
+
+    try {
+      const results = await runRenderShards(shards);
+      for (const r of results) {
+        for (const e of r.entries) {
+          this.rendered.set(e.filePath, {
+            mtimeMs: e.mtimeMs,
+            result: e.result,
+            excerpt: e.excerpt,
+          });
+        }
+        for (const ref of r.refHtml) {
+          this.refRendered.set(ref.key, {
+            mtimeMs: ref.mtimeMs,
+            html: ref.html,
+          });
+        }
+        this.links.deadLinks.push(...r.deadLinks);
+        // Structured clone yields plain Uint8Arrays; Buffer.from over the
+        // transferred bytes re-views them without a copy. First write wins:
+        // the same image hashed by several shards is byte-identical.
+        for (const [name, bytes] of r.images) {
+          if (!this.links.images.has(name)) {
+            this.links.images.set(
+              name,
+              Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+            );
+          }
+        }
+        for (const [key, message] of r.warns) this.warnOnce(key, message);
+      }
+    } catch (e) {
+      console.warn(
+        `[absolute-press] parallel rendering failed (${
+          e instanceof Error ? e.message : String(e)
+        }); falling back to serial rendering`,
+      );
+    }
   }
 
   /**
@@ -1475,8 +1569,13 @@ export class SiteStore {
 
   // -- Build entry points ---------------------------------------------------
 
-  /** Build: render everything and return files for generateBundle emit. */
-  emitAll(assets: BuildAssets): EmittedFile[] {
+  /**
+   * Build: render everything and return files for generateBundle emit.
+   * Async: the cold-render path may fan out to the worker pool first
+   * (renderMissing), then this pass meets a warm cache.
+   */
+  async emitAll(assets: BuildAssets): Promise<EmittedFile[]> {
+    await this.renderMissing();
     const ctx = this.buildContext();
     const badIcons = this.invalidIcons(ctx.pages);
     if (badIcons.length > 0) {

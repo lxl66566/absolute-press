@@ -208,7 +208,7 @@ describe('SiteStore', () => {
     fs.writeFileSync(fx.abs('a.md'), '# A2\n');
     fs.utimesSync(fx.abs('a.md'), new Date(1000), new Date(1000));
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -229,7 +229,7 @@ describe('SiteStore', () => {
     const read = vi.spyOn(fs, 'readFileSync');
     try {
       await store.sync('build');
-      const files = store.emitAll({
+      const files = await store.emitAll({
         isBuild: true,
         scriptFile: 'assets/entry.js',
         cssFiles: [],
@@ -328,7 +328,7 @@ describe('SiteStore', () => {
     const feedSite = await contentFixture(files);
     const feedStore = new SiteStore(feedSite.config);
     await feedStore.sync('build');
-    const feedFiles = feedStore.emitAll({
+    const feedFiles = await feedStore.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -359,7 +359,7 @@ describe('SiteStore', () => {
     );
     const plainStore = new SiteStore(config);
     await plainStore.sync('build');
-    const plainFiles = plainStore.emitAll({
+    const plainFiles = await plainStore.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -399,7 +399,7 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: ['assets/app.css'],
@@ -450,7 +450,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -481,7 +481,7 @@ describe('SiteStore', () => {
     const fx = await contentFixture({ 'index.md': '# Home\n' });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -507,7 +507,7 @@ describe('SiteStore', () => {
     const fx = await contentFixture({ '404.md': '# Lost\n' });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -544,7 +544,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -586,7 +586,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -615,7 +615,7 @@ describe('SiteStore', () => {
 
     const plain = new SiteStore(fx.config);
     await plain.sync('build');
-    const files = plain.emitAll(assets);
+    const files = await plain.emitAll(assets);
     const headers = String(
       files.find(f => f.fileName === '_headers')?.source ?? '',
     );
@@ -646,7 +646,7 @@ describe('SiteStore', () => {
     const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const custom = new SiteStore(fx.config);
     await custom.sync('build');
-    expect(custom.emitAll(assets).map(f => f.fileName)).not.toContain(
+    expect((await custom.emitAll(assets)).map(f => f.fileName)).not.toContain(
       '_headers',
     );
     expect(warned).toHaveBeenCalledTimes(1);
@@ -664,7 +664,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -731,7 +731,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -792,7 +792,7 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: ['assets/app.css'],
@@ -845,7 +845,7 @@ describe('SiteStore', () => {
     );
     const store = new SiteStore(config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -906,13 +906,13 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    expect(() =>
+    await expect(
       store.emitAll({
         isBuild: true,
         scriptFile: 'assets/entry.js',
         cssFiles: [],
       }),
-    ).toThrowError(/icon\(s\) not registered[\s\S]*icon "ghost"/);
+    ).rejects.toThrowError(/icon\(s\) not registered[\s\S]*icon "ghost"/);
   });
 
   it('emitAll rejects archive routes colliding with real pages', async () => {
@@ -924,13 +924,13 @@ describe('SiteStore', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    expect(() =>
+    await expect(
       store.emitAll({
         isBuild: true,
         scriptFile: 'assets/entry.js',
         cssFiles: [],
       }),
-    ).toThrowError(/duplicate route \/category\/news/);
+    ).rejects.toThrowError(/duplicate route \/category\/news/);
   });
 
   it('dev sync warns once about archive collisions and stays browsable', async () => {
@@ -1108,7 +1108,7 @@ describe('SiteStore listing pages', () => {
     const fx = await contentFixture(listingFiles);
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -1144,7 +1144,7 @@ describe('SiteStore listing pages', () => {
       tags: '/tags/',
     });
 
-    const files = store.emitAll({
+    const files = await store.emitAll({
       isBuild: true,
       scriptFile: 'assets/entry.js',
       cssFiles: [],
@@ -1164,13 +1164,13 @@ describe('SiteStore listing pages', () => {
     });
     const store = new SiteStore(fx.config);
     await store.sync('build');
-    expect(() =>
+    await expect(
       store.emitAll({
         isBuild: true,
         scriptFile: 'assets/entry.js',
         cssFiles: [],
       }),
-    ).toThrow(
+    ).rejects.toThrow(
       /duplicate route \/timeline\/: timeline listing "时间轴" and page/,
     );
   });

@@ -245,7 +245,7 @@ export async function createMarkdownRenderer(
   // groups, code-fold checkboxes, footnote anchors) must never collide with
   // the host's: counters are seeded past any page's range with a monotonic
   // per-ref offset, headings and footnotes get ref-unique prefixes.
-  let refSeq = 0;
+  let refSeq = options.refSeqStart ?? 0;
   const REF_SEQ_OFFSET = 1_000_000;
 
   function renderRef(src: string, env: MarkdownEnv): string {

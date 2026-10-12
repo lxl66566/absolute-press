@@ -361,7 +361,7 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         });
       };
     },
-    generateBundle(_options, bundle) {
+    async generateBundle(_options, bundle) {
       if (inert) return;
       const scriptFile = Object.values(bundle).find(
         c => c.type === 'chunk' && c.isEntry,
@@ -370,7 +370,11 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         this.error('[absolute-press] client entry chunk not found in bundle');
       }
       const cssFiles = headCssFiles(scriptFile, bundle);
-      const files = store.emitAll({ isBuild: true, scriptFile, cssFiles });
+      const files = await store.emitAll({
+        isBuild: true,
+        scriptFile,
+        cssFiles,
+      });
       const dead = store.deadLinks();
       if (dead.length > 0) {
         const list = dead

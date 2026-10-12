@@ -30,6 +30,13 @@ export interface MarkdownRendererOptions extends MarkdownOptions {
    * minimal set so its cold-start stays cheap.
    */
   shikiLangs?: readonly string[];
+  /**
+   * Initial value of the ref-render sequence (renderRef's monotonic counter
+   * seeding popover-unique ids). Processes rendering in parallel reserve
+   * disjoint ranges so id prefixes can never collide across their outputs;
+   * the default 0 keeps single-process renders as they were.
+   */
+  refSeqStart?: number;
 }
 
 /** Default copy-button label, documented on the shared `copyLabel` option. */
