@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveConfig } from '../../config.ts';
 import { localeContentRoot, scanRefEntry } from '../refs.ts';
@@ -50,10 +50,22 @@ describe('shardTasks', () => {
 });
 
 describe('workerCount', () => {
-  it('scales with tasks but never exceeds the per-worker floor or process cap', () => {
+  // CI runners expose as few as 4 vCPUs; pin parallelism for determinism.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('scales with tasks up to the process cap when cores are plentiful', () => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(16);
     expect(workerCount(24)).toBe(1);
+    expect(workerCount(25)).toBe(2);
     expect(workerCount(192)).toBe(8);
-    expect(workerCount(10_000)).toBe(Math.min(8, os.availableParallelism()));
+    expect(workerCount(10_000)).toBe(8);
+  });
+
+  it('never exceeds available parallelism', () => {
+    vi.spyOn(os, 'availableParallelism').mockReturnValue(4);
+    expect(workerCount(10_000)).toBe(4);
   });
 });
 
