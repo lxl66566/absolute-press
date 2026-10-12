@@ -242,7 +242,7 @@
     white-space: nowrap;
   }
 
-  /* `-` placeholder cells (legacy empty scores) stay dim. */
+  /* `-` placeholder cells (the format's empty-cell marker) stay dim. */
   .ap-xlist__item-meta.is-empty {
     color: var(--c-text-2);
   }
@@ -308,12 +308,12 @@
     background-color: color-mix(in srgb, var(--c-text-2) 6%, var(--c-bg));
   }
 
-  /* Legacy JobList offer rows: the whole row reads green. */
-  .ap-xlist__row.is-offer .ap-xlist__cell {
+  /* Highlighted rows (XListItem.highlight) read in the accent color. */
+  .ap-xlist__row.is-highlight .ap-xlist__cell {
     color: var(--c-accent);
   }
 
-  /* -- Semantic pill badges (legacy Badge / OrderBadge port) ----------------- */
+  /* -- Semantic pill badges (typed XList badge parts) ----------------------- */
 
   .ap-xlist__badge {
     display: inline-block;
@@ -350,7 +350,7 @@
     background-color: color-mix(in srgb, var(--c-text-2) 16%, transparent);
   }
 
-  /* Icon part (e.g. a legacy 推荐 star before a title): glyph box on the
+  /* Icon part (e.g. a recommendation star before a title): glyph box on the
    * cell's own font size, optically aligned to the text line; color rides
    * currentColor unless the part's cls overrides it. */
   .ap-xlist__icon {
@@ -366,13 +366,13 @@
     height: 100%;
   }
 
-  /* Bare-number meta cells carry legacy score emphasis. */
-  .ap-xlist__item-meta.is-high-score {
+  /* Emphasized meta cells (XListCell.emphasis): positive bold, negative plain. */
+  .ap-xlist__item-meta.is-positive {
     color: #10b981;
     font-weight: 700;
   }
 
-  .ap-xlist__item-meta.is-low-score {
+  .ap-xlist__item-meta.is-negative {
     color: #f43f5e;
   }
 

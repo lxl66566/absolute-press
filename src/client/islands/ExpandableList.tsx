@@ -21,7 +21,6 @@ import { nextXListUid } from '../xlist/uid';
 // Pure parse/cell logic lives in expandable-list-parse.ts (also imported by
 // the unit tests); this file keeps the island's UI only.
 import {
-  cellSegments,
   inlineColumnIndexes,
   parseChildren,
   splitVisibleCells,
@@ -66,7 +65,7 @@ export interface ExpandableListProps {
   /**
    * Meta columns rendered inline inside the title cell (after the title)
    * instead of as separate columns, e.g. `:inline='["标签", "备注"]'` for
-   * legacy BookList-style rows where badges follow the title. Requires
+   * rows where supplementary meta follows the title. Requires
    * `columns` (columns are matched by header label); unmatched names are
    * ignored. Only affects the hydrated table — the static fallback keeps all
    * columns.
@@ -77,36 +76,6 @@ export interface ExpandableListProps {
 /** An entry without body markdown cannot expand. */
 function isExpandableRow(item: ParsedEntry): boolean {
   return item.html.trim() !== '';
-}
-
-/** Render a cell's segments: plain HTML parts keep the build-time markup,
- * keyword parts become legacy-style pills. Segments run together with a
- * single space (the legacy layout: duration text then status badge). */
-function SegmentsView(props: { html: string }): SolidElement {
-  const segments = createMemo(() => cellSegments(props.html));
-  return (
-    <For each={segments()}>
-      {(segment, index) => (
-        <>
-          <Show
-            when={index() > 0 && segments()[index() - 1]?.badge === undefined}
-          >
-            {' '}
-          </Show>
-          <Show
-            when={segment.badge}
-            fallback={<span innerHTML={segment.html} />}
-          >
-            {badge => (
-              <span class={`ap-xlist__badge ${badge().cls}`}>
-                {badge().text}
-              </span>
-            )}
-          </Show>
-        </>
-      )}
-    </For>
-  );
 }
 
 export function ExpandableList(props: ExpandableListProps): SolidElement {
@@ -308,7 +277,6 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                         class={cx(
                           'ap-xlist__row',
                           expandable && 'is-expandable',
-                          item.offer && 'is-offer',
                           isOpen(item.id) && 'is-open',
                         )}
                         onClick={
@@ -361,9 +329,9 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                           <Show when={inlineHtml !== ''}>
                             <span
                               class="ap-xlist__title-inline"
+                              innerHTML={inlineHtml}
                               onClick={e => {
-                                // Inline links keep native navigation;
-                                // badges and text toggle the row. Images
+                                // Inline links keep native navigation; images
                                 // zoom (lightbox) without toggling.
                                 if (
                                   e.target instanceof Element &&
@@ -371,9 +339,7 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                                 )
                                   e.stopPropagation();
                               }}
-                            >
-                              <SegmentsView html={inlineHtml} />
-                            </span>
+                            />
                           </Show>
                         </td>
                         <For each={cells}>
@@ -381,17 +347,11 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
                             <td
                               class={cx(
                                 'ap-xlist__cell ap-xlist__item-meta',
-                                cell.score,
                                 cell.empty && 'is-empty',
                                 cell.date && 'is-date',
                               )}
                             >
-                              <Show
-                                when={cell.badged}
-                                fallback={<span innerHTML={cell.html} />}
-                              >
-                                <SegmentsView html={cell.html} />
-                              </Show>
+                              <span innerHTML={cell.html} />
                             </td>
                           )}
                         </For>

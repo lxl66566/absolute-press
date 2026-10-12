@@ -2,13 +2,9 @@ import { DOMParser } from 'linkedom';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
-  badgeClassOf,
-  cellSegments,
   inlineColumnIndexes,
   isDateCellText,
   parseChildren,
-  scoreClass,
-  splitTopSegments,
   splitVisibleCells,
   visibleHeaders,
 } from '../expandable-list-parse';
@@ -56,22 +52,21 @@ function bodyRow(html: string): string {
 describe('parseChildren', () => {
   it('zips item rows and body rows back into items', () => {
     const html = xlistHtml(
-      itemRow('Clannad', ['10', '<em>2020</em>']) +
+      itemRow('Alpha', ['10', '<em>2020</em>']) +
         bodyRow('<p>It was <b>great</b>.</p>') +
-        itemRow('GAL', []) +
+        itemRow('Beta', []) +
         bodyRow('<p>Short one.</p>'),
     );
     const parsed = parseChildren(html);
     expect(parsed.preamble).toBe('<p>intro</p>');
     expect(parsed.items).toHaveLength(2);
     expect(parsed.items[0]!.id).toBe(0);
-    expect(parsed.items[0]!.title).toBe('Clannad');
+    expect(parsed.items[0]!.title).toBe('Alpha');
     expect(parsed.items[0]!.metaCells.map(cell => cell.html)).toEqual([
       '10',
       '<em>2020</em>',
     ]);
     expect(parsed.items[0]!.metaCells[0]).toMatchObject({
-      score: 'is-high-score',
       text: '10',
       empty: false,
       date: false,
@@ -79,9 +74,8 @@ describe('parseChildren', () => {
     expect(parsed.items[0]!.html).toBe('<p>It was <b>great</b>.</p>');
     expect(parsed.items[1]).toMatchObject({
       id: 1,
-      title: 'GAL',
+      title: 'Beta',
       html: '<p>Short one.</p>',
-      offer: false,
     });
     expect(parsed.items[1]!.metaCells).toEqual([]);
   });
@@ -89,26 +83,19 @@ describe('parseChildren', () => {
   it('lowercases title, meta and body text into the search haystack', () => {
     const parsed = parseChildren(
       xlistHtml(
-        itemRow('CLANNAD', ['<em>Mixed</em>']) + bodyRow('<p>Key Work</p>'),
+        itemRow('ALPHA', ['<em>Mixed</em>']) + bodyRow('<p>Key Work</p>'),
       ),
     );
-    expect(parsed.items[0]!.haystack).toContain('clannad');
+    expect(parsed.items[0]!.haystack).toContain('alpha');
     expect(parsed.items[0]!.haystack).toContain('mixed');
     expect(parsed.items[0]!.haystack).toContain('key work');
   });
 
-  it('flags cells: - placeholder, date-like, offer rows', () => {
+  it('flags cells: - placeholder and date-like text', () => {
     const parsed = parseChildren(
-      xlistHtml(
-        itemRow('Job', ['2024-10-10', '二面 + offer']) +
-          bodyRow('') +
-          itemRow('Gal', ['2026-09-24 ~ ?', '-']) +
-          bodyRow(''),
-      ),
+      xlistHtml(itemRow('Gal', ['2026-09-24 ~ ?', '-']) + bodyRow('')),
     );
-    expect(parsed.items[0]!.offer).toBe(true);
-    expect(parsed.items[1]!.offer).toBe(false);
-    const [range, score] = parsed.items[1]!.metaCells;
+    const [range, score] = parsed.items[0]!.metaCells;
     expect(range).toMatchObject({ date: true });
     expect(score).toMatchObject({ empty: true, date: false });
   });
@@ -125,110 +112,6 @@ describe('parseChildren', () => {
   });
 });
 
-describe('scoreClass', () => {
-  it('marks bare numbers >= 10 high, <= 0 low, in between neutral', () => {
-    expect(scoreClass('10')).toBe('is-high-score');
-    expect(scoreClass('10.5')).toBe('is-high-score');
-    expect(scoreClass('+11')).toBe('is-high-score');
-    expect(scoreClass('999999999999')).toBe('is-high-score');
-    expect(scoreClass('9.99')).toBeUndefined();
-    expect(scoreClass('5')).toBeUndefined();
-    expect(scoreClass('0')).toBe('is-low-score');
-    expect(scoreClass('-0.5')).toBe('is-low-score');
-    expect(scoreClass('-3')).toBe('is-low-score');
-  });
-
-  it('strips inline tags before judging, and trims whitespace', () => {
-    expect(scoreClass('<b>10</b>')).toBe('is-high-score');
-    expect(scoreClass('<em>-3</em>')).toBe('is-low-score');
-    expect(scoreClass(' 10 ')).toBe('is-high-score');
-  });
-
-  it('returns undefined for non-numeric cell text', () => {
-    for (const cell of ['', 'abc', '10%', '1e3', 'N/A', '--']) {
-      expect(scoreClass(cell)).toBeUndefined();
-    }
-  });
-});
-
-describe('badgeClassOf', () => {
-  it('maps legacy status and tag words to tones', () => {
-    expect(badgeClassOf('游玩中')).toBe('is-success');
-    expect(badgeClassOf('在读')).toBe('is-success');
-    expect(badgeClassOf('中断')).toBe('is-warning');
-    expect(badgeClassOf('等待连载')).toBe('is-warning');
-    expect(badgeClassOf('已停止')).toBe('is-danger');
-    expect(badgeClassOf('已放弃')).toBe('is-danger');
-    expect(badgeClassOf('黄文')).toBe('is-warning');
-    expect(badgeClassOf('学习')).toBe('is-danger');
-    expect(badgeClassOf('日轻')).toBe('is-info');
-    expect(badgeClassOf('非严格')).toBe('is-note');
-  });
-
-  it('ports OrderBadge: #N and N刷 by rank, rest note', () => {
-    expect(badgeClassOf('#1')).toBe('is-success');
-    expect(badgeClassOf('#2')).toBe('is-warning');
-    expect(badgeClassOf('#3')).toBe('is-danger');
-    expect(badgeClassOf('#4')).toBe('is-info');
-    expect(badgeClassOf('#5')).toBe('is-note');
-    expect(badgeClassOf('#12')).toBe('is-note');
-    expect(badgeClassOf('二刷')).toBe('is-warning');
-    expect(badgeClassOf('一刷')).toBe('is-success');
-    expect(badgeClassOf('三刷')).toBe('is-danger');
-  });
-
-  it('leaves unknown words alone', () => {
-    for (const word of ['', '又名 x', '面试', '一面挂', '电话交流']) {
-      expect(badgeClassOf(word)).toBeUndefined();
-    }
-  });
-});
-
-describe('splitTopSegments', () => {
-  it('splits on spaced middot separators only', () => {
-    expect(splitTopSegments('游玩中 · 又名 x')).toEqual(['游玩中', '又名 x']);
-    expect(splitTopSegments('a·b')).toEqual(['a·b']);
-    expect(splitTopSegments('a · b · c')).toEqual(['a', 'b', 'c']);
-  });
-
-  it('never splits inside tags or code spans', () => {
-    expect(splitTopSegments('<a title="x · y">链接</a>')).toHaveLength(1);
-    // An unspaced middot inside a tag is not a separator.
-    expect(splitTopSegments('<span>·</span>')).toHaveLength(1);
-    expect(splitTopSegments('`x · y`')).toEqual(['`x · y`']);
-    expect(splitTopSegments('<b>a</b> · <i>b</i>')).toEqual([
-      '<b>a</b>',
-      '<i>b</i>',
-    ]);
-  });
-});
-
-describe('cellSegments', () => {
-  it('badges keyword segments and keeps raw html for the rest', () => {
-    const segments = cellSegments('游玩中 · 又名 ディメンション');
-    expect(segments).toHaveLength(2);
-    expect(segments[0]!.badge).toEqual({ text: '游玩中', cls: 'is-success' });
-    expect(segments[1]!.badge).toBeUndefined();
-    expect(segments[1]!.html).toBe('又名 ディメンション');
-  });
-
-  it('expands slash combos only when every piece is a badge word', () => {
-    const combo = cellSegments('血腥/猎奇重口');
-    expect(combo.map(s => s.badge?.text)).toEqual(['血腥', '猎奇重口']);
-    expect(combo.map(s => s.badge?.cls)).toEqual(['is-warning', 'is-danger']);
-    // Alias containing a slash stays one plain segment.
-    const alias = cellSegments('又名 美少女万華鏡/异闻雪女');
-    expect(alias).toHaveLength(1);
-    expect(alias[0]!.badge).toBeUndefined();
-  });
-
-  it('keeps the plain single-segment cell untouched', () => {
-    const segments = cellSegments('<a href="x">链接</a>');
-    expect(segments).toHaveLength(1);
-    expect(segments[0]).toEqual({ html: '<a href="x">链接</a>' });
-  });
-});
-
 describe('isDateCellText', () => {
   it('matches date ranges and single dates, nothing else', () => {
     for (const text of [
@@ -241,7 +124,7 @@ describe('isDateCellText', () => {
     ]) {
       expect(isDateCellText(text)).toBe(true);
     }
-    for (const text of ['22h56min', '0.02%~0.05%', '游玩中', '', 'krkr']) {
+    for (const text of ['22h56min', '0.02%~0.05%', 'reading', '', 'krkr']) {
       expect(isDateCellText(text)).toBe(false);
     }
   });
@@ -264,8 +147,6 @@ describe('inline column redistribution', () => {
       text: html,
       empty: false,
       date: false,
-      segments: [],
-      badged: false,
     }));
     const split = splitVisibleCells(
       cells,

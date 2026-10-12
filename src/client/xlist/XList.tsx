@@ -81,7 +81,7 @@ function TitleView(props: { item: XListItem }): SolidElement {
     </Show>
   );
 }
-/** Render a cell's parts with legacy spacing (badges carry their own margin;
+/** Render a cell's parts (badges carry their own margin;
  * a `break` is a hard line break, so neither side gets the inter-part space). */
 function PartsView(props: { parts: readonly XListPart[] }): SolidElement {
   return (
@@ -358,7 +358,7 @@ export function XList(props: XListProps): SolidElement {
                         class={cx(
                           'ap-xlist__row',
                           expandableRow() && 'is-expandable',
-                          entry.item.offer && 'is-offer',
+                          entry.item.highlight && 'is-highlight',
                           isOpen(rowId()) && 'is-open',
                         )}
                         onClick={
@@ -419,7 +419,7 @@ export function XList(props: XListProps): SolidElement {
                             <td
                               class={cx(
                                 'ap-xlist__cell ap-xlist__item-meta',
-                                cell.score,
+                                cell.emphasis && `is-${cell.emphasis}`,
                                 cell.empty && 'is-empty',
                                 cell.date && 'is-date',
                               )}

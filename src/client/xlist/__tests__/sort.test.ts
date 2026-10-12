@@ -177,7 +177,7 @@ describe('numericColumns', () => {
     expect(numericColumns(allEmpty, 1)).toEqual(new Set());
     const mixed = [
       { cells: [cell({ sortValue: 5 })] },
-      { cells: [cell({ text: '中断' })] },
+      { cells: [cell({ text: 'dropped' })] },
     ];
     expect(numericColumns(mixed, 1)).toEqual(new Set());
   });

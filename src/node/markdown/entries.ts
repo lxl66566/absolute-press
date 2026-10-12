@@ -222,7 +222,7 @@ export function renderEntryListChildren(
         seg === undefined
           ? '<td class="ap-xlist__item-meta"></td>'
           : seg.trim() === '-'
-            ? // Legacy "no score" marker, rendered literally: markdown would
+            ? // `-` empty-cell marker, rendered literally: markdown would
               // turn a bare `-` into an empty bullet list.
               '<td class="ap-xlist__item-meta is-empty">-</td>'
             : // Meta segments are single-line by construction and render as

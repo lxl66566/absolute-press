@@ -265,33 +265,33 @@ A shorter toolbar, a quieter list.
 
 ### Table columns and headers
 
-The line after an `@@@` line can carry one `@@ meta` line (single line, inline markdown), rendered as that row's meta cells — when migrating "table + expanding row" lists, it holds column info like duration or rating. Meta splits into columns on `|` (each column is still inline markdown; `\|` is an escaped pipe, and `|` inside inline code does not split); the `:columns` prop (JSON array) provides the header for each column: item 1 is the title column, the rest map to meta's `|` segments in order. When meta has fewer segments than headers, cells are padded empty; extra segments still render (headers padded empty). Pure-numeric cells follow the old site's rating rule: ≥10 bold green, ≤0 red. On narrow screens (<768px) the title column widens, and wide tables with ≥4 meta columns scroll horizontally inside the container:
+The line after an `@@@` line can carry one `@@ meta` line (single line, inline markdown), rendered as that row's meta cells — when migrating "table + expanding row" lists, it holds column info like duration or rating. Meta splits into columns on `|` (each column is still inline markdown; `\|` is an escaped pipe, and `|` inside inline code does not split); the `:columns` prop (JSON array) provides the header for each column: item 1 is the title column, the rest map to meta's `|` segments in order. When meta has fewer segments than headers, cells are padded empty; extra segments still render (headers padded empty). A lone `-` is the empty-cell placeholder (rendered dimmed), and date-like cells (a `~` range or a `YYYY-MM` prefix) stay on one line. The framework does no content sniffing — semantic styling like badge pills, score emphasis or row highlights comes from the typed fields of the data-driven table (XList) below. On narrow screens (<768px) the title column widens, and wide tables with ≥4 meta columns scroll horizontally inside the container:
 
-<ExpandableList :columns='["Title","Length","Story","Art","Notes"]'>
+<ExpandableList :columns='["Title","Period","Length","Notes"]'>
 
-@@@ KARAKARA
-@@ 2021-08-25 ~ ? | 3.3 | 5 | Dropped · nothing to say
+@@@ Design of Design
+@@ 2021-08-25 ~ 2021-09-02 | 6h12min | paperback
 
-@@@ サルテ
-@@ 3h49min | 7.7 | 2.8 | also known as Salute
+@@@ Refactoring
+@@ 2021-08-25 ~ ? | 3h49min | chapter 2
 
 </ExpandableList>
 
 **Source:**
 
 ```md
-<ExpandableList :columns='["Title","Length","Story","Art","Notes"]'>
+<ExpandableList :columns='["Title","Period","Length","Notes"]'>
 
-@@@ KARAKARA
-@@ 2021-08-25 ~ ? | 3.3 | 5 | Dropped · nothing to say
+@@@ Design of Design
+@@ 2021-08-25 ~ 2021-09-02 | 6h12min | paperback
 
-@@@ サルテ
-@@ 3h49min | 7.7 | 2.8 | also known as Salute
+@@@ Refactoring
+@@ 2021-08-25 ~ ? | 3h49min | chapter 2
 
 </ExpandableList>
 ```
 
-Old-style single-segment meta without `|` (`@@ 23h · story 9`) still renders as one column — fully backward compatible.
+Old-style single-segment meta without `|` (`@@ 23h · worth reading`) still renders as one column — fully backward compatible.
 
 Behavior details:
 
@@ -412,7 +412,7 @@ Implementation details of pipeline splitting and activation timing are in [Desig
 
 ### Data-driven tables (XList)
 
-ExpandableList reads its row data from `@@` meta lines, recognizing badges and scores from content; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (every column sortable by default: `sortValue` numeric columns sort desc → asc → default, the rest by natural cell-text order asc → desc → default; `sorters` overrides the comparator per column), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
+ExpandableList reads its row data from `@@` meta lines, rendering cells as authored markdown with no content sniffing; when a list grows large or the meta columns need precise control, the sturdier split is a TS data module as the single source with markdown keeping only the `@@@` slot bodies. The `XList` component and its assembly helpers exported from `absolute-press/client` serve that path: a site writes a thin island wrapper that maps the data module onto typed items and hands them to `XList`, which renders header-click cyclic sorting (every column sortable by default: `sortValue` numeric columns sort desc → asc → default, the rest by natural cell-text order asc → desc → default; `sorters` overrides the comparator per column), multi-term search (hidden aliases included), toolbar exclusion filters, rich title cells (links/badges/folded text) and expandable rows.
 
 These docs register such an island (`DemoXList`, see the `islands` + `entryListIslands` config in the root `vite.config.ts`). It is fully operational: 语言 sorts by natural text order, Stars numerically (descending first), the 状态 header stays triangle-free by the whitelist, the filter hides inactive projects when checked, and clicking a row expands its slot body:
 

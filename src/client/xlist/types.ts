@@ -39,8 +39,8 @@ export interface XListCell {
   date?: boolean;
   /** `-` placeholder renders dimmed (CSS `is-empty`). */
   empty?: boolean;
-  /** Bare-number score emphasis (legacy high/low score colors). */
-  score?: 'is-high-score' | 'is-low-score';
+  /** Emphasized cell tone (CSS `is-positive` / `is-negative`), e.g. scores. */
+  emphasis?: 'positive' | 'negative';
   /**
    * Numeric header-sort key (score columns). A column where every cell
    * carries a key or is an empty placeholder sorts numerically (desc first,
@@ -66,8 +66,8 @@ export interface XListItem {
   bodyHtml?: string;
   /** Search-only text (hidden aliases) beyond cells/body. */
   searchExtra?: string;
-  /** Whole-row highlight (legacy offer rows). */
-  offer?: boolean;
+  /** Whole-row highlight (CSS `is-highlight`). */
+  highlight?: boolean;
   /** Exclusion-group ids this row belongs to (see `XListProps.filters`). */
   filterFlags?: string[];
 }
