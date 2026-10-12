@@ -1,7 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { MarkdownRenderer } from '../../../shared/types';
-import { normalizeColumns, splitEntries, splitMetaColumns } from '../entries';
+import {
+  normalizeColumns,
+  resolveAliases,
+  splitEntries,
+  splitMetaColumns,
+} from '../entries';
 import { ENV, makeRenderer } from './helpers';
 
 describe('splitEntries (delimiter rules)', () => {
@@ -105,6 +110,57 @@ describe('splitEntries (meta lines)', () => {
     const split = splitEntries('@@@ A\n@@ one\n@@ two\nbody');
     expect(split.entries[0]?.meta).toBe('one');
     expect(split.entries[0]?.md).toContain('@@ two');
+  });
+});
+
+describe('splitEntries (alias delimiters)', () => {
+  it('parses a ` => target` suffix into aliasOf', () => {
+    const split = splitEntries('@@@ Series#2 => Series');
+    expect(split.entries).toEqual([
+      { title: 'Series#2', md: '', aliasOf: 'Series' },
+    ]);
+  });
+
+  it('keeps => without surrounding spaces as a literal title', () => {
+    const split = splitEntries('@@@ a=>b\nbody');
+    expect(split.entries).toEqual([{ title: 'a=>b', md: 'body' }]);
+  });
+});
+
+describe('resolveAliases', () => {
+  it('copies the target body into the alias entry', () => {
+    const { entries } = splitEntries(
+      '@@@ Series\nbody text\n\n@@@ Series#2 => Series',
+    );
+    resolveAliases(entries);
+    expect(entries[1]?.md).toBe('body text\n');
+  });
+
+  it('resolves targets declared after the alias', () => {
+    const { entries } = splitEntries(
+      '@@@ Series#2 => Series\n\n@@@ Series\nbody text',
+    );
+    resolveAliases(entries);
+    expect(entries[0]?.md).toBe('body text');
+  });
+
+  it('rejects aliases carrying their own body', () => {
+    const { entries } = splitEntries('@@@ A\nx\n\n@@@ B => A\nstray body');
+    expect(() => resolveAliases(entries)).toThrow('empty body');
+  });
+
+  it('rejects aliases carrying a meta line', () => {
+    const { entries } = splitEntries('@@@ A\nx\n\n@@@ B => A\n@@ 23h');
+    expect(() => resolveAliases(entries)).toThrow('empty body');
+  });
+
+  it('rejects missing targets and chains', () => {
+    const missing = splitEntries('@@@ A => nowhere').entries;
+    expect(() => resolveAliases(missing)).toThrow('not a content entry');
+    const chained = splitEntries(
+      '@@@ A\nx\n\n@@@ B => A\n\n@@@ C => B',
+    ).entries;
+    expect(() => resolveAliases(chained)).toThrow('not a content entry');
   });
 });
 
@@ -444,5 +500,24 @@ describe('ExpandableList rendering', () => {
     const literal = plain.render(src, ENV).html;
     expect(literal).toContain('@@@ KEY-1');
     expect(literal).not.toContain('ap-xlist__item-title');
+  });
+  it('renders the target body for alias entries under their own title', () => {
+    const src = [
+      '<ExpandableList>',
+      '',
+      '@@@ Series',
+      '',
+      'shared **body**',
+      '',
+      '@@@ Series#2 => Series',
+      '',
+      '</ExpandableList>',
+    ].join('\n');
+    const html = xlist(src);
+    // The alias row keeps its own title anchor but renders the target's body.
+    expect(html).toContain(
+      '<h6 id="Series#2" class="ap-xlist__entry-anchor">Series#2</h6>',
+    );
+    expect(html.match(/shared <strong>body<\/strong>/g)).toHaveLength(2);
   });
 });

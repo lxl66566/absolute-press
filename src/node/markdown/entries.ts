@@ -19,6 +19,13 @@
  * - Meta may carry multiple table columns, separated by top-level `|`
  *   (see splitMetaColumns); a single-segment meta stays one column, so the
  *   old `@@ a · b` spelling keeps working unchanged.
+ * - A delimiter title with a ` => target` suffix is an ALIAS entry:
+ *   `@@@ Key#2 => Key` renders the body of the `Key` entry for `Key#2`, so
+ *   series entries sharing one review stay single-sourced in the markdown
+ *   (the static HTML still carries a full copy per entry, for the no-JS
+ *   table and heading-level crawlers). Alias entries must have an empty
+ *   body and no meta; the target must be a content entry of the same block
+ *   (no chains). Violations fail the build.
  * - Delimiters inside fenced code blocks (``` / ~~~) are content.
  * - Content before the first delimiter is a preamble, rendered above the
  *   interactive list.
@@ -42,6 +49,8 @@ export interface ListEntry {
   md: string;
   /** Raw inline markdown from a `@@ meta` line right after the delimiter. */
   meta?: string;
+  /** Alias target from a `title => target` delimiter suffix, if any. */
+  aliasOf?: string;
 }
 
 export interface EntryListSplit {
@@ -105,7 +114,12 @@ export function splitMetaColumns(meta: string): string[] {
 export function splitEntries(src: string): EntryListSplit {
   const lines = src.replace(/\r\n?/g, '\n').split('\n');
   const preambleLines: string[] = [];
-  const entries: { title: string; lines: string[]; meta?: string }[] = [];
+  const entries: {
+    title: string;
+    lines: string[];
+    meta?: string;
+    aliasOf?: string;
+  }[] = [];
   let open: FenceOpen | null = null;
   // A `@@` line only counts as meta right after an entry delimiter.
   let afterDelimiter = false;
@@ -141,7 +155,15 @@ export function splitEntries(src: string): EntryListSplit {
     }
     const delimiter = DELIMITER_RE.exec(line);
     if (delimiter) {
-      entries.push({ title: (delimiter[1] ?? '').trim(), lines: [] });
+      const raw = (delimiter[1] ?? '').trim();
+      // `@@@ title => target` marks an alias entry; resolution happens in
+      // resolveAliases after the whole block is split.
+      const arrow = raw.indexOf(' => ');
+      entries.push({
+        title: arrow === -1 ? raw : raw.slice(0, arrow),
+        lines: [],
+        ...(arrow === -1 ? {} : { aliasOf: raw.slice(arrow + 4).trim() }),
+      });
       afterDelimiter = true;
       continue;
     }
@@ -151,12 +173,43 @@ export function splitEntries(src: string): EntryListSplit {
 
   return {
     preamble: preambleLines.join('\n'),
-    entries: entries.map(({ title, lines: entryLines, meta }) => ({
+    entries: entries.map(({ title, lines: entryLines, meta, aliasOf }) => ({
       title,
       md: entryLines.join('\n'),
       ...(meta === undefined ? {} : { meta }),
+      ...(aliasOf === undefined ? {} : { aliasOf }),
     })),
   };
+}
+
+/**
+ * Resolve `title => target` alias entries in place: an alias carries no body
+ * of its own and renders its target's markdown instead, so entries sharing
+ * one review stay single-sourced in the markdown source (the static HTML
+ * still carries a full copy per entry). Targets resolve by title within the
+ * same block, first occurrence wins; chains (alias to alias) are rejected,
+ * as are aliases with their own body or meta.
+ */
+export function resolveAliases(entries: ListEntry[]): void {
+  const byTitle = new Map<string, ListEntry>();
+  for (const entry of entries) {
+    if (!byTitle.has(entry.title)) byTitle.set(entry.title, entry);
+  }
+  for (const entry of entries) {
+    if (entry.aliasOf === undefined) continue;
+    if (entry.md.trim() !== '' || entry.meta !== undefined) {
+      throw new Error(
+        `entry-list alias "${entry.title}" must have an empty body and no meta line`,
+      );
+    }
+    const target = byTitle.get(entry.aliasOf);
+    if (target === undefined || target.aliasOf !== undefined) {
+      throw new Error(
+        `entry-list alias "${entry.title}": "${entry.aliasOf}" is not a content entry of the same block`,
+      );
+    }
+    entry.md = target.md;
+  }
 }
 
 /**
@@ -180,6 +233,7 @@ export function renderEntryListChildren(
   props?: unknown,
 ): string {
   const { preamble, entries } = splitEntries(inner);
+  resolveAliases(entries);
   const cols = normalizeColumns(
     typeof props === 'object' && props !== null
       ? (props as Record<string, unknown>)['columns']
