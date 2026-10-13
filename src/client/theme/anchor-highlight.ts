@@ -12,6 +12,11 @@ const FLASH_CLASS = 'ap-anchor-flash';
 
 const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
 
+/** Flashable jump targets: headings, plus the hydrated XList title cell that
+ * carries the entry anchor id (the static h6 it replaces matches as a
+ * heading). */
+const FLASHABLE_SELECTOR = `${HEADING_SELECTOR}, .ap-xlist__title`;
+
 /** Keys whose default action scrolls the page. */
 export const SCROLL_KEYS = new Set([
   'ArrowUp',
@@ -108,12 +113,12 @@ export function anchorTargetElement(hash: string): Element | null {
   return document.getElementById(id);
 }
 
-/** Highlight the heading `hash` points at; stays until the user scrolls.
- * Non-heading or missing targets only clear a previous highlight. */
+/** Highlight the element `hash` points at; stays until the user scrolls.
+ * Non-flashable or missing targets only clear a previous highlight. */
 export function flashAnchorTarget(hash: string): void {
   clearFlash();
   const el = anchorTargetElement(hash);
-  if (!el || !el.matches(HEADING_SELECTOR)) return;
+  if (!el || !el.matches(FLASHABLE_SELECTOR)) return;
   el.classList.add(FLASH_CLASS);
   armClearListeners();
 }

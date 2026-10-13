@@ -295,8 +295,10 @@
   /* Anchor jump target: accent tint fades in and holds until the user scrolls
    * on their own (runtime clears it on wheel/touch/scroll keys). Negative
    * inline margins offset the padding so the tint reads like a marker without
-   * shifting the layout. */
-  .ap-main :is(h1, h2, h3, h4, h5, h6).ap-anchor-flash {
+   * shifting the layout. XList entry anchors (static h6) flash as a whole row
+   * instead — see ExpandableList.css. */
+  .ap-main
+    :is(h1, h2, h3, h4, h5, h6):not(.ap-xlist__entry-anchor).ap-anchor-flash {
     margin-inline: -0.4rem;
     padding-inline: 0.4rem;
     background-color: color-mix(in srgb, var(--c-accent) 15%, transparent);

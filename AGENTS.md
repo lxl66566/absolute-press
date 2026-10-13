@@ -25,6 +25,7 @@ MPA SSG + islands 架构，面向熟练开发者。阅读 README.md 了解更多
 - 一切修改考虑 i18n、light/dark theme、移动端兼容
 - TS 动态 import 仅允许字符串字面量路径，禁止变量路径
 - 仅考虑现代浏览器
+- 请编写现代、低耦合的 CSS：保持选择器扁平，组件自身不写外部 margin（由父级 gap 控制），提取共用颜色/尺寸为 CSS 变量
 
 ## UX 偏好
 
@@ -84,7 +85,4 @@ pnpm exec playwright test                     # e2e（先构建文档站）
 
 ## 已知边界
 
-- `<template #xxx>` 与 vue 组件语法按未知 HTML 透传（迁移时逐页改造，框架不兼容）
 - `<Mermaid>`/G2Plot 懒加载 chunk 较大（mermaid 含 elk），仅用到时加载
-- 关联图只含一度邻居；ArticleCard 的 icon 仍是文本 chip
-- solid-js 2.0 为 RC，升级时复查 createEffect 两段式语义与 jsx-runtime 映射

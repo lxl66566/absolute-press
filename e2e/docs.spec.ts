@@ -364,6 +364,15 @@ test.describe('docs: islands', () => {
     await standalone.locator('img').click();
     await expect(page.locator('.pswp--open')).toBeVisible({ timeout: 5000 });
   });
+  test('xlist entry anchor flashes the row on jump', async ({ page }) => {
+    await page.goto(`${DOCS}/guide/islands#ripgrep`);
+    // Hydration moves the entry anchor from the static h6 onto the title cell.
+    const cell = page.locator('td.ap-xlist__title[id="ripgrep"]');
+    await expect(cell).toHaveClass(/ap-anchor-flash/);
+    // Same cancellation contract as heading flashes: a user scroll clears it.
+    await page.mouse.wheel(0, 120);
+    await expect(cell).not.toHaveClass(/ap-anchor-flash/);
+  });
 });
 
 test.describe('docs: password gate', () => {

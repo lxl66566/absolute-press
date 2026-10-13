@@ -270,6 +270,15 @@
     scroll-margin-top: var(--ap-anchor-offset);
   }
 
+  /* Anchor jump flash on an entry: tint the whole row (the heading marker
+   * style in theme.css would only cover the title text). The flash class
+   * lands on the hydrated title cell or on the static h6 inside it. Row
+   * classes: .ap-xlist__row hydrated, .ap-xlist__item static. */
+  :is(.ap-xlist__row, .ap-xlist__item):has(.ap-anchor-flash) > td {
+    background-color: color-mix(in srgb, var(--c-accent) 15%, transparent);
+    animation: ap-anchor-flash 160ms ease-out both;
+  }
+
   /* The keyboard toggle looks like plain text: expandability reads from the
  * row (cursor + hover outline), never from a fake link style. */
   .ap-xlist__toggle {
