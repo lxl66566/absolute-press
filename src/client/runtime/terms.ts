@@ -1,12 +1,19 @@
 /**
  * Term-reference popovers: `[[id]]` renders as `<span class="ap-term">`
- * (build time) with `<template class="ap-term-def">` bodies appended to the
- * page (injectTermDefs); this module shows a template's content in a lazily
- * created popover, hosted inside #ap-content so the prose styles (scoped
- * there) cover its markdown body. Delegated events at document level cover
- * spans arriving after load (soft navigation swaps, unlocked PasswordGate
- * prose) and terms nested inside an open popover's body — every lookup
- * re-queries the live DOM, so no per-span wiring exists.
+ * (build time). The definition bodies ship either as `<template
+ * class="ap-term-def">` elements appended to the page (dev), or — on build
+ * pages — as a per-page content-hashed ES module referenced by the payload
+ * `refs` field (build/refs-asset.ts): full ref articles would bloat every
+ * document, and popovers open only on demand. An IntersectionObserver starts
+ * the fetch when the first term nears the viewport (primeTermPrefetch), so
+ * the data is typically in before the first hover; a hover that wins the
+ * race simply awaits the same in-flight load.
+ *
+ * The popover itself is lazily created, hosted inside #ap-content so the
+ * prose styles (scoped there) cover its markdown body. Delegated events at
+ * document level cover spans arriving after load (soft navigation swaps,
+ * unlocked PasswordGate prose) and terms nested inside an open popover's
+ * body — every lookup re-queries the live DOM, so no per-span wiring exists.
  *
  * Popovers form a stack: hovering a term inside a layer opens a deeper
  * layer (its term must stay alive, so the parent can never be reused), and
@@ -19,7 +26,7 @@
  * blur hides (keyboard). Layers sit in document coordinates (no positioned
  * ancestor intervenes), so they track their terms through scrolling.
  */
-
+import { pagePayload } from './payload';
 /** Fixed navbar clearance for the flip-above clamp (px, mirrors Toc.tsx). */
 const NAV_OFFSET = 64;
 /**
@@ -43,6 +50,74 @@ let pinnedCount = 0;
 let hideTimer = 0;
 /** Unique id source for aria-describedby targets. */
 let popoverSeq = 0;
+
+/**
+ * Loaded or in-flight defs assets by absolute URL; content-hashed names make
+ * the entry double as the cross-navigation cache.
+ */
+const defsCache = new Map<string, Promise<Record<string, string> | null>>();
+/** Terms with an in-flight async show (defs asset still loading). */
+const pendingShows = new Set<HTMLElement>();
+
+/**
+ * Absolute URL of the current page's defs asset; null when the page inlines
+ * its term bodies (dev) or references no terms.
+ */
+function refsUrl(): string | null {
+  const refs = pagePayload()?.refs;
+  return refs === undefined ? null : new URL(refs, document.baseURI).href;
+}
+
+/** Fetch (once per URL) the defs module an asset reference points at. */
+function ensureDefs(url: string): Promise<Record<string, string> | null> {
+  let cached = defsCache.get(url);
+  if (cached === undefined) {
+    cached = (
+      import(/* @vite-ignore */ url) as Promise<{
+        default: Record<string, string>;
+      }>
+    )
+      .then(m => m.default)
+      .catch((e: unknown) => {
+        console.error(
+          '[absolute-press] failed to load term refs asset',
+          url,
+          e,
+        );
+        return null;
+      });
+    defsCache.set(url, cached);
+  }
+  return cached;
+}
+
+let prefetchObserver: IntersectionObserver | null = null;
+
+/**
+ * Start loading the page's defs asset when the first term span nears the
+ * viewport. `url` is the payload `refs` reference resolved by the caller —
+ * against the navigation target on soft navigations, where document.baseURI
+ * still names the outgoing page (see router applyPage). Null (dev inline
+ * pages, term-free pages) disarms. Hidden terms — gated prose pre-unlock —
+ * never intersect; their first hover takes the on-demand path in show().
+ */
+export function primeTermPrefetch(url: string | null): void {
+  // Spans observed for a previous page are detached by the swap; drop them.
+  prefetchObserver?.disconnect();
+  prefetchObserver = null;
+  if (url === null || defsCache.has(url)) return;
+  const observer = new IntersectionObserver(
+    entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      observer.disconnect();
+      void ensureDefs(url);
+    },
+    // Trigger ahead of visibility, so a quick hover still finds the data in.
+    { rootMargin: '200px 0px' },
+  );
+  prefetchObserver = observer;
+  for (const el of document.querySelectorAll('.ap-term')) observer.observe(el);
+}
 
 function clearHideTimer(): void {
   if (hideTimer !== 0) {
@@ -132,12 +207,17 @@ function place(el: HTMLElement, term: HTMLElement): void {
 }
 
 /**
- * Show `term`'s popover as the deepest layer, cloning its template body in.
+ * Show `term`'s popover as the deepest layer, cloning its definition body in.
  * A term already heading a layer just closes the layers below it; a term
- * without a matching template (nested reference to a missing id — already
- * warned at build) or whose id is open further up the chain stays inert.
+ * without a definition (reference to a missing id — already warned at build)
+ * or whose id is open further up the chain stays inert. On build pages the
+ * body may still be inside the external defs asset: the show awaits the
+ * (usually prefetch-warm) load.
  */
-function show(term: HTMLElement): void {
+async function show(
+  term: HTMLElement,
+  trigger: 'hover' | 'focus' | 'pin',
+): Promise<void> {
   clearHideTimer();
   const existing = layers.findIndex(layer => layer.term === term);
   if (existing !== -1) {
@@ -146,10 +226,32 @@ function show(term: HTMLElement): void {
   }
   const id = term.dataset.term;
   if (id === undefined) return;
-  const template = document.querySelector<HTMLTemplateElement>(
+  let template = document.querySelector<HTMLTemplateElement>(
     `template.ap-term-def[data-term="${id}"]`,
   );
-  if (template === null) return;
+  if (template === null) {
+    const url = refsUrl();
+    if (url === null || pendingShows.has(term)) return;
+    pendingShows.add(term);
+    let html: string | undefined;
+    try {
+      html = (await ensureDefs(url))?.[id];
+    } finally {
+      pendingShows.delete(term);
+    }
+    // The wait may outlive the gesture: a moved-on pointer, a blurred term
+    // or a soft navigation must not conjure a popover afterwards.
+    if (
+      html === undefined ||
+      !term.isConnected ||
+      (trigger === 'hover' && !term.matches(':hover')) ||
+      (trigger === 'focus' && document.activeElement !== term)
+    ) {
+      return;
+    }
+    template = document.createElement('template');
+    template.innerHTML = html;
+  }
   let depth = 0;
   for (let i = layers.length - 1; i >= 0; i--) {
     if (layers[i]!.el.contains(term)) {
@@ -170,7 +272,6 @@ function show(term: HTMLElement): void {
   layers.push({ el, term });
   place(el, term);
 }
-
 /** Desktop-pointer check: touch devices drive the popover by tap only. */
 function hasHover(): boolean {
   return window.matchMedia('(hover: hover)').matches;
@@ -188,27 +289,30 @@ function termOf(node: EventTarget | null): HTMLElement | null {
  * interactive (links, selection) while the pointer wanders; activating the
  * term of an already pinned layer unpins and closes it.
  */
-function togglePin(term: HTMLElement): void {
+async function togglePin(term: HTMLElement): Promise<void> {
   const index = layers.findIndex(layer => layer.term === term);
   if (index !== -1 && pinnedCount > index) {
     trimTo(index);
     return;
   }
-  show(term);
+  await show(term, 'pin');
   const at = layers.findIndex(layer => layer.term === term);
   if (at !== -1) pinnedCount = at + 1;
 }
 
 /**
- * Runtime init: the delegated term listeners. Installed once per page load;
- * soft navigation needs nothing here (applyPage calls hideTermPopover).
+ * Runtime init: the delegated term listeners plus the initial page's prefetch
+ * arming. Soft navigations re-arm via applyPage (primeTermPrefetch) and close
+ * open layers (hideTermPopover).
  */
 export function initTerms(): void {
+  // Initial page: arm the viewport prefetch for its defs asset, if any.
+  primeTermPrefetch(refsUrl());
   document.addEventListener('mouseover', event => {
     if (!hasHover()) return;
     const term = termOf(event.target);
     if (term !== null) {
-      show(term);
+      void show(term, 'hover');
       return;
     }
     scheduleTrim(event.target);
@@ -233,7 +337,7 @@ export function initTerms(): void {
     if (term !== null) {
       event.preventDefault();
       event.stopPropagation();
-      togglePin(term);
+      void togglePin(term);
       return;
     }
     if (hoverKeep(event.target) > 0) return;
@@ -244,7 +348,7 @@ export function initTerms(): void {
 
   document.addEventListener('focusin', event => {
     const term = termOf(event.target);
-    if (term !== null) show(term);
+    if (term !== null) void show(term, 'focus');
   });
   document.addEventListener('focusout', event => {
     if (pinnedCount > 0 || layers.length === 0) return;
@@ -263,7 +367,7 @@ export function initTerms(): void {
     const term = termOf(event.target);
     if (term === null) return;
     event.preventDefault();
-    togglePin(term);
+    void togglePin(term);
   });
 
   // Resize invalidates the show-time viewport clamp; hide rather than

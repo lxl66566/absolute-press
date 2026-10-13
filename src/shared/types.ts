@@ -365,6 +365,15 @@ export interface PagePayload {
    * keep everything inline and omit this field.
    */
   chrome?: string;
+  /**
+   * Build only: document-relative URL of this page's term-ref definitions
+   * asset — a content-hashed ES module `export default`-ing
+   * `Record<term id, body html>` covering the page's transitive term closure
+   * (see build/refs-asset.ts). Present only on pages referencing terms; the
+   * client prefetches it when a term nears the viewport. Dev pages keep the
+   * `<template class="ap-term-def">` bodies inline and omit this field.
+   */
+  refs?: string;
   page: PageMeta;
   /** Present only on home / archive pages. */
   articles?: ArticleInfo[];
@@ -710,8 +719,9 @@ export interface MarkdownRenderer {
   render: (src: string, env: MarkdownEnv) => RenderResult;
   /**
    * Render one term-reference article body (frontmatter stripped, islands
-   * disabled — popover content is static HTML) for the build layer to embed
-   * as a `<template data-ap-term>` payload.
+   * disabled — popover content is static HTML) for the build layer to ship
+   * with the referencing pages (inline `<template>` in dev, the per-page
+   * defs asset on build).
    */
   renderRef: (src: string, env: MarkdownEnv) => string;
 }

@@ -408,7 +408,7 @@ On this site (`refs: ['reference']`): the framework uses an [[island]] architect
 the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]]. The smallest term is a one-liner: [[minimal]].
 ```
 
-The popover holds full markdown: code blocks, formulas, and lists render normally, links stay clickable, and terms can nest further references. An unknown id renders as plain text with a warning while the build still passes — so the term library can live in its own repository (a nested git repo fetched by CI); a failed fetch costs the popovers only, never the build. Directory semantics and config: [configuration reference](./configuration.md#refs).
+The popover holds full markdown: code blocks, formulas, and lists render normally, links stay clickable, and terms can nest further references. The build externalizes each page's referenced closure into a standalone JS module, loaded only when a term scrolls near the viewport, so definitions never inflate the page HTML (dev inlines them instead). An unknown id renders as plain text with a warning while the build still passes — so the term library can live in its own repository (a nested git repo fetched by CI); a failed fetch costs the popovers only, never the build. Directory semantics and config: [configuration reference](./configuration.md#refs).
 
 ## Math
 

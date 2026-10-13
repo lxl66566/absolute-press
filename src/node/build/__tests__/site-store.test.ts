@@ -719,6 +719,59 @@ describe('SiteStore', () => {
     expect(devStore.devHtml('/guide/a')).not.toContain('chrome-');
   });
 
+  it('build externalizes term defs into a hashed asset; dev keeps them inline', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\nsee [[island]].\n',
+        'plain.md': '# Plain\n',
+        'reference/island.md':
+          '---\ntitle: 岛屿\n---\n**bold** body, also [[island]] self\n',
+      },
+      { refs: 'reference' },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+
+    // One defs asset: the referenced closure (here just `island`), key-sorted.
+    const refsNames = files
+      .map(f => f.fileName)
+      .filter(n => /^assets\/refs-[0-9a-f]{8}\.js$/.test(n));
+    expect(refsNames).toHaveLength(1);
+    const module = String(
+      files.find(f => f.fileName === refsNames[0])?.source ?? '',
+    );
+    expect(module).toMatch(/^export default \{/);
+    expect(module).toContain('"island"');
+    expect(module).toContain('<strong>bold</strong>');
+
+    // The page ships the span and the asset reference, not the definition.
+    const html = String(
+      files.find(f => f.fileName === 'index.html')?.source ?? '',
+    );
+    expect(html).toContain('<span class="ap-term" data-term="island"');
+    expect(html).not.toContain('ap-term-def');
+    expect(payloadOf(html).refs).toBe(refsNames[0]);
+    // Term-free pages carry no reference at all.
+    const plain = payloadOf(
+      String(files.find(f => f.fileName === 'plain.html')?.source ?? ''),
+    );
+    expect(plain.refs).toBeUndefined();
+
+    // Dev: no asset, no reference — the templates stay inline.
+    const devStore = new SiteStore(fx.config);
+    await devStore.sync('dev');
+    const devHtml = devStore.devHtml('/') ?? '';
+    expect(devHtml).toContain(
+      '<template class="ap-term-def" data-term="island">',
+    );
+    expect(payloadOf(devHtml).refs).toBeUndefined();
+  });
+
   it('emits one chrome asset per differing locale and scopes _headers rules', async () => {
     const fx = await contentFixture(
       {

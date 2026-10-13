@@ -71,6 +71,7 @@ docs/          官方文档站（vite.config.ts 接入 absolutePress() 指向 do
 - **CSS 级联契约**（详见 .agents/skills/css-cascade/SKILL.md，css-contract.test.ts 强制。shell head 一次声明层序 `properties, theme, base, preflights, shortcuts, ap-base, ap-prose, default, ap-chrome`（shell.ts `LAYER_ORDER`）；框架 CSS 一律入层且层名仅限 ap-base/ap-prose/ap-chrome；禁 id 选择器（`#ap-*` 只作 JS 挂载锚，CSS 挂钩是类 `ap-main/ap-nav/ap-sidebar/ap-toc/ap-footer/ap-chrome`）；ap-prose 一律 `:where(.ap-main)` 零特异性；禁 `!important`（白名单：theme.css shiki 与 reduced-motion）；组件间距用父级 gap 不用兄弟 margin；uno 必须 `outputToCssLayers: true`
 - **i18n**：默认 locale 在 contentDir 根，其余在 `<contentDir>/<key>/`（路由加前缀）；UI 文案在 theme/i18n/，zh 为 shape 真相源
 - **加密**：客户端密码门（sha256 比对，sessionStorage 记住），非真加密，设计如此
+- **术语定义外置**：build 时把页面引用闭包渲染成内容 hash 的共享模块 `assets/refs-<hash>.js`（`build/refs-asset.ts`，payload 只留 `refs` 页相对路径），客户端 `runtime/terms.ts` 用 IntersectionObserver 在术语接近视口时预取、hover 未命中模板时 await 同一份缓存 promise；dev 仍内联 `<template class="ap-term-def">`。改动需保持 katex 检测覆盖 defs 正文（site.ts htmlForPage）
 - **frontmatter** 只认 `date/category/tag/icon/feed/overview`；icon 必须是 config `icons` map 的 key（svg 字符串），构建期校验
 
 ## 验证

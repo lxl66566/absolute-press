@@ -24,7 +24,7 @@ import { chromeUrlOf, ensureChrome, mergeChrome } from './payload';
 import type { RouterEntryState, ScrollDecision } from './scroll-restore';
 import { resolveScrollTarget } from './scroll-restore';
 import { initTabsPersistence } from './tabs';
-import { hideTermPopover } from './terms';
+import { hideTermPopover, primeTermPrefetch } from './terms';
 
 /**
  * Client-side navigation over the static MPA pages: intercept same-site
@@ -63,6 +63,11 @@ function applyPage(
   title: string,
   /** Raw payload JSON of the fetched page, kept for the live script. */
   rawJson: string,
+  /**
+   * Absolute URL of the target page's term-defs asset, resolved against the
+   * target (document.baseURI still names the outgoing page until pushState).
+   */
+  refsUrl: string | null,
 ): void {
   const content = document.getElementById('ap-content');
   if (!content) return;
@@ -113,6 +118,8 @@ function applyPage(
 
   initTabsPersistence();
   hydrateIslands(content);
+  // Re-arm the term-defs viewport prefetch against the swapped-in spans.
+  primeTermPrefetch(refsUrl);
 }
 
 /**
@@ -212,7 +219,13 @@ async function navigate(href: string, push: boolean): Promise<void> {
   // Per-page stylesheets the shell links conditionally (katex) must enter the
   // live document before the swap, or the target page renders unstyled.
   adoptKatexStylesheet(page.fetched, href, document);
-  applyPage(page.payload, page.content, page.title, page.rawJson);
+  // The defs reference resolves against the target page, like chromeUrlOf:
+  // document.baseURI still names the outgoing page until pushState below.
+  const refsUrl =
+    page.payload.refs === undefined
+      ? null
+      : new URL(page.payload.refs, target).href;
+  applyPage(page.payload, page.content, page.title, page.rawJson, refsUrl);
 
   if (push) {
     // Stamp the leaving page's offset onto its own entry BEFORE pushing:

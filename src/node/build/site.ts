@@ -75,6 +75,7 @@ import {
   profileKeptArticles,
   renderProfileCard,
 } from './profile.ts';
+import { refsAsset } from './refs-asset.ts';
 import {
   isRefFile,
   localeContentRoot,
@@ -188,6 +189,8 @@ interface RenderContext {
   chromeFiles: Map<string, string>;
   /** Emitted chrome modules keyed by file name (drained by emitAll). */
   chromeAssets: Map<string, string>;
+  /** Emitted per-page term-ref modules keyed by file name (drained by emitAll). */
+  refsAssets: Map<string, string>;
   /** relPath -> locale key -> page; hreflang counterpart lookup. */
   siblings: Map<string, Map<string, PageSource>>;
   /** Archive key `<kind>/<name>` -> alternates; lazy like the chrome. */
@@ -721,6 +724,7 @@ export class SiteStore {
       chrome: new Map(),
       chromeFiles: new Map(),
       chromeAssets: new Map(),
+      refsAssets: new Map(),
       siblings: siblingIndex(pages),
       archiveAlternates: null,
       listings: listingPages(this.config),
@@ -1098,16 +1102,21 @@ export class SiteStore {
   }
 
   /**
-   * Append `<template class="ap-term-def">` bodies for every term id the
-   * html references (the client popover clones them on demand). One pass
-   * over the appended templates picks up ids nested inside ref articles
+   * Term-ref definitions of one page: `Record<term id, body html>` covering
+   * every id the html references, null when it references none. One pass
+   * over the collected bodies picks up ids nested inside ref articles
    * themselves — a popover inside a popover — with the done set bounding
-   * the walk (an id renders at most once per page).
+   * the walk (an id renders at most once per page). The caller either
+   * appends the bodies as `<template class="ap-term-def">` (dev) or ships
+   * them as a per-page asset module (build, see refs-asset.ts).
    */
-  private injectTermDefs(page: PageSource, html: string): string {
-    if (!this.refs || !html.includes('data-term=')) return html;
+  private termDefsOf(
+    page: PageSource,
+    html: string,
+  ): Record<string, string> | null {
+    if (!this.refs || !html.includes('data-term=')) return null;
     const done = new Set<string>();
-    const parts: string[] = [];
+    const defs: Record<string, string> = {};
     let scan = html;
     for (;;) {
       const round: string[] = [];
@@ -1119,9 +1128,9 @@ export class SiteStore {
         // spans degraded to plain text, so nothing to embed.
         const ref = lookupRef(this.refs, id, page.locale.key, this.config);
         if (!ref) continue;
-        const def = `<template class="ap-term-def" data-term="${escapeHtml(id)}">${this.refHtml(ref)}</template>`;
-        parts.push(def);
-        round.push(def);
+        const body = this.refHtml(ref);
+        defs[id] = body;
+        round.push(body);
       }
       if (round.length === 0) break;
       scan = round.join('');
@@ -1137,7 +1146,7 @@ export class SiteStore {
         );
       }
     }
-    return parts.length === 0 ? html : html + parts.join('');
+    return Object.keys(defs).length === 0 ? null : defs;
   }
 
   /**
@@ -1152,11 +1161,33 @@ export class SiteStore {
     payload: PagePayload,
     html: string,
     ctx: RenderContext,
-  ): string {
+    externalizeRefs: boolean,
+    // `refBodies` carries the joined term-ref bodies only when they left the
+    // document (build), so the caller's katex check still covers math living
+    // solely inside popover bodies.
+  ): { content: string; refBodies: string | null } {
     let content = this.swapBuildComponents(page, ctx, html);
-    // Term templates ride inside the same gate wrap: a gated page must not
-    // leak its reference bodies before the client unlocks it.
-    content = this.injectTermDefs(page, content);
+    const defs = this.termDefsOf(page, content);
+    let refBodies: string | null = null;
+    if (defs !== null) {
+      if (externalizeRefs) {
+        // The payload URL is as visible as the inline bodies were — the
+        // password gate is not cryptographic, so gated pages externalize too.
+        const asset = refsAsset(defs);
+        ctx.refsAssets.set(asset.fileName, asset.source);
+        payload.refs = baseOf(page.route) + asset.fileName;
+        refBodies = Object.values(defs).join('');
+      } else {
+        // Term templates ride inside the same gate wrap: a gated page must
+        // not leak its reference bodies before the client unlocks it.
+        content += Object.entries(defs)
+          .map(
+            ([id, body]) =>
+              `<template class="ap-term-def" data-term="${escapeHtml(id)}">${body}</template>`,
+          )
+          .join('');
+      }
+    }
     const encrypted = payload.encrypted;
     if (encrypted) {
       // PasswordGate derives its messages from the page language client-side;
@@ -1193,7 +1224,7 @@ export class SiteStore {
       );
       content += `<div data-ap-island="Giscus" data-props="${props}"></div>`;
     }
-    return content;
+    return { content, refBodies };
   }
 
   /** Marker div emitted by the markdown renderer for a build component tag;
@@ -1370,17 +1401,24 @@ export class SiteStore {
     // Dev-only feedback; the build emit path reports through generateBundle.
     if (this.trustWatcher) this.warnDevPageIssues(page, rendered);
     const payload = this.payloadFor(rendered, ctx);
-    const content = this.decorateContent(page, payload, rendered.html, ctx);
+    const { content, refBodies } = this.decorateContent(
+      page,
+      payload,
+      rendered.html,
+      ctx,
+      assets.isBuild,
+    );
     return renderShell({
       ...this.shellArgs(assets, page.locale),
       // Profile homes lead with the profile card occupying the outline
       // lane, so the shell omits the TOC container entirely.
       ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
       // Only math pages carry the katex stylesheet; the check runs on the
-      // decorated content, so math living solely inside term-ref popover
-      // templates is covered too. The decision re-reads the cached html
-      // each pass, so it can never go stale.
-      ...(pageUsesKatex(content)
+      // decorated content plus the externalized term-ref bodies, so math
+      // living solely inside a popover keeps its styles. The decision
+      // re-reads the cached html each pass, so it can never go stale.
+      ...(pageUsesKatex(content) ||
+      (refBodies !== null && pageUsesKatex(refBodies))
         ? { katexHref: this.katexHref(assets.isBuild) }
         : {}),
       payload,
@@ -1640,6 +1678,11 @@ export class SiteStore {
     // Shared per-locale chrome modules (see chromeFileOf): content-hashed,
     // immutable-cached, referenced by every page of their locale.
     for (const [fileName, source] of ctx.chromeAssets) {
+      out.push({ fileName, source });
+    }
+    // Per-page term-ref definition modules (see decorateContent):
+    // content-hashed, immutable-cached, fetched by the client on demand.
+    for (const [fileName, source] of ctx.refsAssets) {
       out.push({ fileName, source });
     }
     // KaTeX css + woff2 fonts ship only when at least one page rendered
