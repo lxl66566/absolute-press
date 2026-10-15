@@ -56,7 +56,7 @@ overview: true # default true; only meaningful on a directory's index.md
 ## Dates: write one by hand, git handles the rest
 
 - `createdAt` comes from frontmatter `date` and drives article feed ordering
-- `updatedAt` is the file's **last git commit time** (queried in batch at build time); outside a git repository (or for untracked files) it is `null`, and the page shows no update time
+- `updatedAt` is the file's **last git commit time** (queried in batch at build time); outside a git repository (or for untracked files) it is `null`, and the page shows no update time. A shallow CI clone collapses every page's time to the single checked-out commit — see [Deployment](./deploy.md#ci-suggestion)
 
 So daily writing only needs one `date` written at creation; "last edited" is maintained by git with no manual syncing.
 

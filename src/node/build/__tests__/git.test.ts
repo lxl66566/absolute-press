@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -130,6 +131,36 @@ describe.skipIf(!gitAvailable)('getGitTimes', () => {
     tmpDirs.push(dir);
     const times = await getGitTimes([path.join(dir, '中文.md')], dir);
     expect(times.size).toBe(0);
+  });
+
+  it('warns on a shallow clone where every file collapses to the tip commit', async () => {
+    const repo = await initRepo();
+    const file = path.join(repo, 'a.md');
+    await writeFile(file, '# A\n');
+    await commitAll(repo, T1_ENV);
+    await appendFile(file, 'two\n');
+    await commitAll(repo, T2_ENV);
+
+    // The file:// transport honors --depth; a plain local path would
+    // hardlink the object store and stay unshallow.
+    const shallow = await mkdtemp(path.join(os.tmpdir(), 'ap-git-shallow-'));
+    tmpDirs.push(shallow);
+    await runGit(
+      ['clone', '--quiet', '--depth', '1', pathToFileURL(repo).href, shallow],
+      os.tmpdir(),
+    );
+
+    const shallowFile = path.join(shallow, 'a.md');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const times = await getGitTimes([shallowFile], shallow);
+      // Only one commit exists in the clone, so it wins the file's time.
+      expect(times.get(shallowFile)).toBe(T2);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(String(warnSpy.mock.calls[0]?.[0])).toContain('shallow git clone');
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('keeps other batches when a single batch fails, warning instead of dropping all', async () => {

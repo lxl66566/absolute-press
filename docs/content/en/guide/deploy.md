@@ -74,4 +74,12 @@ pnpm exec vite build                         # or a docs-specific config
 pnpm exec playwright test                    # e2e (spins up its own preview server)
 ```
 
+The git history drives each page's "last edited" time, so CI must check out the full history before building. GitHub Actions' `actions/checkout` defaults to `fetch-depth: 1` (a shallow clone), leaving a single commit in history and collapsing every article's update time to the build's trigger moment (the build log warns about the shallow clone):
+
+```yaml
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+```
+
 After binding the repo on a hosting platform, fill in the "build command" and "output directory" with the build and output above; changing domains means editing `hostname` in the site config once, and `rss.xml` / `sitemap.xml` / `robots.txt` follow automatically on the next build.

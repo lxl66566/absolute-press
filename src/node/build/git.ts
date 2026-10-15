@@ -50,6 +50,30 @@ export async function mapWithLimit<T, R>(
 }
 
 /**
+ * A shallow clone (the CI default, e.g. actions/checkout's `fetch-depth: 1`)
+ * holds a single commit, so every file's last-commit time collapses to the
+ * tip — all updatedAt values read as the build's trigger time. The times are
+ * still usable (and the site must keep building), so this only warns.
+ */
+async function warnIfShallow(repoRoot: string): Promise<void> {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['rev-parse', '--is-shallow-repository'],
+      { cwd: repoRoot, timeout: 10_000 },
+    );
+    if (stdout.trim() === 'true') {
+      console.warn(
+        '[absolute-press] shallow git clone detected: every updatedAt collapses to the single checked-out commit (effectively the build time). Fetch full history in CI, e.g. actions/checkout with `fetch-depth: 0`.',
+      );
+    }
+  } catch {
+    // Diagnostic only: an ancient git or a transient failure must not
+    // affect the lookup itself.
+  }
+}
+
+/**
  * Parse one `git log --format=\x01%cI --name-only` batch output into
  * absolute file path -> ISO time.
  */
@@ -74,7 +98,8 @@ function parseLogBatch(stdout: string, repoRoot: string): Map<string, string> {
  * bounded concurrency. Returns absolute file path -> ISO time. Repo-level
  * failures (not a git repo / git missing) return an empty map; a single
  * batch failure only drops that batch's files (console.warn) and keeps the
- * rest — callers fall back to null per missing file.
+ * rest — callers fall back to null per missing file. A shallow clone still
+ * returns times (every file collapses to the tip commit) but warns.
  */
 export async function getGitTimes(
   files: string[],
@@ -94,6 +119,7 @@ export async function getGitTimes(
     // Not a git repo / git missing: no times at all, silently.
     return times;
   }
+  await warnIfShallow(repoRoot);
   const rel = files.map(f =>
     path.relative(repoRoot, f).split(path.sep).join('/'),
   );

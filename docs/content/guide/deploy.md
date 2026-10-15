@@ -74,4 +74,12 @@ pnpm exec vite build                         # 或 docs 专用配置
 pnpm exec playwright test                    # e2e（自起 preview 服务）
 ```
 
+git 历史决定每页的「最后编辑时间」，CI 必须拉取完整历史再构建。GitHub Actions 的 `actions/checkout` 默认 `fetch-depth: 1`（浅克隆），整个历史只剩一个提交，所有文章的更新时间会塌缩成构建触发时刻（构建日志会给出浅克隆警告）：
+
+```yaml
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+```
+
 托管平台绑定仓库后，把「构建命令」与「输出目录」填成上面的构建与产物目录即可；换域名只改站点配置里的 `hostname` 一处，`rss.xml` / `sitemap.xml` / `robots.txt` 下次构建自动跟随。
