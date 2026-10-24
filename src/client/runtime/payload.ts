@@ -1,17 +1,17 @@
 import type { PageChrome, PagePayload } from '../../shared/types';
 
 /**
- * Chrome module of the current locale, loaded by ensureChrome() (build
- * payloads reference it via the `chrome` field; dev keeps chrome inline
- * and this stays null). Module state, not a window global: the runtime
- * owns the whole lifecycle.
+ * Chrome module of the current locale, loaded by loadChrome() and installed
+ * by commitChrome() (build payloads reference it via the `chrome` field; dev
+ * keeps chrome inline and this stays null). Module state, not a window
+ * global: the runtime owns the whole lifecycle.
  */
 let currentChrome: { href: string; data: PageChrome } | null = null;
 
 /**
  * Merge the loaded chrome into a parsed inline payload. A no-op while
- * nothing is loaded (dev) — build callers run ensureChrome() first, so
- * the data is already present by the time anything renders.
+ * nothing is loaded (dev) — build callers run loadChrome()+commitChrome()
+ * first, so the data is already present by the time anything renders.
  */
 export function mergeChrome(payload: PagePayload): PagePayload {
   if (currentChrome === null) return payload;
@@ -44,24 +44,33 @@ export function chromeUrlOf(
 }
 
 /**
- * Load the chrome module a payload references. Resolves without IO when
- * the current locale's module is already loaded; a locale crossing (soft
- * navigation) imports the target's module, which the shell's modulepreload
- * link has typically warmed already. Returns false when the module cannot
- * be loaded — callers degrade to the static page / native navigation.
+ * Load the chrome module a payload references WITHOUT committing it: the
+ * module data returns to the caller, which decides when it becomes the
+ * current chrome (commitChrome). The router must not commit before its seq
+ * check — a superseded navigation's late-resolving import would otherwise
+ * overwrite the chrome a newer navigation committed, and pagePayload() would
+ * merge a stale locale's navbar/sidebar into the live page until the next
+ * navigation. Resolves null when the module cannot be loaded — callers
+ * degrade to the static page / native navigation.
  */
-export async function ensureChrome(url: string): Promise<boolean> {
-  if (currentChrome?.href === url) return true;
+export async function loadChrome(url: string): Promise<PageChrome | null> {
   try {
     const mod = (await import(/* @vite-ignore */ url)) as {
       default: PageChrome;
     };
-    currentChrome = { href: url, data: mod.default };
-    return true;
+    return mod.default;
   } catch (e) {
     console.error('[absolute-press] failed to load chrome asset', url, e);
-    return false;
+    return null;
   }
+}
+
+/**
+ * Install a loaded chrome module as the current one (mergeChrome and
+ * pagePayload() read it from here on).
+ */
+export function commitChrome(url: string, data: PageChrome): void {
+  currentChrome = { href: url, data };
 }
 
 /**

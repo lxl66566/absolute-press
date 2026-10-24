@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PagePayload } from '../../../shared/types';
 import {
   chromeUrlOf,
-  ensureChrome,
+  commitChrome,
+  loadChrome,
   mergeChrome,
   pagePayload,
 } from '../payload';
@@ -94,16 +95,16 @@ function externalJson(): string {
 }
 
 /** Load a chrome module from inline source (no fs) into the runtime. */
-async function loadChrome(data: unknown): Promise<void> {
-  const ok = await ensureChrome(
-    `data:text/javascript,export default ${JSON.stringify(data)}`,
-  );
-  expect(ok).toBe(true);
+async function loadChromeData(data: unknown): Promise<void> {
+  const url = `data:text/javascript,export default ${JSON.stringify(data)}`;
+  const chrome = await loadChrome(url);
+  expect(chrome).not.toBeNull();
+  commitChrome(url, chrome!);
 }
 
 describe('chrome externalization', () => {
-  // mergeChrome/ensureChrome keep module state; these tests run in sequence
-  // and the loaded module persists across them, mirroring the runtime.
+  // mergeChrome/commitChrome keep module state; these tests run in sequence
+  // and the committed module persists across them, mirroring the runtime.
 
   it('mergeChrome is a no-op before any chrome is loaded', () => {
     const parsed = JSON.parse(externalJson()) as PagePayload;
@@ -111,7 +112,7 @@ describe('chrome externalization', () => {
   });
 
   it('pagePayload merges the loaded chrome module back in', async () => {
-    await loadChrome({
+    await loadChromeData({
       icons: { 'solid/x': '<svg/>' },
       navbar: [{ kind: 'leaf', text: 'A', link: '/a' }],
       sidebar: [],
@@ -142,20 +143,31 @@ describe('chrome externalization', () => {
     ).toBeNull();
   });
 
-  it('ensureChrome resolves without IO for the loaded module', async () => {
-    const href = `data:text/javascript,export default ${JSON.stringify({
-      navbar: [],
-      sidebar: [],
-    })}`;
-    expect(await ensureChrome(href)).toBe(true);
-    // Second load of the same href short-circuits.
-    expect(await ensureChrome(href)).toBe(true);
+  it('loadChrome returns the module data without committing it', async () => {
+    const data = { navbar: [{ kind: 'leaf', text: 'B', link: '/b' }] };
+    const url = `data:text/javascript,export default ${JSON.stringify(data)}`;
+    expect(await loadChrome(url)).toEqual(data);
+    // Module state is untouched: the loaded chrome must not leak into
+    // mergeChrome until the caller commits (the router commits only after
+    // its seq check, so a superseded navigation never overwrites).
+    const parsed = JSON.parse(externalJson()) as PagePayload;
+    expect(mergeChrome(parsed).navbar).toEqual([
+      { kind: 'leaf', text: 'A', link: '/a' },
+    ]);
   });
 
-  it('ensureChrome reports load failures without throwing', async () => {
+  it('commitChrome installs the module for mergeChrome', async () => {
+    const data = { navbar: [{ kind: 'leaf', text: 'C', link: '/c' }] };
+    const url = `data:text/javascript,export default ${JSON.stringify(data)}`;
+    commitChrome(url, (await loadChrome(url))!);
+    const parsed = JSON.parse(externalJson()) as PagePayload;
+    expect(mergeChrome(parsed).navbar).toEqual(data.navbar);
+  });
+
+  it('loadChrome reports load failures without throwing', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     // Not a valid module: the import rejects and the loader reports it.
-    expect(await ensureChrome('data:text/javascript,=')).toBe(false);
+    expect(await loadChrome('data:text/javascript,=')).toBeNull();
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining('chrome asset'),
       expect.anything(),

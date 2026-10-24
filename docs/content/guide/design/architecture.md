@@ -59,7 +59,7 @@ dev 模式没有 bundle 阶段：插件注册 `appType: 'custom'`，中间件按
 
 payload 是 `<script type="application/json" id="__AP_DATA__">` 里的序列化 `PagePayload`（类型定义在 `src/shared/types.ts`），装着页面 meta、站点集成配置，以及（dev 下）导航树、侧边栏树与图标表。构建期把客户端要用的数据全部序列化进 HTML 或共享资产，运行时就不需要再请求任何数据接口。序列化时把 `<` 转义为 `\u003c`，防止 JSON 里的 `</script>` 提前闭合标签。
 
-构建产物还把每个 locale 的 chrome 三件套——`site.icons`（图标表）、`navbar`、`sidebar`——外置成按内容 hash 命名的共享模块 `assets/chrome-<hash>.js`（`export default` 一个 `PageChrome`，见 `build/chrome-asset.ts`）：这三块对同 locale 的每一页完全相同，图标表在注册了全量图标库的站点上能占到首页文档的三分之二。页面 payload 只留一个 `chrome` 字段指向该模块（页相对路径），head 里同步 `modulepreload`；客户端入口与软导航路由在挂载 chrome 前 `ensureChrome()` 加载模块，`pagePayload()` 读取时把数据合并回来——对站点 island 来说契约不变。模块走 `/assets/*` 的 immutable 缓存，翻页与预渲染不再重复传输与解析这份数据；dev 保持内联，不产生该文件。
+构建产物还把每个 locale 的 chrome 三件套——`site.icons`（图标表）、`navbar`、`sidebar`——外置成按内容 hash 命名的共享模块 `assets/chrome-<hash>.js`（`export default` 一个 `PageChrome`，见 `build/chrome-asset.ts`）：这三块对同 locale 的每一页完全相同，图标表在注册了全量图标库的站点上能占到首页文档的三分之二。页面 payload 只留一个 `chrome` 字段指向该模块（页相对路径），head 里同步 `modulepreload`；客户端入口与软导航路由在挂载 chrome 前用 `loadChrome()` 加载模块，软导航只在确认自己仍是最新一次导航后才 `commitChrome()` 把它落地为当前 chrome（被更新的导航不会覆盖新页已提交的数据），`pagePayload()` 读取时把数据合并回来——对站点 island 来说契约不变。模块走 `/assets/*` 的 immutable 缓存，翻页与预渲染不再重复传输与解析这份数据；dev 保持内联，不产生该文件。
 
 术语引用（`[[id]]`）的定义走同一条外置路线，但按页聚合：每页构建时求出引用闭包（含嵌套引用的传递闭包），渲染成内容 hash 的共享模块 `assets/refs-<hash>.js`（`export default { id: html }`，见 `build/refs-asset.ts`），页面 payload 只留一个 `refs` 字段指向它。定义默认不展示，首屏不加载：客户端 `runtime/terms.ts` 用 IntersectionObserver 监听术语 span，第一个术语接近视口（rootMargin 200px）即开始拉取整份 defs；悬停时若数据未到则 await 同一份缓存 promise。模块内容 hash 命名、走 immutable 缓存，引用相同闭包的页面共享一份文件；dev 保持内联 `<template class="ap-term-def">`，不产生该文件。顺带一个约束：页面是否引用 KaTeX 样式的判定要把 defs 正文算进去，否则只在定义里出现的公式没有样式。
 
@@ -83,7 +83,9 @@ async function main(): Promise<void> {
   // 构建产物在此加载共享 chrome 模块（icons/navbar/sidebar）
   const chromeUrl = chromeUrlOf(payload, document.baseURI);
   if (chromeUrl !== null) {
-    if (!(await ensureChrome(chromeUrl))) return;
+    const chrome = await loadChrome(chromeUrl);
+    if (chrome === null) return;
+    commitChrome(chromeUrl, chrome);
     payload = pagePayload();
     if (!payload) return;
   }

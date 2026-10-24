@@ -9,7 +9,7 @@ import '../styles/content.css'; // after theme.css (list rhythm, tasklist accent
 import '../styles/sidebar.css'; // after theme.css so it wins ties (import order matters)
 import { initCodeTools } from './code-tools';
 import { hydrateIslands, registerIslands } from './islands';
-import { chromeUrlOf, ensureChrome, pagePayload } from './payload';
+import { chromeUrlOf, commitChrome, loadChrome, pagePayload } from './payload';
 import { initLightbox } from './photoswipe';
 import { initRouter } from './router';
 import { initTabsPersistence } from './tabs';
@@ -23,7 +23,11 @@ async function main(): Promise<void> {
   // Dev keeps the data inline and skips this entirely.
   const chromeUrl = chromeUrlOf(payload, document.baseURI);
   if (chromeUrl !== null) {
-    if (!(await ensureChrome(chromeUrl))) return;
+    // Initial load: nothing can race the commit, so it lands right after
+    // the import (the router commits after its seq check instead).
+    const chrome = await loadChrome(chromeUrl);
+    if (chrome === null) return;
+    commitChrome(chromeUrl, chrome);
     payload = pagePayload();
     if (!payload) return;
   }

@@ -1,4 +1,4 @@
-import type { PagePayload } from '../../shared/types';
+import type { PageChrome, PagePayload } from '../../shared/types';
 import { disposeRoot, disposeRootsUnder } from '../dom';
 import {
   anchorTargetElement,
@@ -20,7 +20,7 @@ import {
   initCanonicalPrefix,
 } from './head';
 import { hydrateIslands } from './islands';
-import { chromeUrlOf, ensureChrome, mergeChrome } from './payload';
+import { chromeUrlOf, commitChrome, loadChrome, mergeChrome } from './payload';
 import type { RouterEntryState, ScrollDecision } from './scroll-restore';
 import { resolveScrollTarget } from './scroll-restore';
 import { initTabsPersistence } from './tabs';
@@ -166,7 +166,14 @@ function applyScrollTarget(decision: ScrollDecision, hash: string): void {
   window.scrollTo(0, 0);
 }
 
-async function navigate(href: string, push: boolean): Promise<void> {
+/**
+ * Fetch and swap the page at `href`. Resolves true when the page was
+ * applied, false when the attempt was superseded by a newer navigation (its
+ * seq lost) or degraded to a full page load — callers gating follow-up work
+ * on the swap (popstate scroll restore) must check it, a superseded
+ * attempt's state describes the page it fetched, not the one on screen.
+ */
+async function navigate(href: string, push: boolean): Promise<boolean> {
   const seq = ++navSeq;
   // Absolute target URL: href may be route-relative (graph nodes call
   // navigateTo with page-relative routes), and the chrome reference below
@@ -179,7 +186,7 @@ async function navigate(href: string, push: boolean): Promise<void> {
     /** Raw payload JSON of the fetched page (kept for the live script). */
     rawJson: string;
     fetched: Document;
-  };
+  } | null = null;
   try {
     const response = await fetch(target);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -196,26 +203,36 @@ async function navigate(href: string, push: boolean): Promise<void> {
     // inlining it. Same-locale navigations resolve instantly (module
     // already loaded); a locale crossing imports the target's module
     // BEFORE the swap, so the remounts below and every later
-    // pagePayload() read see the right chrome. A failed load falls back
-    // to a full page load like any other router failure.
+    // pagePayload() read see the right chrome. The import stays
+    // uncommitted until the seq check below: a superseded attempt's late
+    // resolve must not overwrite the chrome a newer navigation committed.
+    // A failed load falls back to a full page load like any other router
+    // failure.
     const chromeUrl = chromeUrlOf(parsed, target);
-    if (chromeUrl !== null && !(await ensureChrome(chromeUrl))) {
-      throw new Error('chrome asset missing');
+    let chrome: PageChrome | null = null;
+    if (chromeUrl !== null) {
+      chrome = await loadChrome(chromeUrl);
+      if (chrome === null) throw new Error('chrome asset missing');
     }
-    page = {
-      payload: mergeChrome(parsed),
-      content: incoming,
-      title: doc.title,
-      rawJson: data,
-      fetched: doc,
-    };
+    if (seq === navSeq) {
+      if (chromeUrl !== null && chrome !== null) {
+        commitChrome(chromeUrl, chrome);
+      }
+      page = {
+        payload: mergeChrome(parsed),
+        content: incoming,
+        title: doc.title,
+        rawJson: data,
+        fetched: doc,
+      };
+    }
   } catch {
     // Router cannot serve this URL — fall back to a full load. A stale
     // attempt (another navigation started meanwhile) just dies quietly.
     if (seq === navSeq) location.href = href;
-    return;
+    return false;
   }
-  if (seq !== navSeq) return;
+  if (page === null) return false;
   // Per-page stylesheets the shell links conditionally (katex) must enter the
   // live document before the swap, or the target page renders unstyled.
   adoptKatexStylesheet(page.fetched, href, document);
@@ -243,6 +260,7 @@ async function navigate(href: string, push: boolean): Promise<void> {
   reportPageView();
   // A pushed URL may carry a hash; anchor flash mirrors a native jump.
   if (location.hash !== '') flashAnchorTarget(location.hash);
+  return true;
 }
 
 /**
@@ -303,7 +321,10 @@ function onPopState(): void {
   // describe the entry being returned to, and navigate() changes neither.
   const hash = location.hash;
   const decision = resolveScrollTarget(history.state, hash);
-  void navigate(location.href, false).then(() => {
+  void navigate(location.href, false).then(done => {
+    // A superseded attempt returns false: its decision belongs to the page
+    // it fetched, not the one a newer navigation put on screen.
+    if (!done) return undefined;
     applyScrollTarget(decision, hash);
     // flashAnchorTarget returns void; spell the return out for the lint
     // rule that wants every then() to return.
