@@ -3,7 +3,7 @@ import type { Element as SolidElement } from 'solid-js';
 
 import type { PagePayload } from '../../shared/types';
 import { flashAnchorTarget } from './anchor-highlight';
-import { FOLD_SETTLE_MS } from './constants';
+import { FOLD_SETTLE_MS, NAV_CLEARANCE_PX } from './constants';
 import { cx } from './cx';
 import { useMessages } from './i18n';
 import type { Messages } from './i18n';
@@ -22,6 +22,25 @@ import './Toc.css';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Breakpoint where the fixed rail takes over from the inline card: theme.css
+ * shows .ap-toc at 1280px+, InlineToc.css hides .ap-toc-inline there. The two
+ * CSS rules move together — keep them in sync with this query.
+ */
+const RAIL_MEDIA_QUERY = '(min-width: 1280px)';
+
+/** Reactive xl flag for the rail/inline placement split below. */
+function useXlViewport(): () => boolean {
+  const mq = window.matchMedia(RAIL_MEDIA_QUERY);
+  const [matches, setMatches] = createSignal(mq.matches);
+  const onChange = (e: MediaQueryListEvent): void => {
+    setMatches(e.matches);
+  };
+  mq.addEventListener('change', onChange);
+  onCleanup(() => mq.removeEventListener('change', onChange));
+  return matches;
 }
 
 // FOLD_SETTLE_MS lives in ./constants: a fold expansion animates its height
@@ -126,7 +145,8 @@ export function useTocVisible(
  * every placement remounts with the new payload per client-side navigation.
  * `rail` enables the reveal, which chases the highlight inside the fixed,
  * viewport-spanning #ap-toc; an inline placement sits in the page flow and
- * must never scroll the document, so it opts out.
+ * must never scroll the document, so it opts out. Both placements split on
+ * the xl breakpoint and only the visible one binds the spy observer.
  */
 export function TocOutline(props: {
   tree: TocNode[];
@@ -244,14 +264,29 @@ export function TocOutline(props: {
   // rebuilds fresh heading nodes on unlock, so gateUnlocked joins the deps
   // to rebind the observer to the new elements. slugs is fixed per mount —
   // a new page's outline arrives via the full remount in remountPageChrome,
-  // not through this effect.
+  // not through this effect. spyVisible skips the hidden placement of the
+  // rail/inline pair (one is always display:none across the xl breakpoint):
+  // a display:none placement would keep the observer running and maintain a
+  // highlight nobody can see. The matchMedia flag rebinds on crossing, so a
+  // resize never leaves the newly shown side blind.
+  const xlViewport = useXlViewport();
+  const spyVisible = () => (props.rail ? xlViewport() : !xlViewport());
   createEffect(
-    () => [slugs, gateUnlocked()],
+    () => [slugs, gateUnlocked(), spyVisible()] as const,
     () => {
       // A new page (or a gate unlock) starts with a clean slate; the
       // observer below re-highlights whatever is in view.
       setActive(null);
-      if (slugs.length === 0 || typeof IntersectionObserver === 'undefined')
+      // Known transient: right after a breakpoint crossing, the rebinding
+      // placement keeps no highlight until some heading enters the band
+      // (sticky semantics only apply while observing). Self-healing on the
+      // next scroll; the pre-split baseline kept the stale value here only
+      // because the hidden placement never stopped observing.
+      if (
+        slugs.length === 0 ||
+        typeof IntersectionObserver === 'undefined' ||
+        !spyVisible()
+      )
         return;
       const visible = new Set<string>();
       const io = new IntersectionObserver(
@@ -273,7 +308,10 @@ export function TocOutline(props: {
         // topmost, so 35% simply keeps the band past the next heading.
         // Anchor targets rest at 20vh scroll-margin-top, inside the band,
         // so a jumped-to heading stays the highlighted one.
-        { rootMargin: '-64px 0px -65% 0px', threshold: 0 },
+        {
+          rootMargin: `-${NAV_CLEARANCE_PX}px 0px -65% 0px`,
+          threshold: 0,
+        },
       );
       for (const slug of slugs) {
         const el = document.getElementById(slug);

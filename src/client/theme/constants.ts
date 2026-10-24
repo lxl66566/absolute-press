@@ -11,5 +11,13 @@
  */
 export const FOLD_SETTLE_MS = 200;
 
+/**
+ * Clearance below the fixed navbar, in px: the TOC spy band's top edge
+ * (rootMargin) and the term popover's flip-below-the-navbar clamp share it.
+ * The header is --ap-nav-h: 3.5rem (56px) plus 8px of breathing room — keep
+ * in sync with that CSS variable (the JS value stays px on purpose).
+ */
+export const NAV_CLEARANCE_PX = 64;
+
 /** Page scroll (px) past which the back-to-top button appears. */
 export const BACK_TO_TOP_THRESHOLD_PX = 480;

@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from 'solid-js';
+import { createEffect, createSignal, onCleanup } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 import {
@@ -213,11 +213,15 @@ export function SideBar(props: { payload: PagePayload }): SolidElement {
   // 160ms, so wait for it to settle, then pin the row to the rail's top
   // edge — its subitems below stay visible too. A fully visible row leaves
   // the reader's scroll position untouched. One shot per route —
-  // afterwards the reader owns the rail's scroll position.
+  // afterwards the reader owns the rail's scroll position. A rerun (route
+  // change) or disposal cancels the pending timer, so no stale locate
+  // lands after the settle.
+  let locateTimer = 0;
   createEffect(
     () => clientRoute(),
     () => {
-      window.setTimeout(() => {
+      window.clearTimeout(locateTimer);
+      locateTimer = window.setTimeout(() => {
         const rail = document.getElementById('ap-sidebar');
         const active = rail?.querySelector('a[aria-current="page"]');
         if (!rail || !active) return;
@@ -231,6 +235,7 @@ export function SideBar(props: { payload: PagePayload }): SolidElement {
       }, FOLD_SETTLE_MS);
     },
   );
+  onCleanup(() => window.clearTimeout(locateTimer));
 
   return (
     <>

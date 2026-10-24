@@ -88,14 +88,38 @@ export function parsePagePayload(json: string): PagePayload | null {
 }
 
 /**
+ * Memo of the last pagePayload() parse, keyed on the raw script text plus the
+ * committed chrome reference: the router rewrites the script's textContent on
+ * soft navigation (invalidating the memo) and commits a chrome module before
+ * that rewrite, so both inputs cover everything parsePagePayload consumes.
+ * One entry only; parse failures stay uncached so a repaired script parses on
+ * the next read.
+ */
+let memo: {
+  json: string;
+  chrome: string | null;
+  payload: PagePayload;
+} | null = null;
+
+/**
  * Official reader for the page payload (`<script id="__AP_DATA__">`). Site
  * islands use it for locale/base/page metadata instead of parsing the
- * script tag themselves. Re-read on every call: the client router keeps
- * the script's contents in sync across soft navigations. Returns null on a
- * non-framework page or unparsable JSON (parse errors are logged).
+ * script tag themselves. The parse is memoized on the script's contents and
+ * the committed chrome: the client router keeps both in sync across soft
+ * navigations, so a stale hit is impossible. Memo hits return the SHARED
+ * parsed object — callers must treat it as read-only (all current callers
+ * do). Returns null on a non-framework page or unparsable JSON (parse
+ * errors are logged).
  */
 export function pagePayload(): PagePayload | null {
   const el = document.getElementById('__AP_DATA__');
-  if (!el?.textContent) return null;
-  return parsePagePayload(el.textContent);
+  const json = el?.textContent;
+  if (!json) return null;
+  const chrome = currentChrome?.href ?? null;
+  if (memo !== null && memo.json === json && memo.chrome === chrome)
+    return memo.payload;
+  const payload = parsePagePayload(json);
+  if (payload === null) return null;
+  memo = { json, chrome, payload };
+  return payload;
 }

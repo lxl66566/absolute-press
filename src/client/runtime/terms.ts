@@ -1,3 +1,4 @@
+import { NAV_CLEARANCE_PX } from '../theme/constants';
 /**
  * Term-reference popovers: `[[id]]` renders as `<span class="ap-term">`
  * (build time). The definition bodies ship either as `<template
@@ -27,8 +28,6 @@
  * ancestor intervenes), so they track their terms through scrolling.
  */
 import { pagePayload } from './payload';
-/** Fixed navbar clearance for the flip-above clamp (px, mirrors Toc.tsx). */
-const NAV_OFFSET = 64;
 /**
  * Grace period before unhovered, unpinned layers close. The timer resets on
  * every pointer move, so the pointer may travel slowly — or rest briefly —
@@ -199,8 +198,8 @@ function place(el: HTMLElement, term: HTMLElement): void {
   const fitsBelow =
     rect.bottom + height <= window.innerHeight - VIEWPORT_MARGIN;
   const top = Math.max(
-    scrollY + NAV_OFFSET,
-    fitsBelow ? below : Math.max(above, scrollY + NAV_OFFSET),
+    scrollY + NAV_CLEARANCE_PX,
+    fitsBelow ? below : Math.max(above, scrollY + NAV_CLEARANCE_PX),
   );
   el.style.left = `${Math.round(left)}px`;
   el.style.top = `${Math.round(top)}px`;

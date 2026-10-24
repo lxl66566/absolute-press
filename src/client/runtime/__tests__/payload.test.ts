@@ -69,6 +69,33 @@ describe('pagePayload', () => {
       expect.anything(),
     );
   });
+
+  it('memoizes the parse on the script contents', () => {
+    const payload = JSON.parse(payloadJson()) as PagePayload;
+    payload.page.route = '/memo-hit';
+    useDocument(
+      `<html><body><script type="application/json" id="__AP_DATA__">${JSON.stringify(payload)}</script></body></html>`,
+    );
+    const parse = vi.spyOn(JSON, 'parse');
+    const first = pagePayload();
+    const second = pagePayload();
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+  });
+
+  it('re-parses when the router rewrites the script contents', () => {
+    const payload = JSON.parse(payloadJson()) as PagePayload;
+    payload.page.route = '/memo-miss';
+    useDocument(
+      `<html><body><script type="application/json" id="__AP_DATA__">${JSON.stringify(payload)}</script></body></html>`,
+    );
+    expect(pagePayload()?.page.route).toBe('/memo-miss');
+    // Soft navigation: the router rewrites the script in place.
+    payload.page.route = '/memo-next';
+    document.getElementById('__AP_DATA__')!.textContent =
+      JSON.stringify(payload);
+    expect(pagePayload()?.page.route).toBe('/memo-next');
+  });
 });
 
 /** A build-shaped payload: chrome fields replaced by the asset reference. */
@@ -173,5 +200,26 @@ describe('chrome externalization', () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it('pagePayload re-parses when a different chrome module is committed', async () => {
+    const payload = JSON.parse(externalJson()) as PagePayload;
+    payload.page.route = '/memo-chrome';
+    const json = JSON.stringify(payload);
+    useDocument(
+      `<html><body><script type="application/json" id="__AP_DATA__">${json}</script></body></html>`,
+    );
+    const parse = vi.spyOn(JSON, 'parse');
+    const first = { navbar: [{ kind: 'leaf', text: 'B1', link: '/b1' }] };
+    const firstUrl = `data:text/javascript,export default ${JSON.stringify(first)}`;
+    commitChrome(firstUrl, (await loadChrome(firstUrl))!);
+    expect(pagePayload()?.navbar).toEqual(first.navbar);
+    // Same script text, newly committed chrome: the merged payload must not
+    // come from the memo.
+    const second = { navbar: [{ kind: 'leaf', text: 'B2', link: '/b2' }] };
+    const secondUrl = `data:text/javascript,export default ${JSON.stringify(second)}`;
+    commitChrome(secondUrl, (await loadChrome(secondUrl))!);
+    expect(pagePayload()?.navbar).toEqual(second.navbar);
+    expect(parse).toHaveBeenCalledTimes(2);
   });
 });
