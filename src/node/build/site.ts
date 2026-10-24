@@ -801,8 +801,9 @@ export class SiteStore {
           t.label === undefined ? [] : [[dir, t.label] as const],
         ),
       );
-      // One tree pass feeds both views; standalone buildNavbar/buildSidebar
-      // would rebuild the same directory tree twice per locale.
+      // One tree pass feeds both views; the standalone buildNavbar/
+      // buildSidebar exports are test-only and would rebuild the same
+      // directory tree twice per locale.
       const { navbar, sidebar } = buildChrome(siblings, nav.exclude, {
         tweaks: nav.tweaks,
         order: nav.order,

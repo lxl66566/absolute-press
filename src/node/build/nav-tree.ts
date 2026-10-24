@@ -408,7 +408,11 @@ export function buildChrome(
   };
 }
 
-/** Sidebar only; use buildChrome() when both views are needed. */
+/**
+ * Test-only sidebar builder: the production path is buildChrome() — SiteStore
+ * derives navbar and sidebar from one tree per locale (see chromeOf). Kept
+ * exported so nav-tree tests can exercise sidebar semantics directly.
+ */
 export function buildSidebar(
   pages: RenderedPage[],
   exclude: string[],
@@ -417,7 +421,11 @@ export function buildSidebar(
   return buildChrome(pages, exclude, options).sidebar;
 }
 
-/** Navbar only; use buildChrome() when both views are needed. */
+/**
+ * Test-only navbar builder: the production path is buildChrome() (see
+ * buildSidebar). Kept exported so nav-tree tests can exercise navbar tweak
+ * semantics directly.
+ */
 export function buildNavbar(
   pages: RenderedPage[],
   exclude: string[],

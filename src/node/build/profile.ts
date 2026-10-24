@@ -18,6 +18,7 @@ import type {
 import type { ArticleInfo } from '../../shared/types.ts';
 import type { ResolvedProfile } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
+import { iconSvg } from '../icon-svg.ts';
 import { groupArchiveArticles } from './archive.ts';
 import { isNavExcluded } from './pages.ts';
 
@@ -82,19 +83,6 @@ export function drawerStatsOf(data: SiteProfile): ProfileTaxonomy {
     categories: data.categoryChips.length,
     tags: data.tagChips.length,
   };
-}
-
-/**
- * Config icon value -> standalone svg string (same normalization as the
- * client FaIcon and the RecentArticles renderer): bare inner markup gets
- * the 24x24 currentColor wrapper. Unknown/blank -> ''.
- */
-function iconSvg(key: string, icons: Record<string, string>): string {
-  const trimmed = icons[key]?.trim();
-  if (!trimmed) return '';
-  return trimmed.startsWith('<svg')
-    ? trimmed
-    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${trimmed}</svg>`;
 }
 
 /** href of a link field: routes take the page base, external hrefs pass through. */

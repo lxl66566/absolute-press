@@ -13,6 +13,7 @@ import { withBase } from '../../shared/links.ts';
 import type { ArticleInfo } from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
+import { iconSvg } from '../icon-svg.ts';
 
 /**
  * Everything a build component may read. `articles` is scoped to the host
@@ -60,22 +61,6 @@ function countProp(
     );
   }
   return raw;
-}
-
-/**
- * Config icon value -> standalone svg string: bare inner markup gets the
- * 24x24 currentColor wrapper (same normalization as the client FaIcon; no
- * DOMParser here — config values are site-trusted). Unknown/blank -> ''.
- */
-function iconSvg(
-  key: string | undefined,
-  icons: Record<string, string>,
-): string {
-  const trimmed = (key === undefined ? undefined : icons[key])?.trim();
-  if (!trimmed) return '';
-  return trimmed.startsWith('<svg')
-    ? trimmed
-    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${trimmed}</svg>`;
 }
 
 /** One column: heading + rows of icon/title link and right-aligned date. */

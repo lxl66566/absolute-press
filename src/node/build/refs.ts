@@ -46,13 +46,17 @@ export function localeContentRoot(
 
 /** Refs roots of one locale: every config entry joined onto the locale's
  * content root, in config order (path.join normalizes `..` segments, so an
- * entry may sit outside the content tree). */
+ * entry may sit outside the content tree). Empty for an unconfigured refs
+ * option — production callers gate on `config.refs` first; the guard keeps
+ * that contract local instead of trusting every call site. */
 export function refsDirsOf(
   config: ResolvedConfig,
   localeKey: string,
 ): string[] {
+  const refs = config.refs;
+  if (!refs) return [];
   const base = localeContentRoot(config, localeKey);
-  return config.refs!.map(entry => path.join(base, entry));
+  return refs.map(entry => path.join(base, entry));
 }
 
 /** Whether a path lies under one of the locales' refs roots (any file type;

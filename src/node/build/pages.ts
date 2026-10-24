@@ -156,11 +156,11 @@ export async function scanPages(config: ResolvedConfig): Promise<PageSource[]> {
         );
       }
       // The term-refs roots hold popover articles, not pages (the refs
-      // scan owns them); excluded from every locale's walk.
-      if (config.refs) {
-        files = files.filter(
-          f => !config.refs!.some(root => f.startsWith(`${root}/`)),
-        );
+      // scan owns them); excluded from every locale's walk. The local const
+      // keeps the guard's narrowing alive inside the predicate.
+      const refs = config.refs;
+      if (refs) {
+        files = files.filter(f => !refs.some(root => f.startsWith(`${root}/`)));
       }
       return files.toSorted().map(relPath => ({
         filePath: path.join(dir, relPath),
