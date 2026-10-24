@@ -1,5 +1,7 @@
+import { onCleanup } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
+import { disposeRootsUnder } from '../dom';
 import { cx } from '../theme/cx';
 
 /**
@@ -15,6 +17,15 @@ export function RevealRow(props: {
   colspan: number;
   html: string;
 }): SolidElement {
+  // Bodies may embed islands (ZoomedImg, Mermaid, ...), hydrated by the
+  // list-level passes. A <For> rebuild (filter/sort/search) drops the row
+  // without a page swap, so nothing else disposes those mounts: dispose the
+  // row's island roots here, or the detached placeholders leak their
+  // disposer and delegated-event registry entries (see dom.ts).
+  let body: HTMLDivElement | undefined;
+  onCleanup(() => {
+    if (body) disposeRootsUnder(body);
+  });
   return (
     <tr class={cx('ap-xlist__reveal-row', props.open && 'is-open')}>
       <td class="ap-xlist__reveal-cell" colspan={props.colspan}>
@@ -29,7 +40,11 @@ export function RevealRow(props: {
           id={props.id}
         >
           <div class="ap-xlist__body">
-            <div class="ap-xlist__body-inner" innerHTML={props.html} />
+            <div
+              class="ap-xlist__body-inner"
+              ref={el => (body = el)}
+              innerHTML={props.html}
+            />
           </div>
         </div>
       </td>

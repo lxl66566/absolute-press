@@ -44,9 +44,13 @@ function markMounted(el: HTMLElement): void {
  * Hydrate `[data-ap-island]` placeholders under `root` with registered
  * components. Scoped calls (ExpandableList re-hydrating its rebuilt item
  * DOM) and the document-wide call share the mounted marker, so an element is
- * never hydrated twice.
+ * never hydrated twice. Returns the placeholders this call mounted — owners
+ * that drop their subtree without a page swap (list rows leaving a filtered
+ * list) must feed them to disposeRoot, or the detached mounts leak their
+ * disposer and delegated-event registry entries (see dom.ts).
  */
-export function hydrateIslands(root: ParentNode = document): void {
+export function hydrateIslands(root: ParentNode = document): HTMLElement[] {
+  const mounted: HTMLElement[] = [];
   for (const el of root.querySelectorAll<HTMLElement>('[data-ap-island]')) {
     if (el.dataset.apIslandMounted === '1') continue;
     const name = el.dataset.apIsland ?? '';
@@ -66,5 +70,7 @@ export function hydrateIslands(root: ParentNode = document): void {
     el.innerHTML = '';
     markMounted(el);
     mountComponent(Comp, el, { ...props, childrenHtml } satisfies IslandProps);
+    mounted.push(el);
   }
+  return mounted;
 }

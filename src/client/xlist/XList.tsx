@@ -238,10 +238,21 @@ export function XList(props: XListProps): SolidElement {
         // placeholders actually appearing instead. hydrateIslands' mounted
         // marker and the tabs wiring set keep re-runs idempotent, so every
         // mutation batch — initial mount, filter/sort rebuilds, HMR —
-        // converges by itself.
+        // converges by itself. Hydration itself mutates the subtree, which
+        // would otherwise re-trigger a full-root scan per batch: coalesce
+        // the batches of one task into a single microtask scan. The
+        // isConnected guard skips the scan when disposal already detached
+        // the root (removal mutations still deliver after disconnect).
+        let queued = false;
         const mo = new MutationObserver(() => {
-          hydrateIslands(el);
-          initTabsPersistenceIn(el);
+          if (queued) return;
+          queued = true;
+          queueMicrotask(() => {
+            queued = false;
+            if (!el.isConnected) return;
+            hydrateIslands(el);
+            initTabsPersistenceIn(el);
+          });
         });
         mo.observe(el, { childList: true, subtree: true });
         onCleanup(() => mo.disconnect());
