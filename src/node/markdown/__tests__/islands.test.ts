@@ -45,6 +45,13 @@ describe('islands', () => {
     expect(result.html).toContain('hi');
   });
 
+  it('computes reading time from the stashed page scan', () => {
+    // 300 CJK in prose -> 1 minute; the island JSON props (thousands of
+    // digit words) must not leak into the estimate through the reused scan.
+    const src = `${'字'.repeat(300)}\n\n<Demo :data='{"box":[${'1,'.repeat(4000)}1]}' />`;
+    expect(md.render(src, ENV).readingTime).toBe(1);
+  });
+
   it('leaves unregistered tags untouched', () => {
     const result = md.render('<Other name="x">body</Other>', ENV);
     expect(result.html).toContain('<Other name="x">body</Other>');

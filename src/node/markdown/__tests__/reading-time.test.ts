@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { readingMinutes } from '../reading-time';
+import { extractIslands } from '../islands';
+import { readingMinutes, readingMinutesOf } from '../reading-time';
 
 describe('readingMinutes', () => {
   it('counts CJK text by characters (300 chars/min)', () => {
@@ -79,5 +80,16 @@ describe('readingMinutes', () => {
 
   it('rounds fractional minutes up', () => {
     expect(readingMinutes('字'.repeat(301))).toBe(2);
+  });
+
+  it('readingMinutesOf matches readingMinutes on the same content', () => {
+    // The render pass hands its island scan to readingMinutesOf; both
+    // entries must agree (the scan-based path reads tab-normalized text,
+    // whose only delta is blank lines around @tab markers).
+    const names = new Set(['G2Plot']);
+    const content = `<G2Plot :data='{"box":[1,2]}'>${'字'.repeat(300)}</G2Plot>\n\n\`\`\`ts\n${'code '.repeat(50)}\n\`\`\``;
+    expect(readingMinutesOf(extractIslands(content, names), names)).toBe(
+      readingMinutes(content, names),
+    );
   });
 });

@@ -1,7 +1,7 @@
 import { container } from '@mdit/plugin-container';
 import type { MarkdownIt, RendererRule, StateCore, Token } from 'markdown-it';
 
-import { getCtx, inlineTitleEnv } from './env.ts';
+import { getCtx, renderTitleInline } from './env.ts';
 import { fenceOpenOf, isFenceClose, type FenceOpen } from './fence.ts';
 
 const VARIANTS = ['tabs', 'code-tabs'] as const;
@@ -76,7 +76,7 @@ export function registerTabs(md: MarkdownIt): void {
     const meta = tabMeta(token);
     ctx.seq.tabInput += 1;
     const inputId = `ap-tab-${ctx.seq.tabInput}`;
-    const titleHtml = md.renderInline(meta.title, inlineTitleEnv(env));
+    const titleHtml = renderTitleInline(md, meta.title, env);
     const checked = meta.checked ? ' checked' : '';
     const group = ctx.tabGroupStack.at(-1);
     if (!group) {

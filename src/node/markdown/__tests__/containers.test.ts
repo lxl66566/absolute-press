@@ -1,12 +1,17 @@
+import MarkdownIt from 'markdown-it';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { MarkdownRenderer } from '../../../shared/types.ts';
-import { ENV, makeRenderer } from './helpers.ts';
+import { inlineTitleEnv, renderTitleInline } from '../env.ts';
+import { ENV, makeCtxEnv, makeRenderer } from './helpers.ts';
 
 let md: MarkdownRenderer;
 beforeAll(async () => {
   md = await makeRenderer();
 });
+
+/** Bare instance sharing the markdown-it core the renderer embeds. */
+const ref = new MarkdownIt({ html: true });
 
 /** Icon svg prefix emitted before every default/custom container title. */
 const ICON_PREFIX = '<svg class="ap-container__icon"';
@@ -86,5 +91,60 @@ describe('container title overrides', () => {
     const localized = await makeRenderer({ containerTitles: { tip: '提示' } });
     const result = localized.render('::: tip custom\ncontent\n:::', ENV);
     expect(titleInner(result.html).endsWith('custom')).toBe(true);
+  });
+});
+
+describe('container title inline fast path', () => {
+  const ctxEnv = makeCtxEnv();
+
+  it('plain titles match renderInline byte for byte', () => {
+    // Mixed corpus: plain inputs take the escapeHtml fast path, while
+    // 'Details 2: 续' holds a text-rule terminator (`:`) and falls back to
+    // renderInline — byte equivalence is the safety contract of
+    // PLAIN_TITLE_RE (env.ts) on both paths. A bare MarkdownIt shares the
+    // core text rule the fast-path argument rests on; the production
+    // wiring is pinned by the exact-title asserts in this file and
+    // tabs.test.ts.
+    const titles = [
+      '提示',
+      'Details 2: 续',
+      '从零开始的类型系统 🎉',
+      '２０２４年总结',
+      'Windows Linux macOS',
+      '',
+    ];
+    for (const title of titles) {
+      expect(renderTitleInline(ref, title, ctxEnv)).toBe(
+        ref.renderInline(title, inlineTitleEnv(ctxEnv)),
+      );
+    }
+  });
+
+  it('titles with markdown trigger chars fall back to renderInline', () => {
+    const titles = [
+      '注意 **一下**',
+      'a `code` b',
+      'snake_case',
+      '==mark==',
+      '[x] task',
+      '<em>html</em>',
+      '!!heimu!!',
+      '$a+b$',
+      'line1\nline2',
+      'a & b',
+    ];
+    for (const title of titles) {
+      expect(renderTitleInline(ref, title, ctxEnv)).toBe(
+        ref.renderInline(title, inlineTitleEnv(ctxEnv)),
+      );
+    }
+    expect(renderTitleInline(ref, '注意 **一下**', ctxEnv)).toContain(
+      '<strong>一下</strong>',
+    );
+  });
+
+  it('renders plain titles through the fast path end to end', () => {
+    const result = md.render('::: tip Windows Linux macOS\nx\n:::', ENV);
+    expect(titleInner(result.html).endsWith('Windows Linux macOS')).toBe(true);
   });
 });

@@ -6,7 +6,7 @@
  * KB) never count; island inner markdown does — it is real content.
  */
 import { fenceOpenOf, isFenceClose, type FenceOpen } from './fence.ts';
-import { extractIslands } from './islands.ts';
+import { extractIslands, type IslandExtraction } from './islands.ts';
 
 /** CJK reading speed (characters per minute). */
 const CJK_CPM = 300;
@@ -29,17 +29,35 @@ const INLINE_CODE_RE = /(`+)([^\n]*?)\1/g;
 /**
  * Page content -> whole minutes (>= 1). Takes the markdown body with
  * frontmatter already stripped (the renderer parses it once for the whole
- * page); `render()` is the only production caller.
+ * page); convenience over `readingMinutesOf` for callers without an island
+ * scan at hand.
  */
 export function readingMinutes(
   content: string,
   islandNames: ReadonlySet<string> = new Set(),
 ): number {
-  const prose = stripIslandsAndCode(content, islandNames);
+  return readingMinutesOf(extractIslands(content, islandNames), islandNames);
+}
+
+/**
+ * Same estimate over an island scan that already exists: the page render
+ * pass extracts islands before rendering, and render() hands that scan here
+ * so the fence state machine never runs over the whole content a second
+ * time. `islandNames` is still needed for islands nested in island inner md.
+ */
+export function readingMinutesOf(
+  scan: IslandExtraction,
+  islandNames: ReadonlySet<string> = new Set(),
+): number {
+  return Math.max(1, Math.ceil(countProse(stripScan(scan, islandNames))));
+}
+
+/** CJK chars per minute + latin words per minute -> minutes. */
+function countProse(prose: string): number {
   const cjk = prose.match(CJK_CHAR_RE)?.length ?? 0;
   const words =
     prose.replace(CJK_CHAR_RE, ' ').match(LATIN_WORD_RE)?.length ?? 0;
-  return Math.max(1, Math.ceil(cjk / CJK_CPM + words / LATIN_WPM));
+  return cjk / CJK_CPM + words / LATIN_WPM;
 }
 
 /**
@@ -53,14 +71,15 @@ const PLACEHOLDER_RE = /<div data-ap-island-placeholder="\d+"><\/div>/g;
  * Drop island tags and props (keeping inner md — nested islands inside it
  * get the same treatment), then fenced/indented code and inline code spans.
  */
-function stripIslandsAndCode(
-  md: string,
+function stripScan(
+  scan: IslandExtraction,
   islandNames: ReadonlySet<string>,
 ): string {
-  const { text, islands } = extractIslands(md, islandNames);
-  const parts = [stripCode(text.replace(PLACEHOLDER_RE, '\n'))];
-  for (const island of islands) {
-    parts.push(stripIslandsAndCode(island.inner, islandNames));
+  const parts = [stripCode(scan.text.replace(PLACEHOLDER_RE, '\n'))];
+  for (const island of scan.islands) {
+    parts.push(
+      stripScan(extractIslands(island.inner, islandNames), islandNames),
+    );
   }
   return parts.join('\n');
 }

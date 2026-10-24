@@ -1,7 +1,7 @@
 import { container } from '@mdit/plugin-container';
 import type { MarkdownIt } from 'markdown-it';
 
-import { inlineTitleEnv } from './env.ts';
+import { renderTitleInline } from './env.ts';
 
 const TITLED_TYPES = [
   'tip',
@@ -70,9 +70,10 @@ export function registerContainers(
       openRenderer: (tokens, idx, _options, env) => {
         const token = tokens[idx];
         if (!token) return '';
-        const title = md.renderInline(
+        const title = renderTitleInline(
+          md,
           containerTitle(token.info, type, titles),
-          inlineTitleEnv(env),
+          env,
         );
         return `<div class="ap-container ap-container--${type}"><p class="ap-container__title">${titleMarkup(type, title)}</p>\n`;
       },
@@ -84,9 +85,10 @@ export function registerContainers(
     openRenderer: (tokens, idx, _options, env) => {
       const token = tokens[idx];
       if (!token) return '';
-      const title = md.renderInline(
+      const title = renderTitleInline(
+        md,
         containerTitle(token.info, 'details', titles),
-        inlineTitleEnv(env),
+        env,
       );
       return `<details class="ap-container ap-container--details"><summary class="ap-container__title">${titleMarkup('details', title)}</summary>\n`;
     },

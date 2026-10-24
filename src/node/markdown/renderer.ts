@@ -51,7 +51,7 @@ import {
   type ResolvedCodeOptions,
 } from './options.ts';
 import { installRawHtmlImageSizes } from './raw-html-images.ts';
-import { readingMinutes } from './reading-time.ts';
+import { readingMinutesOf } from './reading-time.ts';
 import { Slugger } from './slugify.ts';
 import { normalizeTabMarkers, registerTabs } from './tabs.ts';
 import { termRule } from './term.ts';
@@ -71,6 +71,25 @@ function useInlinePlugins(md: MarkdownItType, terms?: TermHooks): void {
   md.use(imgSize);
   md.inline.ruler.before('emphasis', 'heimu', heimuRule);
   if (terms) md.inline.ruler.before('emphasis', 'ap-term', termRule(terms));
+}
+
+/**
+ * Shared ctx constructor for the three render entries (page, ref, inline):
+ * `seed` offsets every per-render counter at once (renderRef seeds past any
+ * page's range, page and inline renders start at 0).
+ */
+function makeCtx(env: MarkdownEnv, slugger: Slugger, seed: number): AbsCtx {
+  return {
+    env,
+    slugger,
+    title: null,
+    headings: [],
+    links: [],
+    seq: { tabGroup: seed, tabInput: seed, fragment: seed, codeFold: seed },
+    tabGroupStack: [],
+    // Stashed by renderFragment for the page entry; ref/inline never scan.
+    islandScan: null,
+  };
 }
 
 /**
@@ -146,15 +165,19 @@ export async function createMarkdownRenderer(
     topLevel: boolean,
   ): string {
     // Fragments share slugger/links/counters with the page but keep their
-    // headings out of the TOC.
+    // headings out of the TOC; islandScan is re-stashed below.
     const ctx: AbsCtx = topLevel
       ? parent
-      : { ...parent, title: null, headings: [] };
-    const { text, islands } = extractIslands(
+      : { ...parent, title: null, headings: [], islandScan: null };
+    const scan = extractIslands(
       normalizeTabMarkers(src),
       islandNames,
       ctx.env.filePath,
     );
+    // The reading-time pass reuses this scan instead of re-extracting from
+    // the raw content (nested fragments write to their private ctx copy;
+    // only the top-level scan is consumed, by render()).
+    ctx.islandScan = scan;
     const env: Env = {};
     setCtx(env, ctx);
     if (!topLevel) {
@@ -162,8 +185,8 @@ export async function createMarkdownRenderer(
       parent.seq.fragment += 1;
       env['docId'] = `f${parent.seq.fragment}`;
     }
-    let html = md.render(text, env);
-    islands.forEach((spec, index) => {
+    let html = md.render(scan.text, env);
+    scan.islands.forEach((spec, index) => {
       if (buildComponents.has(spec.name)) {
         // Build components take no children — their content derives from
         // site data. Stray inner markdown is ignored, warned once per file.
@@ -219,16 +242,14 @@ export async function createMarkdownRenderer(
     // The site scan already parsed (and warned about) this file's
     // frontmatter; the renderer re-parse stays silent.
     const { frontmatter, content } = parseFrontmatter(src);
-    const ctx: AbsCtx = {
-      env,
-      slugger: new Slugger(),
-      title: null,
-      headings: [],
-      links: [],
-      seq: { tabGroup: 0, tabInput: 0, fragment: 0, codeFold: 0 },
-      tabGroupStack: [],
-    };
+    const ctx = makeCtx(env, new Slugger(), 0);
     const html = renderFragment(content, ctx, true);
+    const scan = ctx.islandScan;
+    if (scan === null) {
+      // Unreachable: the top-level renderFragment stashes its scan on this
+      // ctx before returning.
+      throw new Error('absolute-press: island scan missing after page render');
+    }
     return {
       html,
       title: ctx.title,
@@ -236,7 +257,12 @@ export async function createMarkdownRenderer(
       frontmatter,
       links: ctx.links,
       // Content, not the full source: frontmatter was already stripped above.
-      readingTime: readingMinutes(content, islandNames),
+      // The scan comes from the tab-normalized text: normalizeTabMarkers only
+      // inserts blank lines around `@tab` markers, which cannot move island
+      // boundaries (only the whitespace around them), so the estimate equals
+      // the raw-content scan — and reads better where a blank line turns a
+      // 4-space line after a marker into the code block it really renders as.
+      readingTime: readingMinutesOf(scan, islandNames),
     };
   }
 
@@ -252,20 +278,7 @@ export async function createMarkdownRenderer(
     const { content } = parseFrontmatter(src);
     refSeq += 1;
     const seed = refSeq * REF_SEQ_OFFSET;
-    const ctx: AbsCtx = {
-      env,
-      slugger: new Slugger(`ap-term-${refSeq}-`),
-      title: null,
-      headings: [],
-      links: [],
-      seq: {
-        tabGroup: seed,
-        tabInput: seed,
-        fragment: seed,
-        codeFold: seed,
-      },
-      tabGroupStack: [],
-    };
+    const ctx = makeCtx(env, new Slugger(`ap-term-${refSeq}-`), seed);
     const menv: Env = {};
     setCtx(menv, ctx);
     // Footnote docId prefixes the plugin's ids; distinct from the page's
@@ -310,15 +323,11 @@ export function createInlineMarkdownRenderer(
   useInlinePlugins(md);
   // Rules read the render ctx from env (heimu resolves its tooltip copy via
   // ctx.env.lang); one fixed minimal ctx serves every render of the instance.
-  const ctx: AbsCtx = {
-    env: { filePath: '(inline)', lang: options.lang },
-    slugger: new Slugger(),
-    title: null,
-    headings: [],
-    links: [],
-    seq: { tabGroup: 0, tabInput: 0, fragment: 0, codeFold: 0 },
-    tabGroupStack: [],
-  };
+  const ctx = makeCtx(
+    { filePath: '(inline)', lang: options.lang },
+    new Slugger(),
+    0,
+  );
   return {
     render: (src: string): string => {
       const env: Env = {};

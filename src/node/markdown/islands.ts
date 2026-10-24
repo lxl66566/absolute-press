@@ -60,13 +60,20 @@ export function extractIslands(
       continue;
     }
     if (code === 0x3c /* < */) {
-      const island = tryParseIsland(src, pos, registered, filePath);
-      if (island) {
-        chunks.push(src.slice(last, pos), islandPlaceholder(islands.length));
-        islands.push(island.spec);
-        pos = island.end;
-        last = pos;
-        continue;
+      // Pre-filter: TAG_NAME_RE can only match `<` followed by an ASCII
+      // uppercase letter, so most raw-HTML `<` hits (lowercase tags,
+      // entities, comparisons) die on this one charCodeAt instead of the
+      // slice+regex. NaN at end-of-source compares false, same as the regex.
+      const next = src.charCodeAt(pos + 1);
+      if (next >= 0x41 /* A */ && next <= 0x5a /* Z */) {
+        const island = tryParseIsland(src, pos, registered, filePath);
+        if (island) {
+          chunks.push(src.slice(last, pos), islandPlaceholder(islands.length));
+          islands.push(island.spec);
+          pos = island.end;
+          last = pos;
+          continue;
+        }
       }
     }
     pos += 1;
@@ -238,6 +245,12 @@ function warnWindowClip(tag: string, filePath: string): void {
  * inside a fenced block (an island documenting its own usage) never affect
  * depth. A fence opened but never closed extends to the end of the source,
  * matching how markdown-it renders it.
+ *
+ * Known boundary: a same-name tag inside an attribute value (`<div
+ * title="<Wrapper>">`) still counts — the depth scan has no attribute-value
+ * awareness, and findTagEnd's quote tracking starts at the match, blind to
+ * the enclosing quote, so the false open shifts depth and the island never
+ * closes (renders as plain text).
  */
 function findCloseTag(
   src: string,
