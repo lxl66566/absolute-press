@@ -652,6 +652,31 @@ describe('absolutePress dev server', () => {
     expect(server.sent[0]).toMatchObject({ type: 'full-reload' });
   });
 
+  it('watches existing refs roots outside the content tree', async () => {
+    // Refs roots may point outside the content dir (`..` entries); without
+    // an explicit watcher.add, chokidar never emits events for them and
+    // ref edits stay stale until a restart.
+    const { plugin, root } = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ refs: '../refs-repo' }),
+    );
+    await mkdir(path.join(root, 'refs-repo'), { recursive: true });
+    const server = stubServer(plugin);
+    expect(server.watched).toEqual([
+      path.join(root, 'content'),
+      path.join(root, 'refs-repo'),
+    ]);
+
+    // A missing root (uncloned nested repo) stays unwatched; the sync-time
+    // warning owns that case.
+    const quiet = await devFixture(
+      { 'index.md': '# Home\n' },
+      userConfig({ refs: '../nope' }),
+    );
+    const quietServer = stubServer(quiet.plugin);
+    expect(quietServer.watched).toEqual([path.join(quiet.root, 'content')]);
+  });
+
   it('merges structural event bursts into one resync reload', async () => {
     const { plugin, root } = await devFixture({ 'index.md': '# Home\n' });
     const server = stubServer(plugin);

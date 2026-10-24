@@ -14,7 +14,7 @@ import type { AbsolutePressConfig } from '../config.ts';
 import { resolveConfig, type ResolvedConfig } from '../config.ts';
 import { devFsUrl } from './assets.ts';
 import { clientEntry, packageRoot } from './clientEntry.ts';
-import { isRefFile } from './refs.ts';
+import { isRefFile, refsDirsOf } from './refs.ts';
 import { SiteStore } from './site.ts';
 
 const VIRTUAL_ISLANDS_ID = 'virtual:absolute-press/islands';
@@ -232,6 +232,19 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
     configureServer(server) {
       if (inert) return;
       server.watcher.add(config.contentDir);
+      // Refs roots may sit outside the content tree and the vite root (`..`
+      // entries, e.g. a sibling repo): chokidar only watches what it is
+      // told, so every existing root joins the watcher or ref edits never
+      // fire events and invalidateRef never runs. Existing-only: a missing
+      // root is the uncloned-nested-repo case (sync warns); structural
+      // watch updates belong to a resync.
+      if (config.refs) {
+        for (const locale of config.locales) {
+          for (const dir of refsDirsOf(config, locale.key)) {
+            if (fs.existsSync(dir)) server.watcher.add(dir);
+          }
+        }
+      }
       const isContent = (file: string): boolean =>
         isContentFile(file, config.contentDir);
       /** Dev error surface of the async watcher chains (resync, site-data

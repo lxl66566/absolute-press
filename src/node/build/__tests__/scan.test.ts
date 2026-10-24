@@ -125,21 +125,14 @@ describe('scanFile', () => {
 });
 
 describe('createdAtOf', () => {
-  it('maps a date to ISO and absent/unparsable to null', () => {
+  it('maps a date to ISO and absent/unparsable to null, silently', () => {
     expect(createdAtOf({ date: '2024-05-01' })).toBe(
       new Date('2024-05-01').toISOString(),
     );
     expect(createdAtOf({})).toBeNull();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      expect(createdAtOf({ date: 'not-a-date' }, 'a.md')).toBeNull();
-      expect(warn).toHaveBeenCalledTimes(1);
-      // Silent on internal re-derivations (no filePath).
-      expect(createdAtOf({ date: 'not-a-date' })).toBeNull();
-      expect(warn).toHaveBeenCalledTimes(1);
-    } finally {
-      warn.mockRestore();
-    }
+    // Unparsable degrades silently; the authoritative warning lives in
+    // siteScanPages (deduped by the store's sink).
+    expect(createdAtOf({ date: 'not-a-date' })).toBeNull();
   });
 });
 
@@ -164,5 +157,18 @@ describe('siteScanContext', () => {
     const home = ctx.pages.find(p => p.relPath === 'index.md')!;
     expect(home.updatedAt).toBeNull();
     expect(home.createdAt).toBeNull();
+  });
+
+  it('warns about an unparsable date through the warn sink, once per file', async () => {
+    const { config } = await scanFixture({
+      'a.md': '---\ndate: not-a-date\n---\n# A\n',
+      'b.md': '# B\n',
+    });
+    const scan = await scanSite(config);
+    const warns: string[] = [];
+    siteScanContext(config, scan, new Map(), msg => warns.push(msg));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain('not-a-date');
+    expect(warns[0]).toContain('a.md');
   });
 });

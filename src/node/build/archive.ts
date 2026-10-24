@@ -20,10 +20,21 @@ export interface SyntheticRoute {
 }
 
 /** One archive group after case-insensitive name merging. */
-export interface ArchiveGroup {
+export interface ArchiveGroup<A extends ArchiveArticle = ArticleInfo> {
   /** Display name; also used in the archive route. */
   name: string;
-  articles: ArticleInfo[];
+  articles: A[];
+}
+
+/**
+ * Route-relevant fields of one article (ArticleInfo satisfies it). The
+ * collision pre-check derives routes from the scan cache without rendering,
+ * so grouping only ever needs these three fields.
+ */
+export interface ArchiveArticle {
+  route: string;
+  category: string[];
+  tag: string[];
 }
 
 /**
@@ -33,15 +44,15 @@ export interface ArchiveGroup {
  * original variant (ties: first seen); articles are deduped by route.
  * Groups are sorted by lowercase key so emit order is deterministic.
  */
-export function groupArchiveArticles(
-  articles: ArticleInfo[],
+export function groupArchiveArticles<A extends ArchiveArticle>(
+  articles: readonly A[],
   kind: 'category' | 'tag',
-): ArchiveGroup[] {
+): ArchiveGroup<A>[] {
   interface Group {
     /** Original casing -> article count, in first-seen order. */
     variants: Map<string, number>;
     seen: Set<string>;
-    articles: ArticleInfo[];
+    articles: A[];
   }
   const groups = new Map<string, Group>();
   for (const a of articles) {

@@ -304,6 +304,47 @@ describe('SiteStore', () => {
     }
   });
 
+  it('warns about ref dead links once and sweeps only new records', async () => {
+    const fx = await contentFixture(
+      {
+        'a.md': 'see [[island]]\n',
+        'b.md': 'also [[island]]\n',
+        'reference/island.md': '---\ntitle: 岛屿\n---\n[dead](./missing.md)\n',
+      },
+      { refs: 'reference' },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // The ref renders during the first term-bearing request; its dead
+      // link warns once.
+      store.devHtml('/a');
+      expect(
+        warn.mock.calls.some(c =>
+          String(c[0]).includes('dead link in ref article'),
+        ),
+      ).toBe(true);
+
+      // A second term-bearing page must not re-sweep the same records.
+      warn.mockClear();
+      store.devHtml('/b');
+      expect(warn).not.toHaveBeenCalled();
+
+      // A fresh sync round may warn again (the record was reset with it).
+      await store.resync('dev');
+      warn.mockClear();
+      store.devHtml('/a');
+      expect(
+        warn.mock.calls.some(c =>
+          String(c[0]).includes('dead link in ref article'),
+        ),
+      ).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('renders the rss feed and honours feed:false', async () => {
     const fx = await contentFixture({
       'index.md': '# Home\n',
@@ -1053,6 +1094,66 @@ describe('SiteStore', () => {
     }
   });
 
+  it('the dev collision pre-check derives routes without rendering pages', async () => {
+    // resync clears the render cache; a pre-check that routed through
+    // buildContext() would re-render the whole site on every add/unlink.
+    // deadLinks() only reports renders cached since the last sync, so an
+    // empty report right after sync proves nothing rendered.
+    const fx = await contentFixture({
+      'post.md':
+        '---\ncategory:\n  - news\n---\n\n# Post\n\n[dead](./missing.md)\n',
+      'category/news.md': '# News\n',
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const store = new SiteStore(fx.config);
+      await store.sync('dev');
+      expect(warn).toHaveBeenCalledTimes(1); // collision check really ran
+      expect(store.deadLinks()).toEqual([]);
+
+      // The request path renders (and reports) as before.
+      store.devHtml('/post');
+      expect(store.deadLinks()).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('orders the collision pre-check articles by feed order, not scan order', async () => {
+    // `Rust` and `rust` tie in variant count; majorityCasing keeps the
+    // first-seen variant, so the pre-check must see articles in feed order
+    // (createdAt desc) to agree with the build emit on the archive name.
+    // Here feed order is the opposite of scan order: only then does the
+    // pre-check derive `/category/Rust` and collide with the page.
+    const fx = await contentFixture({
+      'a.md': '---\ndate: 2023-01-01\ncategory: rust\n---\n\n# A\n',
+      'b.md': '---\ndate: 2024-01-01\ncategory: Rust\n---\n\n# B\n',
+      'category/Rust.md': '# Rust\n',
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const store = new SiteStore(fx.config);
+      await store.sync('dev');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain(
+        'duplicate route /category/Rust',
+      );
+    } finally {
+      warn.mockRestore();
+    }
+
+    // The build emit derives the same archive name from the rendered pass.
+    const buildStore = new SiteStore(fx.config);
+    await buildStore.sync('build');
+    await expect(
+      buildStore.emitAll({
+        isBuild: true,
+        scriptFile: 'assets/entry.js',
+        cssFiles: [],
+      }),
+    ).rejects.toThrowError(/duplicate route \/category\/Rust/);
+  });
+
   it('sync rejects duplicate routes from index.md and README.md', async () => {
     const fx = await contentFixture({
       'guide/index.md': '# G\n',
@@ -1326,6 +1427,38 @@ describe('SiteStore onScan', () => {
     store.invalidate(fx.abs('a.md'));
     await store.refreshScanContext();
     expect(store.siteData).toBe(2);
+  });
+
+  it('warns about an invalid date once across hook re-runs', async () => {
+    // The hook re-runs after every dev edit; an unchanged bad date must not
+    // repeat its warning (a new bad value warns again).
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '---\ndate: not-a-date\n---\n# A\n',
+    });
+    const store = new SiteStore(fx.config, () => ({}));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await store.sync('dev');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('not-a-date');
+
+      await store.refreshScanContext();
+      await store.refreshScanContext();
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // A different bad value is a new warning.
+      await fs.promises.writeFile(
+        fx.abs('a.md'),
+        '---\ndate: still-bad\n---\n# A\n',
+      );
+      store.invalidate(fx.abs('a.md'));
+      await store.refreshScanContext();
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(String(warn.mock.calls[1]?.[0])).toContain('still-bad');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('keeps siteData undefined without a hook', async () => {

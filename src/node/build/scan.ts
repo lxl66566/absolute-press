@@ -54,37 +54,36 @@ export async function scanSite(config: ResolvedConfig): Promise<SiteScan> {
   return { sources, files };
 }
 
+/** Warning for an unparsable frontmatter date, phrased near the source file. */
+function invalidDateMessage(date: string, filePath: string): string {
+  return `[absolute-press] invalid frontmatter date "${date}" in ${filePath}; falling back to no date (RSS/sort)`;
+}
+
 /**
  * Frontmatter `date` as an ISO string. Null when absent or unparsable —
- * an unparsable date silently degrades (createdAt: null drops the page to
- * the sort end and out of RSS ordering), so `filePath` (when given) warns
- * near the source file; internal re-derivations pass nothing and stay silent.
+ * an unparsable date degrades silently here (createdAt: null drops the page
+ * to the sort end and out of RSS ordering); the authoritative warning lives
+ * in siteScanPages, which re-runs per dev edit and dedupes.
  */
-export function createdAtOf(
-  frontmatter: PageFrontmatter,
-  filePath?: string,
-): string | null {
+export function createdAtOf(frontmatter: PageFrontmatter): string | null {
   const date = frontmatter.date;
   if (!date) return null;
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    if (filePath !== undefined) {
-      console.warn(
-        `[absolute-press] invalid frontmatter date "${date}" in ${filePath}; falling back to no date (RSS/sort)`,
-      );
-    }
-    return null;
-  }
-  return parsed.toISOString();
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
 /**
  * Assemble the hook-facing page list from the scan and the git-time map;
  * no disk IO of its own, safe to re-run after a cached single-file refresh.
+ * Unparsable dates warn through `warn` — the scan pass is the authoritative
+ * warning point (the renderer's re-parse stays silent) — defaulting to
+ * console.warn. Callers that re-run per dev edit pass a deduping sink
+ * (SiteStore.refreshScanContext) so a still-broken date does not re-warn.
  */
 export function siteScanPages(
   scan: SiteScan,
   gitTimes: Map<string, string>,
+  warn: (message: string) => void = msg => console.warn(msg),
 ): SiteScanPage[] {
   return scan.sources.map(source => {
     const file = scan.files.get(source.filePath);
@@ -93,6 +92,11 @@ export function siteScanPages(
         `[absolute-press] scan cache miss for ${source.filePath}`,
       );
     }
+    const createdAt = createdAtOf(file.frontmatter);
+    // Null either for an absent or an unparsable date; only the latter warns.
+    if (createdAt === null && file.frontmatter.date) {
+      warn(invalidDateMessage(file.frontmatter.date, source.filePath));
+    }
     return {
       filePath: source.filePath,
       route: source.route,
@@ -100,7 +104,7 @@ export function siteScanPages(
       locale: source.locale,
       frontmatter: file.frontmatter,
       rawFrontmatter: file.rawFrontmatter,
-      createdAt: createdAtOf(file.frontmatter, source.filePath),
+      createdAt,
       updatedAt: gitTimes.get(source.filePath) ?? null,
     };
   });
@@ -113,6 +117,7 @@ export function siteScanContext(
   config: ResolvedConfig,
   scan: SiteScan,
   gitTimes: Map<string, string>,
+  warn?: (message: string) => void,
 ): SiteScanContext {
-  return { config, pages: siteScanPages(scan, gitTimes) };
+  return { config, pages: siteScanPages(scan, gitTimes, warn) };
 }

@@ -61,6 +61,7 @@ import { buildChrome } from './nav-tree.ts';
 import { isNotFoundRoute, renderNotFound } from './not-found.ts';
 import {
   buildArticles,
+  feedOrderCompare,
   INDEX_STEMS,
   isLocaleHome,
   isNavExcluded,
@@ -273,6 +274,13 @@ export class SiteStore {
   // Dev per-page warnings already emitted (see warnDevPageIssues); reset by
   // sync() alongside the resolver's fresh dead-link record round.
   private devWarned = new Set<string>();
+  // Invalid-date warnings already emitted by the onScan context (see
+  // refreshScanContext); keyed by message (file+date), never reset — a fix
+  // or a new bad value changes the key on its own.
+  private dateWarned = new Set<string>();
+  // Length of links.deadLinks already swept for ref dead-link warnings (see
+  // warnRefDeadLinks); reset with the resolver's records by sync().
+  private refDeadSwept = 0;
 
   constructor(
     config: ResolvedConfig,
@@ -378,6 +386,9 @@ export class SiteStore {
     this.scan = await scanSite(this.config);
     this.pages = this.scan.sources;
     this.links.setPages(this.pages);
+    // New resolution round: the ref dead-link sweep starts from zero, in
+    // step with the resolver's cleared records.
+    this.refDeadSwept = 0;
     if (this.config.refs) {
       this.refs = await scanRefs(this.config);
       if (!this.refs.present && !this.refsMissingWarned) {
@@ -428,6 +439,14 @@ export class SiteStore {
       this.config,
       this.scan,
       this.gitTimes,
+      // The hook re-runs after every dev edit; a still-broken date must not
+      // re-warn each time. The message carries file+date, so a fix (or a new
+      // bad value) changes the key and warns again.
+      message => {
+        if (this.dateWarned.has(message)) return;
+        this.dateWarned.add(message);
+        console.warn(message);
+      },
     );
     this.siteDataValue = await this.onScan(ctx);
   }
@@ -545,19 +564,14 @@ export class SiteStore {
    * re-print a known collision (a changed list warns again).
    */
   private warnArchiveCollisions(): void {
-    // A render error during the pre-check must not break sync: the request
-    // path reports it as before (500 on the offending page), so swallow and
-    // skip this pass of the check.
+    // A scan-cache miss or config failure in the pre-check must not break
+    // sync: the request path reports real problems, so swallow and skip
+    // this pass of the check.
     try {
-      const ctx = this.buildContext();
-      const archives = [
-        ...this.archivePages(ctx, 'category'),
-        ...this.archivePages(ctx, 'tag'),
-      ];
       let message: string | null = null;
       try {
         // Same assertion the build emit uses; catch turns it into a warning.
-        assertNoSyntheticCollisions(this.pages, [...archives, ...ctx.listings]);
+        assertNoSyntheticCollisions(this.pages, this.syntheticRoutes());
       } catch (e) {
         message = e instanceof Error ? e.message : String(e);
       }
@@ -573,6 +587,47 @@ export class SiteStore {
     } catch {
       // ignored: see the comment at the top
     }
+  }
+
+  /**
+   * Synthetic route set for the collision pre-check, derived from the scan
+   * cache (frontmatter category/tag) and the config listings only — no
+   * markdown rendering. Resync clears the render cache, so routing the
+   * pre-check through buildContext() would re-render the whole site on
+   * every dev add/unlink event; the routes need names, not rendered
+   * articles. Mirrors the real pass: buildArticles' locale-home exclusion,
+   * its feed order (majorityCasing keeps the first-seen case variant, so a
+   * different order could derive a different archive name) and
+   * groupArchiveArticles' case-merge/majority-casing are shared, and the
+   * kind-then-locale order matches archivePages' two calls.
+   */
+  private syntheticRoutes(): SyntheticRoute[] {
+    const out: SyntheticRoute[] = [];
+    for (const kind of ['category', 'tag'] as const) {
+      for (const locale of this.config.locales) {
+        const articles = this.pages
+          .filter(p => p.locale.key === locale.key && !isLocaleHome(p))
+          .map(p => {
+            const fm = this.scanOf(p).frontmatter;
+            // Silent re-derivation, same value as buildArticles' meta.
+            return {
+              route: p.route,
+              createdAt: createdAtOf(fm),
+              category: fm.category ?? [],
+              tag: fm.tag ?? [],
+            };
+          })
+          .toSorted(feedOrderCompare);
+        for (const group of groupArchiveArticles(articles, kind)) {
+          out.push({
+            route: `${locale.prefix}/${kind}/${encodeURIComponent(group.name)}`,
+            kind,
+            title: group.name,
+          });
+        }
+      }
+    }
+    return [...out, ...listingPages(this.config)];
   }
 
   /** Scan entry of one page; sync() guarantees an entry per page, so a
@@ -843,9 +898,9 @@ export class SiteStore {
     entry: RenderedEntry,
   ): PageMeta {
     const { result, excerpt } = entry;
-    // Frontmatter comes from the scan pass (the single parse); invalid dates
-    // already warned there (createdAtOf with filePath), so this
-    // re-derivation stays silent.
+    // Frontmatter comes from the scan pass (the single parse); invalid
+    // dates already warned in the onScan context derivation (siteScanPages,
+    // deduped by the store's sink), so this re-derivation stays silent.
     return {
       route: page.route,
       locale: page.locale.key,
@@ -1137,16 +1192,28 @@ export class SiteStore {
     }
     // Dev parity for dead links inside ref articles: they surface here per
     // request; the build reports the same records through deadLinks().
-    if (this.trustWatcher) {
-      for (const dead of this.links.deadLinks) {
-        if (!isRefFile(this.config, dead.file)) continue;
-        this.warnOnce(
-          `term-dead:${dead.file}:${dead.raw}`,
-          `[absolute-press] dev: dead link in ref article ${dead.file} -> ${dead.raw} (build will fail)`,
-        );
-      }
-    }
+    if (this.trustWatcher) this.warnRefDeadLinks();
     return Object.keys(defs).length === 0 ? null : defs;
+  }
+
+  /**
+   * Dev warnings for dead links recorded inside ref articles, swept once
+   * per growth of the record. Term-bearing pages used to re-filter the
+   * whole deadLinks array per request (O(pages x deadLinks) as the site
+   * grows); the offset only ever advances, and warnOnce keeps repeats
+   * silent until the next sync.
+   */
+  private warnRefDeadLinks(): void {
+    const dead = this.links.deadLinks;
+    for (let i = this.refDeadSwept; i < dead.length; i++) {
+      const record = dead[i]!;
+      if (!isRefFile(this.config, record.file)) continue;
+      this.warnOnce(
+        `term-dead:${record.file}:${record.raw}`,
+        `[absolute-press] dev: dead link in ref article ${record.file} -> ${record.raw} (build will fail)`,
+      );
+    }
+    this.refDeadSwept = dead.length;
   }
 
   /**

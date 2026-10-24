@@ -206,6 +206,25 @@ export function isNavExcluded(route: string, navExclude: string[]): boolean {
   });
 }
 
+/**
+ * Feed order: createdAt desc (null last), route as the deterministic
+ * tiebreak. Shared by buildArticles and the dev collision pre-check:
+ * groupArchiveArticles' majorityCasing keeps the first-seen variant, so
+ * both paths must see articles in the same order or the archive name
+ * (route casing) drifts between the dev warning and the build emit.
+ */
+export function feedOrderCompare(
+  a: { route: string; createdAt: string | null },
+  b: { route: string; createdAt: string | null },
+): number {
+  if (a.createdAt && b.createdAt) {
+    return b.createdAt.localeCompare(a.createdAt);
+  }
+  if (a.createdAt) return -1;
+  if (b.createdAt) return 1;
+  return a.route.localeCompare(b.route);
+}
+
 /** Home feed / archive entries, sorted by date desc (null last). */
 export function buildArticles(pages: RenderedPage[]): ArticleInfo[] {
   return pages
@@ -219,12 +238,5 @@ export function buildArticles(pages: RenderedPage[]): ArticleInfo[] {
       category: p.meta.frontmatter.category ?? [],
       tag: p.meta.frontmatter.tag ?? [],
     }))
-    .toSorted((a, b) => {
-      if (a.createdAt && b.createdAt) {
-        return b.createdAt.localeCompare(a.createdAt);
-      }
-      if (a.createdAt) return -1;
-      if (b.createdAt) return 1;
-      return a.route.localeCompare(b.route);
-    });
+    .toSorted(feedOrderCompare);
 }
