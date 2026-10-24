@@ -33,6 +33,21 @@ describe('plainExcerpt', () => {
     );
   });
 
+  it('never orphans half a surrogate pair at the cut', () => {
+    // An emoji straddling the boundary: the naive slice kept its lone high
+    // surrogate, which consumers render as U+FFFD.
+    const html = `<p>${'a'.repeat(199)}😀${'b'.repeat(10)}</p>`;
+    const out = plainExcerpt(html, 200);
+    expect(out).toBe(`${'a'.repeat(199)}…`);
+    expect(out).not.toMatch(/[\uD800-\uDFFF]/);
+    // A pair fully inside the cut stays intact.
+    const inside = plainExcerpt(
+      `<p>${'a'.repeat(198)}😀${'b'.repeat(10)}</p>`,
+      200,
+    );
+    expect(inside).toBe(`${'a'.repeat(198)}😀…`);
+  });
+
   it('returns short text unchanged at the boundary', () => {
     const text = 'x'.repeat(200);
     expect(plainExcerpt(`<p>${text}</p>`, 200)).toBe(text);

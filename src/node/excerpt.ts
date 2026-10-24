@@ -24,7 +24,17 @@ export function plainExcerpt(html: string, limit: number): string {
   )
     .replace(/\s+/g, ' ')
     .trim();
-  return text.length <= limit ? text : `${text.slice(0, limit)}…`;
+  return text.length <= limit ? text : `${cutAtCodePoint(text, limit)}…`;
+}
+
+/**
+ * Prefix cut on code-point boundaries: a naive slice at a surrogate-pair
+ * edge orphans half a pair, which surfaces as U+FFFD in meta/RSS output.
+ */
+function cutAtCodePoint(text: string, limit: number): string {
+  // A pair straddling the cut drops whole (its low half sits at `limit`).
+  const cut = (text.codePointAt(limit - 1) ?? 0) > 0xffff ? limit - 1 : limit;
+  return text.slice(0, cut);
 }
 
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
