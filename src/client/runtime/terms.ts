@@ -207,6 +207,15 @@ function place(el: HTMLElement, term: HTMLElement): void {
 }
 
 /**
+ * Selector for a term's inline def template. The id comes from `data-term`,
+ * so CSS.escape keeps ids with quotes or brackets from throwing at query
+ * time (same guard Toc.tsx applies to heading slugs).
+ */
+export function termDefSelector(id: string): string {
+  return `template.ap-term-def[data-term="${CSS.escape(id)}"]`;
+}
+
+/**
  * Show `term`'s popover as the deepest layer, cloning its definition body in.
  * A term already heading a layer just closes the layers below it; a term
  * without a definition (reference to a missing id — already warned at build)
@@ -227,7 +236,7 @@ async function show(
   const id = term.dataset.term;
   if (id === undefined) return;
   let template = document.querySelector<HTMLTemplateElement>(
-    `template.ap-term-def[data-term="${id}"]`,
+    termDefSelector(id),
   );
   if (template === null) {
     const url = refsUrl();

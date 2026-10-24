@@ -179,6 +179,31 @@ function DrawerFooter(props: { payload: PagePayload }): SolidElement {
 }
 
 /**
+ * Shell containers behind the drawer: inert while it is open, so Tab cannot
+ * wander into the covered page content (the drawer renders in the nav chunk,
+ * everything else on the page is background).
+ */
+const DRAWER_BACKDROP_IDS = [
+  'ap-content',
+  'ap-toc',
+  'ap-sidebar',
+  'ap-footer',
+] as const;
+
+/** Release the drawer's body scroll lock and background inert state. */
+function releaseDrawerLock(): void {
+  document.body.style.overflow = '';
+  for (const id of DRAWER_BACKDROP_IDS) {
+    document.getElementById(id)?.removeAttribute('inert');
+  }
+}
+
+/** Escape releases the drawer like it releases the navbar's pinned menus. */
+function drawerEscapeKey(e: KeyboardEvent): void {
+  if (e.key === 'Escape') closeDrawer();
+}
+
+/**
  * Mobile drawer panel (H6). Rendered by ThemeNav next to the navbar header:
  * fixed positioning must not nest under the header (its backdrop-filter
  * would become the containing block).
@@ -218,23 +243,32 @@ function MobileDrawer(props: { payload: PagePayload }): SolidElement {
       return next;
     });
   };
-  // Scroll lock mirrors the rail contract (mobile only). A resize listener
-  // releases it when the viewport crosses lg — rotating a tablet with the
-  // drawer open must not leave the page unscrollable at desktop width. This
-  // is the only body lock since the legacy sidebar open state was removed.
+  // Open-drawer modal semantics, mobile only (the hamburger does not exist
+  // at lg): the body stops scrolling, the covered page content goes inert
+  // (background scroll lock mirrors the rail contract; this is the only body
+  // lock since the legacy sidebar open state was removed), and Escape
+  // releases the drawer like it releases the navbar's pinned menus. A resize
+  // listener releases all of it when the viewport crosses lg — rotating a
+  // tablet with the drawer open must not leave the page locked at desktop
+  // width.
   createEffect(
     () => drawerOpen(),
     open => {
       const apply = (): void => {
-        document.body.style.overflow =
-          open && window.innerWidth < 1024 ? 'hidden' : '';
+        const mobile = open && window.innerWidth < 1024;
+        document.body.style.overflow = mobile ? 'hidden' : '';
+        for (const id of DRAWER_BACKDROP_IDS) {
+          document.getElementById(id)?.toggleAttribute('inert', mobile);
+        }
       };
       apply();
       if (!open) return;
+      document.addEventListener('keydown', drawerEscapeKey);
       window.addEventListener('resize', apply);
       return () => {
+        document.removeEventListener('keydown', drawerEscapeKey);
         window.removeEventListener('resize', apply);
-        document.body.style.overflow = '';
+        releaseDrawerLock();
       };
     },
   );
@@ -309,10 +343,16 @@ function BackToTop(props: { label: string }): SolidElement {
       title={props.label}
       onClick={scrollToTop}
       class={cx(
-        'fixed right-6 bottom-6 z-30 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] p-2.5 text-[var(--c-text-2)] shadow-[var(--c-shadow)] transition duration-150 ease-out hover:text-[var(--c-accent)]',
+        // The property list carries visibility (the generic transition
+        // utility omits it): a visibility flip toward hidden interpolates
+        // as visible until the end, so the class swap below cannot clip
+        // the opacity fade-out.
+        'fixed right-6 bottom-6 z-30 rounded-full border border-[var(--c-border)] bg-[var(--c-bg)] p-2.5 text-[var(--c-text-2)] shadow-[var(--c-shadow)] transition-[color,opacity,transform,visibility] duration-150 ease-out hover:text-[var(--c-accent)]',
+        // invisible keeps the hidden button out of the tab order (opacity
+        // alone leaves it focusable).
         visible()
-          ? 'translate-y-0 opacity-100'
-          : 'pointer-events-none translate-y-2 opacity-0',
+          ? 'visible translate-y-0 opacity-100'
+          : 'invisible pointer-events-none translate-y-2 opacity-0',
       )}
     >
       <ArrowUpIcon class="size-5" />

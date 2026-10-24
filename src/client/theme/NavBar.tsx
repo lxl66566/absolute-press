@@ -1,4 +1,4 @@
-import { createEffect, For, Show } from 'solid-js';
+import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 import type { LocaleInfo, PagePayload } from '../../shared/types';
@@ -96,6 +96,10 @@ export function NavBar(props: { payload: PagePayload }): SolidElement {
           currentLocale(props.payload)?.prefix ?? '',
         ),
     );
+  // The locale panel opens through CSS hover/focus-within; mirror the
+  // keyboard-reachable half (focus) into aria-expanded — hover needs no
+  // announcement, and a constant false would misstate the open panel.
+  const [localeFocused, setLocaleFocused] = createSignal(false);
   return (
     <header class="fixed inset-x-0 top-0 z-40 h-14 border-b border-[var(--c-border)] bg-[color-mix(in_srgb,var(--c-bg)_85%,transparent)] backdrop-blur-md">
       {/* Full-bleed: the brand sits flush with the page edge (sidebar text
@@ -158,11 +162,23 @@ export function NavBar(props: { payload: PagePayload }): SolidElement {
             )}
           </Show>
           <Show when={props.payload.site.locales.length > 1}>
-            <div class="group relative">
+            <div
+              class="group relative"
+              onFocusIn={() => setLocaleFocused(true)}
+              onFocusOut={e => {
+                // Focus moving within the wrapper (into the panel's links)
+                // keeps the panel's declared state.
+                const next = e.relatedTarget;
+                if (!(next instanceof Node) || !e.currentTarget.contains(next))
+                  setLocaleFocused(false);
+              }}
+            >
               <button
                 type="button"
                 class="flex items-center gap-1 rounded-md p-2 text-[var(--c-text-2)] transition duration-150 ease-out hover:bg-[var(--c-bg-soft)] hover:text-[var(--c-text)]"
                 aria-label={t.nav.switchLocale}
+                aria-haspopup="true"
+                aria-expanded={localeFocused() ? 'true' : 'false'}
               >
                 <GlobeIcon class="size-5" />
                 <span class="hidden text-sm sm:inline">

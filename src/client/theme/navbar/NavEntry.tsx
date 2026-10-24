@@ -289,7 +289,19 @@ export function NavEntry(props: {
       <Show
         when={link}
         fallback={
-          <button type="button" class={rowClass()} onClick={togglePin}>
+          // Panel-less rows stay plain; rows opening a flyout expose the
+          // state (open() tracks hover/focus/pin — the keyboard-reachable
+          // signals included) instead of leaving focus-within as the only
+          // hint.
+          <button
+            type="button"
+            class={rowClass()}
+            aria-haspopup={hasChildren ? 'true' : undefined}
+            aria-expanded={
+              hasChildren ? (open() ? 'true' : 'false') : undefined
+            }
+            onClick={togglePin}
+          >
             {label}
           </button>
         }
@@ -300,6 +312,9 @@ export function NavEntry(props: {
             class={rowClass()}
             target={external ? '_blank' : undefined}
             rel={external ? 'noreferrer' : undefined}
+            aria-expanded={
+              hasChildren ? (open() ? 'true' : 'false') : undefined
+            }
             onClick={closeMenus}
           >
             {label}
