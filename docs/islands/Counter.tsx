@@ -3,7 +3,7 @@ import { createEffect, createSignal } from 'solid-js';
 
 /**
  * Docs-site custom island, registered via site config `islands` in
- * vite.config.docs.ts. JSX-free so tsc stays green before @solidjs/web
+ * vite.config.ts. JSX-free so tsc stays green before @solidjs/web
  * types are available. Renders a counter button with :initial / label props.
  */
 const Counter: IslandComponent = props => {

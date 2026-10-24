@@ -47,7 +47,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint .",
-    "check": "tsc --noEmit --strict --skipLibCheck",
+    "check": "tsc --skipLibCheck",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:e2e": "pnpm build && playwright test",

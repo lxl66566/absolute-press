@@ -77,6 +77,8 @@ export default defineConfig({
 
 包的 `exports` 直接指向 TS 源码：本框架的消费方必然运行 Vite（SSG 构建与客户端打包都发生在 Vite 里），由 Vite 加载 TS 源码即可，省掉 dist 构建和类型产物的双轨维护。入口两个：`absolute-press`（构建期，`absolutePress` / `defineSiteConfig`）与 `absolute-press/client`（浏览器侧，`hydrateIslands` / `pagePayload`）。npm 发布内容只含 `src`。
 
+Node 版本：经 Vite 消费时 Vite 自带 TS transform，`engines` 的 `>=20.19.0` 即可，无额外要求。若绕过 Vite 用裸 node ESM 直接 import 本包源码，则依赖 Node 内置的类型剥离：22.6+ 需加 `--experimental-strip-types`，23.6+ 默认开启；Node 20 不支持该路径（且已于 2026-04 EOL）。
+
 源码直出也意味着宿主跑自己的 `tsc --noEmit` 时可能解析到本包源码，用户 tsconfig 需要以下几项：
 
 - `moduleResolution: "bundler"`——经 package exports 解析本包入口
