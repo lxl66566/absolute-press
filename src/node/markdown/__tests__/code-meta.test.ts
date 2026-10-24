@@ -56,6 +56,27 @@ describe('parseCodeMeta', () => {
     expect(parseCodeMeta('{1,3-5}').highlightLines).toEqual([1, 3, 4, 5]);
   });
 
+  it('drops oversized ranges with a warning, keeping the 10000-line bound', () => {
+    // `{1-100000000}` used to expand synchronously and hang the build.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(parseCodeMeta('{1-10001}').highlightLines).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('10001');
+    // The 10000-line bound itself is kept.
+    expect(parseCodeMeta('{1-10000}').highlightLines).toHaveLength(10000);
+    // Same oversized range warns once per distinct range, padding included:
+    // the untrimmed part used to be the dedupe key, so `{ 1-10001 }` and
+    // `{1-10001}` warned separately.
+    expect(parseCodeMeta('{1-10001}').highlightLines).toEqual([]);
+    expect(parseCodeMeta('{ 1-10001 }').highlightLines).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('keeps huge single line numbers', () => {
+    expect(parseCodeMeta('{999999999}').highlightLines).toEqual([999999999]);
+  });
+
   it('parses collapsed-lines and title', () => {
     const meta = parseCodeMeta('{1} :collapsed-lines=7 title="a b.ts"');
     expect(meta).toEqual({
@@ -172,6 +193,16 @@ describe('code block rendering', () => {
     expect(result.html).toContain('aria-label="Copy code"');
     expect(result.html).toContain('title="Copy code"');
     expect(result.html).not.toContain('复制代码');
+  });
+
+  it('escapes quotes in the copy button label', async () => {
+    // Config-provided copyLabel used to go in raw, so a `"` closed the
+    // attribute mid-value.
+    const custom = await getRenderer({ code: { copyLabel: 'Copy "code"' } });
+    const fence = '```';
+    const result = custom.render(`${fence}ts\nconst a = 1\n${fence}`, ENV);
+    expect(result.html).toContain('aria-label="Copy &quot;code&quot;"');
+    expect(result.html).toContain('title="Copy &quot;code&quot;"');
   });
 
   it('emits line-number classes and no fold for short blocks', () => {

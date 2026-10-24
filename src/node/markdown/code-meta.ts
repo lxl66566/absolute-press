@@ -3,6 +3,15 @@ import type { ShikiTransformer } from 'shiki';
 import type { ResolvedCodeOptions } from './options.ts';
 
 /**
+ * Upper bound for one `{from-to}` highlight range. Ranges spanning more
+ * lines than this are dropped with a warning instead of being expanded.
+ */
+const MAX_HIGHLIGHT_SPAN = 10_000;
+
+/** Distinct oversized ranges already warned about (once per process). */
+const warnedRanges = new Set<string>();
+
+/**
  * Parsed fence meta: `{1,3-5}` line highlight, `:collapsed-lines[=N]`,
  * `:wrap=true|false`, `title="..."`.
  */
@@ -42,6 +51,20 @@ export function parseCodeMeta(attrs: string): CodeMeta {
         Number.isInteger(to) &&
         from <= to
       ) {
+        // One mistyped range (`{1-100000000}`) must not hang the build
+        // expanding it; larger spans are dropped once per distinct range
+        // (keyed on the trimmed form: `{ 1-10001 }` and `{1-10001}` are
+        // the same range).
+        if (to - from + 1 > MAX_HIGHLIGHT_SPAN) {
+          const rangeText = part.trim();
+          if (!warnedRanges.has(rangeText)) {
+            warnedRanges.add(rangeText);
+            console.warn(
+              `[absolute-press] code fence highlight range {${rangeText}} spans over ${MAX_HIGHLIGHT_SPAN} lines; ignored`,
+            );
+          }
+          continue;
+        }
         for (let line = from; line <= to; line++)
           meta.highlightLines.push(line);
         continue;

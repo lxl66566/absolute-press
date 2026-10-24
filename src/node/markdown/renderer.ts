@@ -422,13 +422,16 @@ function installFenceWrapper(
 
     // Tools row: label + copy button over the card's top-right corner. The
     // copy icon duplicates no fold behavior (fold toggle sits at the bottom).
+    // copyLabel comes from site config: escape it like the other attributes,
+    // or a `"` in the label closes the attribute mid-value.
+    const copyAttr = md.utils.escapeHtml(copyLabel);
     const tools = special
       ? ''
       : `<div class="ap-code__tools">${
           lang !== ''
             ? `<span class="ap-code__lang">${md.utils.escapeHtml(lang)}</span>`
             : ''
-        }<button type="button" class="ap-code__copy" aria-label="${copyLabel}" title="${copyLabel}">${COPY_ICON}${COPIED_ICON}</button></div>\n`;
+        }<button type="button" class="ap-code__copy" aria-label="${copyAttr}" title="${copyAttr}">${COPY_ICON}${COPIED_ICON}</button></div>\n`;
 
     let open = `<div class="${classes.join(' ')}"${dataStr}${styleAttr}>`;
     open += tools;
