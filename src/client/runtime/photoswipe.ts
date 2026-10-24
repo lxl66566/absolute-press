@@ -13,7 +13,7 @@ let lightboxPromise: Promise<PhotoSwipeLightbox> | null = null;
 
 /** Shared lightbox instance; photoswipe (js + css) loads on first zoom. */
 function getLightbox(): Promise<PhotoSwipeLightbox> {
-  lightboxPromise ??= (async () => {
+  const pending = (lightboxPromise ??= (async () => {
     const [{ default: PhotoSwipeLightboxClass }] = await Promise.all([
       import('photoswipe/lightbox'),
       import('photoswipe/style.css'),
@@ -28,8 +28,14 @@ function getLightbox(): Promise<PhotoSwipeLightbox> {
     });
     lightbox.init();
     return lightbox;
-  })();
-  return lightboxPromise;
+  })());
+  // A failed load must not stick in the cache: drop it so the next zoom
+  // retries the import instead of re-awaiting the same rejection. The guard
+  // keeps a later successful load from being cleared by an earlier failure.
+  pending.catch(() => {
+    if (lightboxPromise === pending) lightboxPromise = null;
+  });
+  return pending;
 }
 
 /**
@@ -98,14 +104,18 @@ export function imageData(img: HTMLImageElement): ZoomableImage {
  * link/button (linked images keep their native behavior). Island images
  * (ZoomedImg masks etc.) are members for gallery paging even though the
  * delegated click handler skips them — the old lightbox counted the whole
- * page's images, and a mixed page should page through all of them.
+ * page's images, and a mixed page should page through all of them. Still
+ * masked ZoomedImg wrappers are excluded: their veil is the point, and left
+ * paging from a neighbor must not expose the large image behind it (the
+ * mask lifts on click, which admits the image into the set).
  */
-function galleryImages(content: HTMLElement): HTMLImageElement[] {
+export function galleryImages(content: HTMLElement): HTMLImageElement[] {
   return [...content.querySelectorAll('img')].filter(
     img =>
       content.contains(img) &&
       // Skip helper images without a real source (sizes placeholders etc.).
-      (img.currentSrc || img.src) !== '',
+      (img.currentSrc || img.src) !== '' &&
+      img.closest('.ap-zoomed__wrapper.is-masked') === null,
   );
 }
 
@@ -144,6 +154,12 @@ export function initLightbox(): void {
       return;
     }
     event.preventDefault();
-    void openInPageGallery(group => group.indexOf(img), imageData(img));
+    // No caller surfaces a failure here (broken slide data, failed lightbox
+    // load): log it instead of leaving an unhandled rejection.
+    openInPageGallery(group => group.indexOf(img), imageData(img)).catch(
+      (e: unknown) => {
+        console.error('[absolute-press] failed to open the image lightbox', e);
+      },
+    );
   });
 }
