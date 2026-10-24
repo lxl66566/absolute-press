@@ -2,6 +2,7 @@ import { createEffect, createSignal, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 import { hydrateIslands } from '../runtime/hydrate';
+import { initTabsPersistenceIn } from '../runtime/tabs';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { upgradeMermaidFences } from '../theme/mount';
 import { setGateUnlocked } from '../theme/state';
@@ -123,6 +124,9 @@ export function PasswordGate(props: PasswordGateProps): SolidElement {
         if (!contentRef) return;
         upgradeMermaidFences(contentRef);
         hydrateIslands(contentRef);
+        // The rebuilt body's tabs are fresh radios: wire their persistence
+        // here, the page-wide pass ran before the gate content existed.
+        initTabsPersistenceIn(contentRef);
       });
     },
   );

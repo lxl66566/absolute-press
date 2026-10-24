@@ -4,6 +4,7 @@ import type { Element as SolidElement } from 'solid-js';
 // Same validator the build layer applies to the `columns` prop.
 import { normalizeColumns } from '../../shared/columns';
 import { hydrateIslands } from '../runtime/hydrate';
+import { initTabsPersistenceIn } from '../runtime/tabs';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { RevealRow } from '../xlist/RevealRow';
@@ -167,10 +168,11 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
       ? []
       : visibleHeaders(cols, inlineIndexes, visibleMetaCount);
 
-  // Entries may embed islands (ZoomedImg, Mermaid, ...). Rows rebuilt by the
-  // <For> (filter/sort re-entry) carry fresh placeholder markup; hydrate the
-  // component root once the DOM settles. The runtime's mounted marker keeps
-  // this idempotent and coordinates with the page-wide hydration pass.
+  // Entries may embed islands (ZoomedImg, Mermaid, ...) and persisted tabs.
+  // Rows rebuilt by the <For> (filter/sort re-entry) carry fresh placeholder
+  // markup; hydrate the component root once the DOM settles. The runtime's
+  // mounted marker keeps this idempotent and coordinates with the page-wide
+  // hydration pass; the tabs pass re-wires only containers it never wired.
   let rootRef: HTMLDivElement | undefined;
   createEffect(
     () =>
@@ -179,7 +181,9 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
         .join(','),
     () => {
       queueMicrotask(() => {
-        if (rootRef) hydrateIslands(rootRef);
+        if (!rootRef) return;
+        hydrateIslands(rootRef);
+        initTabsPersistenceIn(rootRef);
       });
     },
   );

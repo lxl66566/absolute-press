@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 import { hydrateIslands } from '../runtime/hydrate';
+import { initTabsPersistenceIn } from '../runtime/tabs';
 import { cx } from '../theme/cx';
 import { normalizeSvg } from '../theme/FaIcon';
 import { formatMessage, pageMessages } from '../theme/i18n';
@@ -230,14 +231,18 @@ export function XList(props: XListProps): SolidElement {
     <div
       class="ap-xlist"
       ref={el => {
-        // Slot bodies carry island placeholders. Solid applies dynamic
-        // innerHTML in a scheduler flush after the ref fires, and solid 2
-        // effects skip the initial run, so neither a ref microtask nor a
-        // createEffect pass can time this; watch for the placeholders
-        // actually appearing instead. hydrateIslands' mounted marker keeps
-        // re-runs idempotent, so every mutation batch — initial mount,
-        // filter/sort rebuilds, HMR — converges by itself.
-        const mo = new MutationObserver(() => hydrateIslands(el));
+        // Slot bodies carry island placeholders and persisted tabs. Solid
+        // applies dynamic innerHTML in a scheduler flush after the ref
+        // fires, and solid 2 effects skip the initial run, so neither a ref
+        // microtask nor a createEffect pass can time this; watch for the
+        // placeholders actually appearing instead. hydrateIslands' mounted
+        // marker and the tabs wiring set keep re-runs idempotent, so every
+        // mutation batch — initial mount, filter/sort rebuilds, HMR —
+        // converges by itself.
+        const mo = new MutationObserver(() => {
+          hydrateIslands(el);
+          initTabsPersistenceIn(el);
+        });
         mo.observe(el, { childList: true, subtree: true });
         onCleanup(() => mo.disconnect());
       }}

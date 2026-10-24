@@ -68,17 +68,43 @@ function nestedWith(a: HTMLElement, b: HTMLElement): boolean {
   return a.contains(b) || b.contains(a);
 }
 
-/** Wire restore + persistence + same-id live sync onto the grouped radios. */
-export function initTabsPersistence(): void {
-  const byId = groupTabsRadios<HTMLElement, HTMLInputElement>({
+/** Live-DOM adapter for groupTabsRadios, rooted at `root`. */
+function domIn(root: ParentNode): TabsDom<HTMLElement, HTMLInputElement> {
+  return {
     persistContainers: () =>
-      document.querySelectorAll<HTMLElement>('.ap-tabs[data-persist]'),
+      root.querySelectorAll<HTMLElement>('.ap-tabs[data-persist]'),
     radiosUnder: tabs =>
       tabs.querySelectorAll<HTMLInputElement>('input[type="radio"]'),
     ownerOf: radio => radio.closest<HTMLElement>('.ap-tabs'),
     persistIdOf: tabs => tabs.dataset.persist,
-  });
-  for (const [id, groups] of byId) {
+  };
+}
+
+/**
+ * Containers whose radios already carry restore/sync wiring. Scoped passes
+ * (gate unlock, rebuilt list rows) run over documents whose static tabs are
+ * wired already; the set keeps those from collecting a second listener set
+ * (double writes, double sibling syncs).
+ */
+const wired = new WeakSet<HTMLElement>();
+
+/**
+ * Wire tabs persistence for the `.ap-tabs[data-persist]` containers inside
+ * `root` — the entry.tsx / router applyPage pass uses `document`, the
+ * PasswordGate unlock rebuild and the list components' hydration callbacks
+ * pass their own container (tabs there are fresh markup nobody wired yet).
+ *
+ * Grouping always runs over the whole document, so containers sharing a
+ * persist id across the scope boundary stay one logical group; only the
+ * containers inside `root` get wired — the document-wide pass handles the
+ * rest. Syncing regroups at event time, so groups wired by a later scoped
+ * pass still hear earlier siblings.
+ */
+export function initTabsPersistenceIn(root: ParentNode): void {
+  const scope = new Set(
+    root.querySelectorAll<HTMLElement>('.ap-tabs[data-persist]'),
+  );
+  for (const [id, groups] of groupTabsRadios(domIn(document))) {
     const key = `ap-tabs:${id}`;
     let saved: string | null = null;
     try {
@@ -88,12 +114,19 @@ export function initTabsPersistence(): void {
     }
     const index = saved === null ? NaN : Number(saved);
     if (Number.isInteger(index)) {
-      for (const { radios } of groups) selectIndex(radios, index);
+      // Restore lands on the scope's groups only: nested same-id pairs can
+      // diverge (each tracks its own selection against the one shared
+      // storage key), and re-applying the stored index document-wide would
+      // flatten them to the last write. The document-wide entry passes a
+      // full-set scope, so its behavior is unchanged; cross-scope selection
+      // parity is carried by the event-time sync below.
+      for (const { tabs, radios } of groups) {
+        if (scope.has(tabs)) selectIndex(radios, index);
+      }
     }
-    // Nested pairs never sync: an outer and an inner group on one persist id
-    // track radio lists of different lengths, so a shared index would corrupt
-    // whichever selection is longer. Sibling groups sync as before.
     for (const { tabs, radios } of groups) {
+      if (!scope.has(tabs) || wired.has(tabs)) continue;
+      wired.add(tabs);
       radios.forEach((radio, i) => {
         radio.addEventListener('change', () => {
           if (!radio.checked) return;
@@ -102,9 +135,13 @@ export function initTabsPersistence(): void {
           } catch {
             // best-effort
           }
-          // Live-sync sibling groups with the same persist id. Programmatic
+          // Live-sync sibling groups with the same persist id, regrouped at
+          // event time (a scoped pass may have wired more groups since).
+          // Nested pairs never sync: an outer and an inner group on one
+          // persist id track radio lists of different lengths, so a shared
+          // index would corrupt whichever selection is longer. Programmatic
           // `checked` assignment fires no change event, so this cannot loop.
-          for (const other of groups) {
+          for (const other of groupTabsRadios(domIn(document)).get(id) ?? []) {
             if (other.tabs === tabs || nestedWith(other.tabs, tabs)) continue;
             selectIndex(other.radios, i);
           }
@@ -112,4 +149,9 @@ export function initTabsPersistence(): void {
       });
     }
   }
+}
+
+/** Document-wide wiring (initial load, soft-navigation body swap). */
+export function initTabsPersistence(): void {
+  initTabsPersistenceIn(document);
 }
