@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
+import { createEffect, For, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 // Same validator the build layer applies to the `columns` prop.
@@ -7,15 +7,14 @@ import { hydrateIslands } from '../runtime/hydrate';
 import { initTabsPersistenceIn } from '../runtime/tabs';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
+import { useEntryFilterSort } from '../xlist/filter-sort';
 import { RevealRow } from '../xlist/RevealRow';
 import {
   columnSortDir,
   compareNatural,
-  nextSortDir,
   ordered,
   resolveSortable,
   sortableHeader,
-  type SortState,
 } from '../xlist/sort';
 import { SortHeader } from '../xlist/Sorter';
 import { nextXListUid } from '../xlist/uid';
@@ -96,19 +95,6 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   );
   const inlineIndexes = inlineColumnIndexes(cols, inlineNames, metaCount);
   const visibleMetaCount = Math.max(0, metaCount - inlineIndexes.size);
-
-  const [query, setQuery] = createSignal('');
-  const [sort, setSort] = createSignal<SortState | null>(null);
-  const [open, setOpen] = createSignal<ReadonlySet<number>>(new Set());
-
-  const terms = createMemo(() =>
-    query()
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(term => term !== ''),
-  );
-
   // Table column index -> metaCells index (inline columns stay in the title
   // cell and are not sortable).
   const visibleMetaIndexes: readonly number[] = Array.from(
@@ -118,45 +104,25 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
 
   const sortableSpec = resolveSortable(props.sortable);
 
-  const cycleSort = (col: SortState['col']): void => {
-    setSort(nextSortDir(sort(), col, false));
-  };
-
-  const filtered = createMemo(() => {
-    const needle = terms();
-    const base =
-      needle.length === 0
-        ? parsed.items
-        : parsed.items.filter(item =>
-            needle.every(term => item.haystack.includes(term)),
-          );
-    const state = sort();
-    if (state === null) return base;
-    if (state.col === 'title') {
-      return base.toSorted(
-        ordered(state.dir, (a, b) => compareNatural(a.title, b.title)),
-      );
-    }
-    // Meta columns sort by natural cell-text order (the island's cells are
-    // untyped HTML; numeric keys are the XList's data-driven path).
-    const metaIndex = visibleMetaIndexes[state.col] ?? -1;
-    return base.toSorted(
-      ordered(state.dir, (a, b) =>
-        compareNatural(
-          a.metaCells[metaIndex]?.text ?? '',
-          b.metaCells[metaIndex]?.text ?? '',
-        ),
-      ),
-    );
-  });
-
-  const isOpen = (id: number): boolean => open().has(id);
-  const toggle = (id: number): void => {
-    const next = new Set(open());
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpen(next);
-  };
+  const { query, setQuery, sort, cycleSort, filtered, isOpen, toggle } =
+    useEntryFilterSort<ParsedEntry>({
+      entries: () => parsed.items,
+      haystack: item => item.haystack,
+      comparator: state => {
+        if (state.col === 'title') {
+          return ordered(state.dir, (a, b) => compareNatural(a.title, b.title));
+        }
+        // Meta columns sort by natural cell-text order (the island's cells
+        // are untyped HTML; numeric keys are the XList's data-driven path).
+        const metaIndex = visibleMetaIndexes[state.col] ?? -1;
+        return ordered(state.dir, (a, b) =>
+          compareNatural(
+            a.metaCells[metaIndex]?.text ?? '',
+            b.metaCells[metaIndex]?.text ?? '',
+          ),
+        );
+      },
+    });
 
   const hasExpandable = parsed.items.some(isExpandableRow);
   const searchable = flagOn(props.searchable, true);

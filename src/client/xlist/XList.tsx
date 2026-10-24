@@ -6,16 +6,15 @@ import { initTabsPersistenceIn } from '../runtime/tabs';
 import { cx } from '../theme/cx';
 import { normalizeSvg } from '../theme/FaIcon';
 import { formatMessage, pageMessages } from '../theme/i18n';
+import { useEntryFilterSort } from './filter-sort';
 import { Fold } from './Fold';
 import { RevealRow } from './RevealRow';
 import {
   columnSortDir,
   itemComparator,
-  nextSortDir,
   numericColumns,
   resolveSortable,
   sortableHeader,
-  type SortState,
 } from './sort';
 import { SortHeader } from './Sorter';
 import { htmlText } from './static';
@@ -136,19 +135,8 @@ export function XList(props: XListProps): SolidElement {
     Math.min(props.inlineCount ?? 0, Math.max(0, metaCount()));
   const visibleMetaCount = () => metaCount() - inlineCount();
 
-  const [query, setQuery] = createSignal('');
-  const [sort, setSort] = createSignal<SortState | null>(null);
-  const [open, setOpen] = createSignal<ReadonlySet<number>>(new Set());
   const [hiddenFilters, setHiddenFilters] = createSignal<ReadonlySet<string>>(
     new Set(),
-  );
-
-  const terms = createMemo(() =>
-    query()
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(term => term !== ''),
   );
 
   /** Visible meta columns that sort numerically (score columns); the rest
@@ -157,52 +145,20 @@ export function XList(props: XListProps): SolidElement {
     numericColumns(props.items, visibleMetaCount()),
   );
 
-  /** Whether one column's first click sorts descending (score columns). */
-  const isNumericCol = (col: SortState['col']): boolean =>
-    col !== 'title' && numericCols().has(col);
-
-  const cycleSort = (col: SortState['col']): void => {
-    setSort(nextSortDir(sort(), col, isNumericCol(col)));
-  };
-
-  const filtered = createMemo(() => {
-    const needle = terms();
-    const searched =
-      needle.length === 0
-        ? indexed()
-        : indexed().filter(entry =>
-            needle.every(term => entry.haystack.includes(term)),
-          );
-    // Exclusion filters hide flagged rows before sorting; the count line
-    // keeps showing visible / total (hidden rows stay accounted for).
-    const hidden = hiddenFilters();
-    const base =
-      hidden.size === 0
-        ? searched
-        : searched.filter(
-            entry =>
-              !(entry.item.filterFlags ?? []).some(flag => hidden.has(flag)),
-          );
-    const state = sort();
-    if (state === null) return base;
-    const compare = itemComparator(state, numericCols(), props.sorters);
-    return base.toSorted((x, y) => compare(x.item, y.item));
-  });
-
-  const collapsible = () => props.collapsible ?? true;
-  const sortableSpec = () => resolveSortable(props.sortable);
-  const showCount = () => props.showCount ?? true;
-  const showHint = () => props.hint ?? true;
-  const expandable = (entry: IndexedItem): boolean =>
-    collapsible() && (entry.item.bodyHtml?.trim() ?? '') !== '';
-
-  const isOpen = (id: number): boolean => open().has(id);
-  const toggle = (id: number): void => {
-    const next = new Set(open());
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpen(next);
-  };
+  const { query, setQuery, sort, cycleSort, filtered, isOpen, toggle } =
+    useEntryFilterSort<IndexedItem>({
+      entries: indexed,
+      haystack: entry => entry.haystack,
+      excluded: entry =>
+        hiddenFilters().size > 0 &&
+        (entry.item.filterFlags ?? []).some(flag => hiddenFilters().has(flag)),
+      comparator: state => {
+        const compare = itemComparator(state, numericCols(), props.sorters);
+        return (x, y) => compare(x.item, y.item);
+      },
+      // Score columns read descending first (high values first).
+      descendingFirst: col => col !== 'title' && numericCols().has(col),
+    });
 
   const toggleFilter = (id: string, on: boolean): void => {
     const next = new Set(hiddenFilters());
@@ -210,6 +166,13 @@ export function XList(props: XListProps): SolidElement {
     else next.delete(id);
     setHiddenFilters(next);
   };
+
+  const collapsible = () => props.collapsible ?? true;
+  const sortableSpec = () => resolveSortable(props.sortable);
+  const showCount = () => props.showCount ?? true;
+  const showHint = () => props.hint ?? true;
+  const expandable = (entry: IndexedItem): boolean =>
+    collapsible() && (entry.item.bodyHtml?.trim() ?? '') !== '';
 
   const hasExpandable = () => indexed().some(entry => expandable(entry));
 
