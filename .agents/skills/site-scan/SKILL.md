@@ -5,7 +5,7 @@ description: absolute-press 框架的单遍内容扫描数据面与 onScan 钩�
 
 # 站点扫描数据面：scan.ts + onScan + site-data
 
-框架对内容树**单遍扫描**：每个 markdown 文件每轮扫描恰好 `readFileSync` 一次，frontmatter 解析、渲染、shiki 预热、git 时间、站点钩子全部消费同一份缓存。站点侧的全站派生数据走 `onScan` 钩子注入 island，禁止在 vite.config 里自己 walk 目录/parse frontmatter。
+框架对内容树**单遍扫描**：每个 markdown 文件每轮扫描恰好读盘一次（`scanSite` 限并发批量异步读取，`scanFile` 是 dev 单文件刷新的同步形态），frontmatter 解析、渲染、shiki 预热、git 时间、站点钩子全部消费同一份缓存。站点侧的全站派生数据走 `onScan` 钩子注入 island，禁止在 vite.config 里自己 walk 目录/parse frontmatter。
 
 ## 组成与文件
 

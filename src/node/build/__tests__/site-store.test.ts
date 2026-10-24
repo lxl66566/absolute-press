@@ -226,7 +226,8 @@ describe('SiteStore', () => {
       'guide/b.md': '```ts\nconst x = 1;\n```\n',
     });
     const store = new SiteStore(fx.config);
-    const read = vi.spyOn(fs, 'readFileSync');
+    // The scan pass reads through fs.promises (batched); spy the same API.
+    const read = vi.spyOn(fs.promises, 'readFile');
     try {
       await store.sync('build');
       const files = await store.emitAll({

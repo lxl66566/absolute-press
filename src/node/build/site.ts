@@ -196,6 +196,13 @@ interface RenderContext {
   siblings: Map<string, Map<string, PageSource>>;
   /** Archive key `<kind>/<name>` -> alternates; lazy like the chrome. */
   archiveAlternates: Map<string, PageAlternate[]> | null;
+  /**
+   * Both kinds' archive pages across all locales; derived lazily like the
+   * alternates. Every consumer wants the pair, and each derivation groups
+   * and sorts every locale's article list per kind, so one shared cache per
+   * context halves the work on dev archive requests and the build emit.
+   */
+  archives: { category: ArchivePage[]; tag: ArchivePage[] } | null;
   /** Enabled built-in listing pages (config `pages`), config locale order. */
   listings: ListingPage[];
   integrations: Pick<
@@ -782,6 +789,7 @@ export class SiteStore {
       refsAssets: new Map(),
       siblings: siblingIndex(pages),
       archiveAlternates: null,
+      archives: null,
       listings: listingPages(this.config),
       integrations: this.siteIntegrations(pages),
     };
@@ -917,7 +925,7 @@ export class SiteStore {
     };
   }
 
-  /** Aggregated `/category/<name>` and `/tag/<name>` pages. */
+  /** Aggregated `/category/<name>` and `/tag/<name>` pages of one kind. */
   private archivePages(
     ctx: RenderContext,
     kind: 'category' | 'tag',
@@ -936,6 +944,23 @@ export class SiteStore {
       }
     }
     return out;
+  }
+
+  /**
+   * Both kinds' archive pages, derived once per context (compute-if-absent
+   * like the chrome and the alternates). The context lives exactly one dev
+   * request or one build emit and is rebuilt from the fresh scan by
+   * buildContext(), so the cache cannot outlive a resync.
+   */
+  private archivesOf(ctx: RenderContext): {
+    category: ArchivePage[];
+    tag: ArchivePage[];
+  } {
+    ctx.archives ??= {
+      category: this.archivePages(ctx, 'category'),
+      tag: this.archivePages(ctx, 'tag'),
+    };
+    return ctx.archives;
   }
 
   /**
@@ -989,10 +1014,8 @@ export class SiteStore {
   ): Map<string, PageAlternate[]> {
     ctx.archiveAlternates ??= (() => {
       const groups = new Map<string, Map<string, PageAlternate>>();
-      for (const archive of [
-        ...this.archivePages(ctx, 'category'),
-        ...this.archivePages(ctx, 'tag'),
-      ]) {
+      const { category, tag } = this.archivesOf(ctx);
+      for (const archive of [...category, ...tag]) {
         const key = `${archive.kind}/${archive.title}`;
         let group = groups.get(key);
         if (!group) {
@@ -1222,7 +1245,13 @@ export class SiteStore {
    * markers resolve to their final HTML (gated pages keep them inside the
    * gate), gated pages are wrapped in a PasswordGate island placeholder
    * (content hidden until the client gate unlocks it); article pages get the
-   * Giscus island appended.
+   * Giscus island appended. Also decides the page's KaTeX need over the
+   * decorated content and — when the term-ref bodies left the document
+   * (build externalization) — the bodies as served from their asset, so
+   * math living solely inside a popover keeps its styles. This is the single
+   * katex channel: the emit-level asset decision accumulates exactly this
+   * verdict instead of rescanning raw page html (which would silently depend
+   * on build component output never carrying math).
    */
   private decorateContent(
     page: PageSource,
@@ -1230,10 +1259,7 @@ export class SiteStore {
     html: string,
     ctx: RenderContext,
     externalizeRefs: boolean,
-    // `refBodies` carries the joined term-ref bodies only when they left the
-    // document (build), so the caller's katex check still covers math living
-    // solely inside popover bodies.
-  ): { content: string; refBodies: string | null } {
+  ): { content: string; usesKatex: boolean } {
     let content = this.swapBuildComponents(page, ctx, html);
     const defs = this.termDefsOf(page, content);
     let refBodies: string | null = null;
@@ -1292,7 +1318,10 @@ export class SiteStore {
       );
       content += `<div data-ap-island="Giscus" data-props="${props}"></div>`;
     }
-    return { content, refBodies };
+    const usesKatex =
+      pageUsesKatex(content) ||
+      (refBodies !== null && pageUsesKatex(refBodies));
+    return { content, usesKatex };
   }
 
   /** Marker div emitted by the markdown renderer for a build component tag;
@@ -1459,39 +1488,53 @@ export class SiteStore {
     console.warn(message);
   }
 
-  /** Dev middleware / build emitter: full HTML for a page route, or null. */
-  htmlForPage(
+  /**
+   * Full HTML for a page route plus whether its decorated content needs the
+   * KaTeX stylesheet. emitAll accumulates the flag across the page loop to
+   * decide the shared katex assets, so the per-page verdict is the single
+   * source and no second scan over every page's html runs; dev middleware
+   * callers go through htmlForPage.
+   */
+  private pageHtml(
     page: PageSource,
     assets: BuildAssets,
     ctx: RenderContext,
-  ): string {
+  ): { html: string; usesKatex: boolean } {
     const rendered = this.renderedOf(page, ctx);
     // Dev-only feedback; the build emit path reports through generateBundle.
     if (this.trustWatcher) this.warnDevPageIssues(page, rendered);
     const payload = this.payloadFor(rendered, ctx);
-    const { content, refBodies } = this.decorateContent(
+    const { content, usesKatex } = this.decorateContent(
       page,
       payload,
       rendered.html,
       ctx,
       assets.isBuild,
     );
-    return renderShell({
-      ...this.shellArgs(assets, page.locale),
-      // Profile homes lead with the profile card occupying the outline
-      // lane, so the shell omits the TOC container entirely.
-      ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
-      // Only math pages carry the katex stylesheet; the check runs on the
-      // decorated content plus the externalized term-ref bodies, so math
-      // living solely inside a popover keeps its styles. The decision
-      // re-reads the cached html each pass, so it can never go stale.
-      ...(pageUsesKatex(content) ||
-      (refBodies !== null && pageUsesKatex(refBodies))
-        ? { katexHref: this.katexHref(assets.isBuild) }
-        : {}),
-      payload,
-      content,
-    });
+    return {
+      html: renderShell({
+        ...this.shellArgs(assets, page.locale),
+        // Profile homes lead with the profile card occupying the outline
+        // lane, so the shell omits the TOC container entirely.
+        ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
+        // Only math pages carry the katex stylesheet; the flag is
+        // decorateContent's verdict over this pass's content (and its
+        // externalized term-ref bodies), so it can never go stale.
+        ...(usesKatex ? { katexHref: this.katexHref(assets.isBuild) } : {}),
+        payload,
+        content,
+      }),
+      usesKatex,
+    };
+  }
+
+  /** Dev middleware: full HTML for a page route. */
+  htmlForPage(
+    page: PageSource,
+    assets: BuildAssets,
+    ctx: RenderContext,
+  ): string {
+    return this.pageHtml(page, assets, ctx).html;
   }
 
   private archiveHtml(
@@ -1645,9 +1688,10 @@ export class SiteStore {
     const ctx = this.buildContext();
     const page = this.links.pageForRoute(route);
     if (page) return this.htmlForPage(page, this.devAssets, ctx);
+    const { category, tag } = this.archivesOf(ctx);
     const synthetic: (ArchivePage | ListingPage)[] = [
-      ...this.archivePages(ctx, 'category'),
-      ...this.archivePages(ctx, 'tag'),
+      ...category,
+      ...tag,
       ...ctx.listings,
     ];
     const match = synthetic.find(a => a.route === route);
@@ -1696,27 +1740,29 @@ export class SiteStore {
         `[absolute-press] frontmatter icon(s) not registered in config icons map:\n${list}`,
       );
     }
-    const out: EmittedFile[] = [];
     // Prime every locale's externalized chrome asset before any page
     // renders: payloads reference the file names (chrome field + head
     // modulepreload), and _headers needs the locale mapping below.
     for (const locale of this.config.locales) {
       this.chromeFileOf(ctx, locale.key);
     }
+    const out: EmittedFile[] = [];
+    // The per-page katex verdict, accumulated for the asset decision below.
+    let pagesUseKatex = false;
     for (const page of this.pages) {
+      const { html, usesKatex } = this.pageHtml(page, assets, ctx);
+      pagesUseKatex ||= usesKatex;
       out.push({
         fileName: routeToFileName(
           page.route,
           this.config.urls.directoryIndex,
           INDEX_STEMS.has(stemOf(page.relPath)),
         ).slice(1),
-        source: this.htmlForPage(page, assets, ctx),
+        source: html,
       });
     }
-    const archives: ArchivePage[] = [
-      ...this.archivePages(ctx, 'category'),
-      ...this.archivePages(ctx, 'tag'),
-    ];
+    const { category, tag } = this.archivesOf(ctx);
+    const archives: ArchivePage[] = [...category, ...tag];
     // One collision surface for every synthetic route: archives, the
     // built-in listing pages and content pages fail loudly together.
     assertNoSyntheticCollisions(this.pages, [
@@ -1757,14 +1803,13 @@ export class SiteStore {
     for (const [fileName, source] of ctx.refsAssets) {
       out.push({ fileName, source });
     }
-    // KaTeX css + woff2 fonts ship only when at least one page rendered
-    // math; a math-free site carries neither (same check the shell uses).
-    // Ref articles render lazily during the page loop above, so their math
-    // is covered by the refRendered pass.
-    if (
-      ctx.pages.some(p => pageUsesKatex(p.html)) ||
-      [...this.refRendered.values()].some(r => pageUsesKatex(r.html))
-    ) {
+    // KaTeX css + woff2 fonts ship only when at least one page's decorated
+    // content (or its externalized term-ref bodies) needs them — the same
+    // per-page verdict that sets katexHref, accumulated in the loop above.
+    // Ref articles render during the loop and ride their using page's
+    // refBodies check, so no separate pass over ref html runs; a math-free
+    // site carries neither asset.
+    if (pagesUseKatex) {
       out.push(...katexAssets());
     }
     // Static hosts serve /404.html for unknown paths; a content page

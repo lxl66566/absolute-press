@@ -7,7 +7,8 @@ import { promisify } from 'node:util';
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-import { getGitTimes, mapWithLimit } from '../git.ts';
+import { mapWithLimit } from '../../limit.ts';
+import { getGitTimes } from '../git.ts';
 
 const execFileAsync = promisify(execFile);
 

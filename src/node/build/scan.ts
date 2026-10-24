@@ -6,10 +6,18 @@ import type {
   SiteScanContext,
   SiteScanPage,
 } from '../config.ts';
+import { mapWithLimit } from '../limit.ts';
 import { fenceLanguages } from '../markdown/fence.ts';
 import { parseFrontmatter } from '../markdown/frontmatter.ts';
 import { scanPages } from './pages.ts';
 import type { PageSource } from './pages.ts';
+
+/**
+ * Read/parse concurrency of the tree scan. Content files are small, so a
+ * moderate pool overlaps file IO without thrashing; the walk itself stays
+ * serial in scanPages and each file is still read exactly once.
+ */
+const SCAN_READ_LIMIT = 32;
 
 /** One content file's scan pass: the single disk read every consumer shares. */
 export interface ScannedFile {
@@ -33,24 +41,52 @@ export interface SiteScan {
   files: Map<string, ScannedFile>;
 }
 
-/** Read one file's scan pass: a single read plus stat, all parsing derived. */
-export function scanFile(filePath: string): ScannedFile {
-  const source = fs.readFileSync(filePath, 'utf8');
+/** Scan pass of one file's already-read source: frontmatter and fences. */
+function scannedFileOf(
+  filePath: string,
+  source: string,
+  mtimeMs: number,
+): ScannedFile {
   const { frontmatter, raw } = parseFrontmatter(source, filePath);
   return {
     source,
-    mtimeMs: fs.statSync(filePath).mtimeMs,
+    mtimeMs,
     frontmatter,
     rawFrontmatter: raw,
     fenceLangs: [...fenceLanguages(source)],
   };
 }
 
+/**
+ * Sync single-file form of the scan pass (a single read plus stat, all
+ * parsing derived); the dev watcher path uses it to refresh one cache entry,
+ * the tree scan batches asynchronously below.
+ */
+export function scanFile(filePath: string): ScannedFile {
+  const source = fs.readFileSync(filePath, 'utf8');
+  return scannedFileOf(filePath, source, fs.statSync(filePath).mtimeMs);
+}
+
+/** Async form of scanFile for the batched tree scan. */
+async function readFileScan(filePath: string): Promise<ScannedFile> {
+  const source = await fs.promises.readFile(filePath, 'utf8');
+  // Stat after the read keeps "mtime at read time" honest.
+  const stat = await fs.promises.stat(filePath);
+  return scannedFileOf(filePath, source, stat.mtimeMs);
+}
+
 /** Scan the content tree: walk once (scanPages), then read every file once. */
 export async function scanSite(config: ResolvedConfig): Promise<SiteScan> {
   const sources = await scanPages(config);
+  const scanned = await mapWithLimit(sources, SCAN_READ_LIMIT, page =>
+    readFileScan(page.filePath),
+  );
+  // Same Map layout as the serial form: keys follow the sources order.
   const files = new Map<string, ScannedFile>();
-  for (const page of sources) files.set(page.filePath, scanFile(page.filePath));
+  for (const [index, page] of sources.entries()) {
+    // mapWithLimit fills every index before resolving.
+    files.set(page.filePath, scanned[index]!);
+  }
   return { sources, files };
 }
 

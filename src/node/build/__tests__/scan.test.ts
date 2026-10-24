@@ -50,7 +50,9 @@ describe('scanSite', () => {
       'guide/sub/b.md': '# B\n',
       'notes.txt': 'ignored\n',
     });
-    const readSpy = vi.spyOn(fs, 'readFileSync');
+    // The tree scan reads through fs.promises; spy the same API to prove
+    // the single read per file.
+    const readSpy = vi.spyOn(fs.promises, 'readFile');
     const scan = await scanSite(config);
 
     expect(scan.sources.map(p => p.relPath)).toEqual([
