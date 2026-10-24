@@ -53,7 +53,7 @@ test('header clicks cycle column sorts on the columns list', async ({
   page,
 }) => {
   await page.goto(PAGE);
-  // Third list on the page: the `:columns` demo (游戏名/时长/剧情/画风/备注).
+  // Third list on the page: the `:columns` demo (书名/阅读区间/时长/备注).
   const list = page.locator(LIST).nth(2);
   const titles = () => list.locator('.ap-xlist__title').allTextContents();
   const sorter = list.locator('.ap-xlist__sorter');
@@ -65,10 +65,10 @@ test('header clicks cycle column sorts on the columns list', async ({
   // Locale-independent invariants: same rows, exact reverse order.
   expect(ascending).toEqual(descending.toReversed());
   await sorter.first().click();
-  await expect(titles()).resolves.toEqual(['KARAKARA', 'サルテ']);
-  // 剧情 column sorts by cell text with numeric digit runs (3.3 < 7.7).
+  await expect(titles()).resolves.toEqual(['设计中的设计', '重构']);
+  // 时长 column sorts by cell text with numeric digit runs (3h49min < 6h12min).
   await sorter.nth(2).click();
-  await expect(titles()).resolves.toEqual(['KARAKARA', 'サルテ']);
+  await expect(titles()).resolves.toEqual(['重构', '设计中的设计']);
   await expect(list.locator('.ap-xlist__th').nth(2)).toHaveAttribute(
     'aria-sort',
     'ascending',
