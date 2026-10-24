@@ -20,6 +20,7 @@
   },
   "files": [
     "index.mjs",
+    "sanitize-name.mjs",
     "template"
   ],
   "type": "module",

@@ -10,11 +10,18 @@ import { basename, resolve } from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { sanitizePackageName } from './sanitize-name.mjs';
+
 const usage = 'usage: pnpm create absolute-press [target-dir]';
 const arg = argv[2];
 if (!arg || arg === '-h' || arg === '--help') {
-  console.log(usage);
-  exit(arg ? 0 : 1);
+  // Wrong invocation reports on stderr; -h/--help answers on stdout.
+  if (arg) {
+    console.log(usage);
+    exit(0);
+  }
+  console.error(usage);
+  exit(1);
 }
 
 const target = resolve(arg);
@@ -30,9 +37,16 @@ cpSync(fileURLToPath(new URL('./template', import.meta.url)), target, {
 });
 
 const name = basename(target);
+const pkgName = sanitizePackageName(name);
+if (pkgName !== name) {
+  console.log(`package name: ${pkgName}`);
+}
 for (const file of ['package.json', 'README.md']) {
   const path = resolve(target, file);
-  writeFileSync(path, readFileSync(path, 'utf8').replaceAll('my-blog', name));
+  writeFileSync(
+    path,
+    readFileSync(path, 'utf8').replaceAll('my-blog', pkgName),
+  );
 }
 
 console.log(`Scaffolded an absolute-press site in ${target}`);
