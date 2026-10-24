@@ -1,5 +1,6 @@
 import matter from 'gray-matter';
 
+import { formatDate } from '../../shared/date.ts';
 import type { PageFrontmatter } from '../../shared/types.ts';
 
 export interface ParsedSource {
@@ -23,8 +24,15 @@ export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
   const frontmatter: PageFrontmatter = {};
 
   const date = raw['date'];
-  if (typeof date === 'string') frontmatter.date = date;
-  else if (date instanceof Date) frontmatter.date = formatDate(date);
+  if (typeof date === 'string') frontmatter.date = normalizeDateString(date);
+  else if (date instanceof Date) {
+    // yaml Date: the UTC calendar date IS the written one (js-yaml builds
+    // timestamps with Date.UTC — see shared/date.ts formatDate). Only stamps
+    // with seconds reach here as Dates; zoneless second-less stamps stay
+    // plain strings and go through normalizeDateString above.
+    const formatted = formatDate(date);
+    if (formatted !== null) frontmatter.date = formatted;
+  }
 
   const category = toStringList(raw['category']);
   if (category) frontmatter.category = category;
@@ -64,18 +72,36 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Normalize a yaml Date to `yyyy-MM-dd`. js-yaml builds yaml timestamps with
- * `Date.UTC` (verified against the pinned dependency: bare dates land at UTC
- * midnight and zoneless stamps like `2024-12-31 23:30:00` keep the written
- * components as UTC ones), so the UTC calendar date IS the written date on
- * every host timezone. Local-component formatting would drift late-UTC
- * stamps into the next day on UTC+ hosts. Stamps with an explicit timezone
- * are converted to UTC first; their written wall date is not restored.
- * Zoneless stamps without seconds (js-yaml requires them) never reach here:
- * they stay plain strings and pass through the string branch above.
+ * Quoted zoneless `yyyy-MM-dd[ T]hh:mm[:ss]` stamps: rewritten to the ISO
+ * `T`/`Z` form so downstream `new Date()` reads the written components as
+ * UTC. ECMAScript parses zoneless date-time strings in the LOCAL zone,
+ * which made `createdAtOf`'s toISOString drift with the build host
+ * timezone; the author zone is unknowable, so UTC is the only reproducible
+ * reading — the same interpretation as the yaml Date branch above.
+ * Lenient on purpose: V8's fallback parser also accepts a lowercase `t`,
+ * separator runs, and single-component digits (all read in the local
+ * zone), so the pattern matches them too instead of leaving the drift in
+ * place for rare spellings; components are re-padded on the way out.
+ * Date-only strings stay as written (spec: parsed as UTC); stamps with an
+ * explicit extended offset keep it (only the separator is normalized).
+ * Anything else passes through untouched.
  */
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** Zero-pad a numeric string component to two digits. */
+const pad = (n: string): string => n.padStart(2, '0');
+
+function normalizeDateString(value: string): string {
+  const match =
+    /^(\d{4}-\d{2}-\d{2})(?:[ Tt]\s*|\s+)(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})?$/.exec(
+      value,
+    );
+  if (!match) return value;
+  const date = match[1];
+  const hh = pad(match[2] ?? '');
+  const mm = pad(match[3] ?? '');
+  const ss = pad(match[4] ?? '0');
+  const frac = match[5] ? `.${match[5]}` : '';
+  const zone = match[6] ?? 'Z';
+  return `${date}T${hh}:${mm}:${ss}${frac}${zone}`;
 }
 
 /** Accept a single string or a string array; drop anything else. */

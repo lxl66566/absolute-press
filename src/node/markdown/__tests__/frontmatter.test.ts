@@ -63,12 +63,14 @@ describe('frontmatter', () => {
     );
   });
 
-  it('passes zoneless stamps without seconds through as plain strings', () => {
+  it('normalizes quoted zoneless stamps to UTC ISO', () => {
     // `2024-12-31 00:30` fails js-yaml's timestamp regex and stays a string;
-    // locked here so the passthrough cannot drift silently.
+    // the string branch rewrites it to the T/Z form so downstream `new
+    // Date()` cannot parse it in the build host's local zone (see
+    // frontmatter-tz.test.ts for the timezone-sensitive assertions).
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = md.render('---\ndate: 2024-12-31 00:30\n---\n\nx', ENV);
-    expect(result.frontmatter.date).toBe('2024-12-31 00:30');
+    expect(result.frontmatter.date).toBe('2024-12-31T00:30:00Z');
   });
 
   it('stays silent in the renderer; the site scan owns unknown-key warnings', () => {
