@@ -567,6 +567,46 @@ describe('SiteStore', () => {
     expect(robots).not.toContain('re/');
   });
 
+  it('keeps gated pages out of the rss feed (build and dev)', async () => {
+    // Sitemap parity: a feed item would advertise the gated URL, its title
+    // and a plain-text excerpt of the gated content.
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'open.md': '---\ndate: 2024-01-01\n---\n\n# Open post\n',
+      'secret.md':
+        '---\ndate: 2024-01-02\n---\n\n# Secret post\n\ngated prose here\n',
+    });
+    const config = resolveConfig(
+      {
+        contentDir: 'content',
+        title: 'Site',
+        description: 'desc',
+        hostname: 'https://test.example.com',
+        encrypt: [{ match: '/secret', passwords: ['pw'] }],
+      },
+      fx.root,
+    );
+    const store = new SiteStore(config);
+    await store.sync('build');
+    const rss = rssOf(
+      await store.emitAll({
+        isBuild: true,
+        scriptFile: 'assets/entry.js',
+        cssFiles: [],
+      }),
+    );
+    expect(rss).toContain('https://test.example.com/open');
+    expect(rss).not.toContain('secret');
+    expect(rss).not.toContain('gated prose');
+
+    // The dev middleware serves the same exclusion.
+    const devStore = new SiteStore(config);
+    await devStore.sync('dev');
+    const devRss = devStore.rss();
+    expect(devRss).toContain('https://test.example.com/open');
+    expect(devRss).not.toContain('secret');
+  });
+
   it('keeps seo.exclude prefixes out of the sitemap and disallowed in robots.txt', async () => {
     const fx = await contentFixture({
       'index.md': '# Home\n',

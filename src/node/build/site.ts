@@ -1590,8 +1590,12 @@ export class SiteStore {
   }
 
   rss(): string {
+    // Gated pages stay out: a feed item advertises the URL, title and
+    // content excerpt exactly like a sitemap entry would.
     const feedable = this.renderAll().filter(
-      p => p.meta.frontmatter.feed !== false,
+      p =>
+        p.meta.frontmatter.feed !== false &&
+        !encryptRuleFor(p.route, this.config.encrypt),
     );
     return renderRss(this.config, this.feedArticles(feedable));
   }
@@ -1729,7 +1733,13 @@ export class SiteStore {
         alternates: this.listingAlternates(ctx, l.kind),
       })),
     ];
-    const feedable = ctx.pages.filter(p => p.meta.frontmatter.feed !== false);
+    // Sitemap parity for the feed: gated pages stay out (a feed item
+    // advertises the URL, title and content excerpt the same way).
+    const feedable = ctx.pages.filter(
+      p =>
+        p.meta.frontmatter.feed !== false &&
+        !encryptRuleFor(p.route, this.config.encrypt),
+    );
     out.push({
       fileName: 'rss.xml',
       source: renderRss(this.config, this.feedArticles(feedable)),
