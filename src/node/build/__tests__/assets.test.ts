@@ -304,6 +304,13 @@ describe('applyAssetBase', () => {
       '<img src="../assets/img/a.png"><img src="../assets/img/b.png">',
     );
   });
+
+  it('leaves dash-suffixed attribute names untouched', () => {
+    // \bsrc used to match the tail of data-src (`-` to `s` is a word
+    // boundary); a name must open the attribute.
+    const html = '<div data-src="absasset:assets/img/a.png">x</div>';
+    expect(applyAssetBase(html, '../')).toBe(html);
+  });
 });
 
 describe('LinkResolver.resolveLink with registered refs', () => {

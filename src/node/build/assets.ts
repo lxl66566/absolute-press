@@ -221,8 +221,10 @@ function splitAnchor(href: string): [string, string] {
  */
 export function applyAssetBase(html: string, base: string): string {
   return html.replace(
-    /\b(src|href)=(["'])absasset:([^"']*)\2/g,
-    (_m, attr: string, quote: string, rest: string) =>
-      `${attr}=${quote}${base}${rest}${quote}`,
+    // The attribute name must open the attribute: a bare \b(src|href) also
+    // matches the tail of data-src (`-` to `s` is a word boundary).
+    /(^|[\s<])(src|href)=(["'])absasset:([^"']*)\3/g,
+    (_m, lead: string, attr: string, quote: string, rest: string) =>
+      `${lead}${attr}=${quote}${base}${rest}${quote}`,
   );
 }

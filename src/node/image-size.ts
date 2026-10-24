@@ -169,7 +169,13 @@ function svgSize(buf: Buffer): ImageDimension | null {
   const tag = /<svg\b[^>]*>/i.exec(head)?.[0];
   if (!tag) return null;
   const attr = (name: string): string | null => {
-    const m = new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, 'i').exec(tag);
+    // The name must open an attribute: a bare \b is wrong here because `-`
+    // (non-word) to a letter is a boundary, so \bwidth also matches the tail
+    // of stroke-width (lucide/feather icons) and reads its value.
+    const m = new RegExp(
+      `(?:^|[\\s"'<])${name}\\s*=\\s*(["'])(.*?)\\1`,
+      'i',
+    ).exec(tag);
     return m?.[2] ?? null;
   };
   const viewBox = (): [number, number] | null => {

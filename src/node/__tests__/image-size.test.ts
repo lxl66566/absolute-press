@@ -182,6 +182,24 @@ describe('imageSizeOf', () => {
     expect(imageSizeOf(buf)).toEqual(dim(30, 20));
   });
 
+  it('does not read the width tail of stroke-width (lucide shape)', () => {
+    // \bwidth used to match inside stroke-width: `-` to `w` is a word
+    // boundary, so attr('width') returned "2" and the viewBox completion
+    // produced 2x2 instead of the true 24x24.
+    const lucide =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"' +
+      ' viewBox="0 0 24 24" fill="none" stroke="currentColor"' +
+      ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M0 0"/></svg>';
+    expect(imageSizeOf(Buffer.from(lucide))).toEqual(dim(24, 24));
+    // A dash-suffixed attribute before the real one must not override it.
+    expect(
+      imageSizeOf(
+        svgBytes('stroke-width="9" viewBox="0 0 10 20" width="10" height="20"'),
+      ),
+    ).toEqual(dim(10, 20));
+  });
+
   it('completes a partial SVG size pair from the viewBox ratio', () => {
     expect(imageSizeOf(svgBytes('width="120" viewBox="0 0 240 100"'))).toEqual(
       dim(120, 50),
