@@ -475,10 +475,20 @@ test.describe('docs: i18n', () => {
       ),
     ).toBe(42);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    // Both persistent chrome roots must show the en trees and copy.
-    await expect(page.locator('#ap-nav')).toContainText('Getting started');
+    // Both persistent chrome roots must show the en trees and copy. The
+    // navbar lane only renders its top-level rows (panels mount on first
+    // open), so the remounted tree is asserted through an opened panel.
+    const navLane = page.locator('#ap-nav header nav > ul');
+    await expect(navLane).toContainText('Guide');
+    await expect(navLane).not.toContainText('指南');
+    await navLane.locator('li', { hasText: 'Guide' }).first().hover();
+    await expect(
+      page
+        .locator('#ap-nav ul.ap-nav-drop a')
+        .filter({ hasText: 'Getting started' })
+        .first(),
+    ).toBeVisible();
     await expect(page.locator('#ap-sidebar')).toContainText('Getting started');
-    await expect(page.locator('#ap-nav')).not.toContainText('指南');
     await expect(
       page.locator('#ap-nav button[aria-label="Change language"]'),
     ).toBeAttached();
@@ -493,7 +503,8 @@ test.describe('docs: i18n', () => {
       ),
     ).toBe(42);
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await expect(page.locator('#ap-nav')).toContainText('指南');
+    await expect(navLane).toContainText('指南');
+    await expect(navLane).not.toContainText('Guide');
     await expect(page.locator('#ap-sidebar')).toContainText('指南');
     await expect(page.locator('#ap-nav')).not.toContainText('Getting started');
   });

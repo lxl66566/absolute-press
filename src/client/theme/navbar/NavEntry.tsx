@@ -108,12 +108,18 @@ export function NavEntry(props: {
   const external = link !== undefined && isExternalHref(link);
   const menuKey = `${props.parentKey ?? ''}/${link ?? item.text}`;
   let liEl: HTMLLIElement | undefined;
-  let flyEl: HTMLUListElement | undefined;
   const [hovered, setHovered] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
   // The effect below needs the li as a reactive value: a plain-let getter is
   // read before the JSX (and its refs) exist and never re-runs.
   const [liNode, setLiNode] = createSignal<HTMLLIElement>();
+  // Panels mount on first open and stay mounted (closing only hides them):
+  // eagerly rendered invisible panels would bloat the initial DOM of every
+  // page by the whole nav tree. flyNode joins the placement effect so the
+  // first open measures the panel only once its rows are actually in the DOM.
+  // Desktop flyout only — the mobile drawer builds its own tree lazily.
+  const [everOpened, setEverOpened] = createSignal(false);
+  const [flyNode, setFlyNode] = createSignal<HTMLUListElement>();
   const open = () => hovered() || focused() || pinnedKey() === menuKey;
 
   /**
@@ -125,37 +131,38 @@ export function NavEntry(props: {
    * placement.ts (pure, unit-tested); this shell only measures and writes.
    */
   const placeFlyout = (): void => {
-    if (!liEl || !flyEl) return;
+    const fly = flyNode();
+    if (!liEl || !fly) return;
     const headerBox = liEl.closest('header')?.getBoundingClientRect();
     const li = liEl.getBoundingClientRect();
     const viewW = window.innerWidth;
     const viewH = window.innerHeight;
     // Measure the natural size with any previous clamp removed.
-    flyEl.style.maxHeight = '';
-    flyEl.style.maxWidth = '';
+    fly.style.maxHeight = '';
+    fly.style.maxWidth = '';
     if (props.nested) {
       // The width clamp must land before measuring: it changes how rows
       // wrap and thus the panel's natural height.
-      flyEl.style.maxWidth = `${nestedMaxWidth(viewW, li.right)}px`;
-      const fly = flyEl.getBoundingClientRect();
+      fly.style.maxWidth = `${nestedMaxWidth(viewW, li.right)}px`;
+      const flyBox = fly.getBoundingClientRect();
       const placed = placeNestedFlyout({
         viewport: { width: viewW, height: viewH },
         anchor: { top: li.top, right: li.right },
-        panel: { height: fly.height },
+        panel: { height: flyBox.height },
         navBottom: headerBox?.bottom ?? 0,
       });
-      flyEl.style.left = `${placed.left - (headerBox?.left ?? 0)}px`;
-      flyEl.style.top = `${placed.top - (headerBox?.top ?? 0)}px`;
-      flyEl.style.maxHeight = `${placed.maxHeight}px`;
+      fly.style.left = `${placed.left - (headerBox?.left ?? 0)}px`;
+      fly.style.top = `${placed.top - (headerBox?.top ?? 0)}px`;
+      fly.style.maxHeight = `${placed.maxHeight}px`;
       return;
     }
-    const fly = flyEl.getBoundingClientRect();
+    const flyBox = fly.getBoundingClientRect();
     const left = placeTopFlyout({
       viewport: { width: viewW },
       anchor: { left: li.left },
-      panel: { width: fly.width },
+      panel: { width: flyBox.width },
     });
-    flyEl.style.left = `${left - (headerBox?.left ?? 0)}px`;
+    fly.style.left = `${left - (headerBox?.left ?? 0)}px`;
   };
 
   const togglePin = (e: MouseEvent): void => {
@@ -202,14 +209,26 @@ export function NavEntry(props: {
     },
   );
 
-  // Placement runs while the panel is visible; the fixed panel follows
-  // parent-panel scrolling and viewport changes. The returned cleanup runs
-  // both on close and when the owner is disposed mid-open — otherwise the
-  // window listener outlives the entry.
+  // First open (hover, focus or pin — every path flips open) builds the
+  // panel; closing never unmounts it again.
   createEffect(
     () => open(),
     isOpen => {
-      if (!isOpen) return;
+      if (isOpen) setEverOpened(true);
+    },
+  );
+
+  // Placement runs while the panel is visible; the fixed panel follows
+  // parent-panel scrolling and viewport changes. flyNode in the deps places
+  // a freshly mounted panel right after its rows land in the DOM (its ref
+  // fires mid-insert; the effect re-runs once the insert completes), so the
+  // first open measures the real panel. The returned cleanup runs both on
+  // close and when the owner is disposed mid-open — otherwise the window
+  // listener outlives the entry.
+  createEffect(
+    () => [open(), flyNode()] as const,
+    ([isOpen, fly]) => {
+      if (!isOpen || !fly) return;
       placeFlyout();
       const panel = liEl?.closest('.ap-nav-drop');
       panel?.addEventListener('scroll', placeFlyout, { passive: true });
@@ -321,7 +340,7 @@ export function NavEntry(props: {
           </a>
         )}
       </Show>
-      <Show when={hasChildren}>
+      <Show when={hasChildren && everOpened()}>
         <NavDropPanel
           item={item}
           base={props.base}
@@ -329,9 +348,7 @@ export function NavEntry(props: {
           parentKey={menuKey}
           open={open}
           icons={props.icons}
-          flyRef={el => {
-            flyEl = el;
-          }}
+          flyRef={setFlyNode}
         />
       </Show>
     </li>
@@ -344,7 +361,7 @@ export function NavEntry(props: {
  * near the viewport's right edge, nested ones are placed by JS. Fixed keeps
  * every panel out of flow (no overflow contribution) and both size to their
  * longest row (H8: no more two-line wraps from the anchor width) with a
- * viewport-safe cap.
+ * viewport-safe cap. Mounted by the owner on first open (keep-mounted after).
  */
 function NavDropPanel(props: {
   item: NavItem;
