@@ -487,6 +487,15 @@ export interface ResolvedConfig {
  */
 function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
   const image = seo?.image?.trim() ? seo.image : undefined;
+  // JS config files bypass the compile-time author shape; guard before the
+  // trim so a name-less or wrongly-typed author fails like every other
+  // config error instead of a bare undefined.trim() TypeError. A blank
+  // string stays "unset" (same policy as the image above).
+  if (seo?.author && typeof seo.author.name !== 'string') {
+    throw new Error(
+      `[absolute-press] seo.author.name must be a string (got ${String(seo.author.name)})`,
+    );
+  }
   const author = seo?.author?.name.trim() ? seo.author : undefined;
   const exclude = (seo?.exclude ?? []).map(normalizeRouteForMatch);
   if (!image && !author && exclude.length === 0) return undefined;
@@ -570,12 +579,31 @@ function resolveRefs(
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
+/** Locale keys become route prefixes (`/<key>`) and content directory names;
+ * word chars plus dashes keep URLs and file systems sane. */
+const LOCALE_KEY_RE = /^[\w-]+$/;
+
 export function resolveConfig(
   config: AbsolutePressConfig,
   root: string,
   /** Vite public dir; false = disabled. Defaults to `<root>/public` (vite's default). */
   publicDir: string | false = path.join(root, 'public'),
 ): ResolvedConfig {
+  // Object keys cannot repeat, so the only cross-locale key collision is
+  // with the reserved default key — it would silently overwrite the default
+  // locale's entry in every locale-keyed map (siblings, chrome, scan refs).
+  for (const key of Object.keys(config.locales ?? {})) {
+    if (key === DEFAULT_LOCALE_KEY) {
+      throw new Error(
+        `[absolute-press] locale key '${key}' is reserved for the default locale; rename the entry`,
+      );
+    }
+    if (!LOCALE_KEY_RE.test(key)) {
+      throw new Error(
+        `[absolute-press] locale key '${key}' must match ${LOCALE_KEY_RE} (it becomes the route prefix and the content directory name)`,
+      );
+    }
+  }
   const locales: LocaleInfo[] = [
     {
       key: DEFAULT_LOCALE_KEY,

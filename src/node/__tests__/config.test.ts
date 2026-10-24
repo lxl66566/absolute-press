@@ -142,6 +142,38 @@ describe('resolveConfig locales', () => {
       prefix: '/en',
     });
   });
+
+  it('rejects the reserved default-locale key', () => {
+    // Two locales with key 'root' would silently overwrite each other in
+    // every locale-keyed map (siblings, chrome, scan refs, ref renders).
+    const bad = {
+      ...baseConfig(),
+      locales: { root: { lang: 'en-US', label: 'English' } },
+    };
+    expect(() => resolveConfig(bad, '/root')).toThrowError(
+      /locale key 'root' is reserved for the default locale/,
+    );
+  });
+
+  it('rejects keys unusable as a route prefix or directory name', () => {
+    for (const key of ['zh CN', 'zh/CN', 'zh%20CN', 'zh.CN']) {
+      const bad = {
+        ...baseConfig(),
+        locales: { [key]: { lang: 'en-US', label: 'English' } },
+      };
+      expect(() => resolveConfig(bad, '/root')).toThrowError(/must match/i);
+    }
+    // Word chars and dashes stay legal.
+    expect(() =>
+      resolveConfig(
+        {
+          ...baseConfig(),
+          locales: { 'pt-BR_2': { lang: 'pt-BR', label: 'pt' } },
+        },
+        '/root',
+      ),
+    ).not.toThrow();
+  });
 });
 
 describe('resolveConfig nav', () => {
@@ -368,6 +400,25 @@ describe('resolveConfig seo', () => {
       '/root',
     );
     expect(imageOnly.seo).toEqual({ image: '/og.png' });
+  });
+
+  it('rejects a name-less or wrongly-typed author with a friendly error', () => {
+    // JS config files bypass the author type; a bare undefined.trim()
+    // TypeError used to escape without the [absolute-press] prefix.
+    const nameless = {
+      ...baseConfig(),
+      seo: { author: {} as { name: string } },
+    };
+    expect(() => resolveConfig(nameless, '/root')).toThrowError(
+      /\[absolute-press\] seo\.author\.name must be a string \(got undefined\)/,
+    );
+    // JSON round-trip mirrors the unchecked JS-config input (a number name).
+    const mistyped = JSON.parse(
+      JSON.stringify({ ...baseConfig(), seo: { author: { name: 42 } } }),
+    ) as Parameters<typeof resolveConfig>[0];
+    expect(() => resolveConfig(mistyped, '/root')).toThrowError(
+      /seo\.author\.name must be a string \(got 42\)/,
+    );
   });
 });
 
