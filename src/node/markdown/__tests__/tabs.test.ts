@@ -81,6 +81,22 @@ describe('tabs container', () => {
     expect(result.html).toContain('name="ap-tabs-配置标签-1"');
   });
 
+  it('escapes persist ids carrying quotes in data-persist and radio name', () => {
+    // `"` in the id used to close the name attribute unescaped, turning the
+    // rest into standalone attributes (event-handler injection).
+    const result = md.render(
+      '::: tabs#a"onmouseover="alert(1)\n@tab A\na\n:::',
+      ENV,
+    );
+    expect(result.html).toContain(
+      'data-persist="a&quot;onmouseover=&quot;alert(1)"',
+    );
+    expect(result.html).toContain(
+      'name="ap-tabs-a&quot;onmouseover=&quot;alert(1)-1"',
+    );
+    expect(result.html).not.toContain('"onmouseover');
+  });
+
   it('gives same-persist groups on one page unique radio names', () => {
     // Regression: N groups with one persist id used to share `ap-tabs-<id>`,
     // forming a single radio exclusion group that left only the last group's

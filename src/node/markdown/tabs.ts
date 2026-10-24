@@ -87,7 +87,10 @@ export function registerTabs(md: MarkdownIt): void {
       );
     }
     return (
-      `<input class="ap-tabs__radio" type="radio" id="${inputId}" name="${group}"${checked}>\n` +
+      // group embeds the author-controlled persist id: escape it like
+      // data-persist, or `"` in the id closes the attribute and injects
+      // event handlers. getAttribute reads the unescaped value back.
+      `<input class="ap-tabs__radio" type="radio" id="${inputId}" name="${md.utils.escapeHtml(group)}"${checked}>\n` +
       `<label class="ap-tabs__label" for="${inputId}">${titleHtml}</label>\n` +
       `<div class="ap-tab" data-title="${md.utils.escapeHtml(meta.title)}">\n`
     );
