@@ -1,7 +1,9 @@
+import MarkdownIt from 'markdown-it';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { MarkdownRenderer } from '../../../shared/types.ts';
-import { ENV, makeRenderer } from './helpers.ts';
+import { installLinkRules, SKIP_LINK_LINES_KEY } from '../link-rules.ts';
+import { ENV, makeCtxEnv, makeRenderer } from './helpers.ts';
 
 let md: MarkdownRenderer;
 beforeAll(async () => {
@@ -114,6 +116,62 @@ describe('source lines', () => {
     const result = renderer.render('<Demo>\n\n[go](./foo.md)\n\n</Demo>', ENV);
     expect(result.links).toHaveLength(1);
     expect(result.links[0]?.line).toBeUndefined();
+  });
+
+  it('omits lines for links inside container and tab titles', () => {
+    // renderInline wraps the title in one token with placeholder map [0, 1];
+    // stamping it used to blame line 1 for a link sitting on line 3/8.
+    const src = [
+      'intro',
+      '',
+      '::: tip [go](./dead.md)',
+      'body',
+      ':::',
+      '',
+      '::: tabs',
+      '@tab [tab](./dead.md)',
+      'content',
+      ':::',
+    ].join('\n');
+    const result = md.render(src, ENV);
+    expect(result.links).toHaveLength(2);
+    expect(result.links[0]?.line).toBeUndefined();
+    expect(result.links[1]?.line).toBeUndefined();
+  });
+
+  it('omits lines for links inside xlist meta cells', async () => {
+    const renderer = await makeRenderer({
+      islands: [{ name: 'ExpandableList' }],
+    });
+    const src = [
+      '<ExpandableList>',
+      '',
+      '@@@ Alpha',
+      '@@ [go](./dead.md)',
+      '',
+      'body',
+      '',
+      '</ExpandableList>',
+    ].join('\n');
+    const result = renderer.render(src, ENV);
+    expect(result.links).toHaveLength(1);
+    expect(result.links[0]?.line).toBeUndefined();
+  });
+
+  it('skips stamping when the explicit env flag is set', () => {
+    // The renderer sets apSkipLinkLines on fragment-relative renders (see
+    // renderer.ts); here the flag is exercised directly.
+    const raw = new MarkdownIt({ html: true });
+    installLinkRules(raw, undefined, undefined, undefined);
+    const tokens = raw.parse('[go](./foo.md)', {
+      ...makeCtxEnv(),
+      [SKIP_LINK_LINES_KEY]: true,
+    });
+    const link = tokens
+      .find(t => t.type === 'inline')
+      ?.children?.find(c => c.type === 'link_open');
+    // Unstamped link_open keeps markdown-it's null meta (no apLine key).
+    expect(link?.meta).toBeNull();
   });
 });
 

@@ -21,6 +21,14 @@ function isOutbound(href: string): boolean {
 /** meta key of the 1-based source line stamped by `markLinkLines`. */
 const LINE_KEY = 'apLine';
 
+/**
+ * Env flag marking renders whose token maps are fragment-relative (island
+ * inner fragments, ref articles): markLinkLines must not stamp page lines
+ * there. Explicit opt-out instead of piggybacking on the footnote `docId`
+ * env the same renders happen to set.
+ */
+export const SKIP_LINK_LINES_KEY = 'apSkipLinkLines';
+
 /** Rewrite and collect links; rewrite image src, add lazy loading + sizes. */
 export function installLinkRules(
   md: MarkdownIt,
@@ -169,12 +177,17 @@ function isBareMarkdownLink(path: string): boolean {
  * Stamp the 1-based source line onto link_open tokens for the collect rule.
  * Inline tokens carry their block's map, so a link reports the start line
  * of its own line run (a link later in a multi-line paragraph reports the
- * paragraph start). Island-inner fragments skip the stamp via their `docId`
- * env: fragment-relative lines would mislead the dead-link report. Nothing
- * else writes `link_open.meta`, so the object is replaced outright.
+ * paragraph start). Two render shapes carry no page-accurate line and skip
+ * the stamp: island-inner fragments and ref articles (the renderer sets the
+ * `apSkipLinkLines` env flag — fragment-relative lines would mislead the
+ * dead-link report) and inline-mode core runs (renderInline: xlist meta
+ * cells, container/tab titles — markdown-it wraps the source in a single
+ * token with placeholder map [0, 1], which would blame line 1 for links
+ * sitting anywhere in the page). Nothing else writes `link_open.meta`, so
+ * the object is replaced outright.
  */
 function markLinkLines(state: StateCore): boolean {
-  if (state.env['docId'] !== undefined) return true;
+  if (state.inlineMode || state.env[SKIP_LINK_LINES_KEY] === true) return true;
   for (const token of state.tokens) {
     if (token.type !== 'inline' || !token.map) continue;
     const line = (token.map[0] ?? 0) + 1;

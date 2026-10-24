@@ -44,7 +44,7 @@ import {
   renderIslandDiv,
   resolveZoomedImgSrc,
 } from './islands.ts';
-import { installLinkRules } from './link-rules.ts';
+import { installLinkRules, SKIP_LINK_LINES_KEY } from './link-rules.ts';
 import {
   resolveCodeOptions,
   type MarkdownRendererOptions,
@@ -184,6 +184,9 @@ export async function createMarkdownRenderer(
       // Prefix footnote ids to avoid collisions with the host page.
       parent.seq.fragment += 1;
       env['docId'] = `f${parent.seq.fragment}`;
+      // markLinkLines opt-out (link-rules.ts): fragment token maps are
+      // fragment-relative.
+      env[SKIP_LINK_LINES_KEY] = true;
     }
     let html = md.render(scan.text, env);
     scan.islands.forEach((spec, index) => {
@@ -284,6 +287,8 @@ export async function createMarkdownRenderer(
     // Footnote docId prefixes the plugin's ids; distinct from the page's
     // `f<n>` fragment ids.
     menv['docId'] = `t${refSeq}`;
+    // markLinkLines opt-out (link-rules.ts): ref token maps are ref-relative.
+    menv[SKIP_LINK_LINES_KEY] = true;
     // No island extraction: island/build-component tags could never hydrate
     // or swap inside a popover template, so they stay literal HTML.
     return md.render(normalizeTabMarkers(content), menv);

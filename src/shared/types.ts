@@ -616,8 +616,10 @@ export interface CollectedLink {
   /**
    * 1-based source line of the link's block, for dead-link reports.
    * Approximate: links inside a multi-line block report the block start
-   * (inline tokens carry no position). Absent for links inside island
-   * inner markdown — fragment-relative lines would mislead.
+   * (inline tokens carry no position). Absent where no page-accurate line
+   * exists: island inner markdown (fragment-relative lines would mislead)
+   * and inline-mode renders — container/tab titles, xlist meta cells —
+   * whose single-token placeholder map carries no real position.
    */
   line?: number;
 }
