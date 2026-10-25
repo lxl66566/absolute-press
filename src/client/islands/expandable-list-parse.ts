@@ -30,6 +30,11 @@ export interface ParsedEntry {
   /** Meta cells in column order (before any `inline` redistribution). */
   metaCells: ParsedCell[];
   html: string;
+  /**
+   * Row index into the externalized bodies asset (data-ap-slot marker);
+   * null = the body is inline in `html` (small lists, dev).
+   */
+  slot: number | null;
   /** Lowercased title + meta + body text for substring search. */
   haystack: string;
 }
@@ -126,11 +131,14 @@ export function parseChildren(childrenHtml: string): ParsedChildren {
       cell => toCell(cell.innerHTML),
     );
     const metaText = metaCells.map(cell => cellText(cell.html)).join('\n');
+    const slotAttr = body?.getAttribute('data-ap-slot');
     return {
       id: index,
       title,
       metaCells,
       html: body?.innerHTML ?? '',
+      slot:
+        slotAttr === null || slotAttr === undefined ? null : Number(slotAttr),
       haystack:
         `${title}\n${metaText}\n${body?.textContent ?? ''}`.toLowerCase(),
     };

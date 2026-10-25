@@ -224,6 +224,16 @@ code: {
 
 Site-level defaults for code block rendering (consumed by the markdown pipeline): `collapsedLines` uses `??=` semantics to distinguish "not configured" from "explicit `null`" — only writing `null` turns off collapsing. Each code block can override the site defaults with fence meta: `{1,3-5}` line highlights, `title="..."`, `:collapsed-lines[=N]`, `:no-collapsed-lines`, `:wrap=true|false`. Syntax and demos in [Markdown extensions](./markdown.md#code-highlighting).
 
+## xlist
+
+```ts
+xlist: {
+  externalize: 16, // KiB threshold; false keeps every list inline, default 16
+}
+```
+
+Body-externalization threshold for `ExpandableList` (and any built-in entry-list island): when one list's rendered entry bodies exceed the value (KiB), the bodies leave the page HTML for a content-hashed asset module (`assets/xlist-<hash>.js`) while the static page keeps title rows, meta rows and `data-ap-slot` markers; the client island fetches the asset after mount and fills the slots. Body-heavy list pages stop inflating their first document. The trade-off: no-JS visitors see only titles and meta (anchors survive), and bodies stay out of the search index. Set `false` to keep everything inline.
+
 ## home
 
 ```ts
@@ -379,7 +389,7 @@ Motivation: locale directory ownership, README/index semantics, frontmatter norm
 - `profile`: see above
 - `onScan`: see above
 - `entryListIslands: string[]`: the list of site islands that reuse the `@@@` entry pipeline (names must already be registered in `islands`) — at build time these islands' children are split into a static table skeleton of "title + meta + body" by the same rules as ExpandableList, and the island client fills data via `childrenHtml`. See [Islands](./islands.md#reusing-the-entry-pipeline-for-site-islands-entrylist)
-- `code` / `readingTime`: see above
+- `code` / `xlist` / `readingTime`: see above
 - `islands` / `lang` / `label`: see above
 
 ## Vite layer

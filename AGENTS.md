@@ -72,6 +72,7 @@ docs/          官方文档站（vite.config.ts 接入 absolutePress() 指向 do
 - **i18n**：默认 locale 在 contentDir 根，其余在 `<contentDir>/<key>/`（路由加前缀）；UI 文案在 theme/i18n/，zh 为 shape 真相源
 - **加密**：客户端密码门（sha256 比对，sessionStorage 记住），非真加密，设计如此
 - **术语定义外置**：build 时把页面引用闭包渲染成内容 hash 的共享模块 `assets/refs-<hash>.js`（`build/refs-asset.ts`，payload 只留 `refs` 页相对路径），客户端 `runtime/terms.ts` 用 IntersectionObserver 在术语接近视口时预取、hover 未命中模板时 await 同一份缓存 promise；dev 仍内联 `<template class="ap-term-def">`。改动需保持 katex 检测覆盖 defs 正文（site.ts htmlForPage）
+- **XList 正文外置**：build 时超过 config `xlist.externalize`（默认 16KiB）的列表正文渲染成内容 hash 的 `assets/xlist-<hash>.js`（`build/xlist-asset.ts`），静态表格留标题/meta 行 + `data-ap-slot` 槽位，客户端 `xlist/lazy.ts` 挂载后拉取回填并重算搜索 haystack；dev 与小列表内联。仅内置 entry-list 岛屿参与（站点数据驱动岛屿自有管线）；katex 判定靠 island 上的 `data-ap-entries-katex` 标记（site.ts decorateContent）
 - **frontmatter** 只认 `date/category/tag/icon/feed/overview`；icon 必须是 config `icons` map 的 key（svg 字符串），构建期校验
 
 ## 验证

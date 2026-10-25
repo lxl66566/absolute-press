@@ -1,4 +1,4 @@
-import { createEffect, For, Show } from 'solid-js';
+import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
 // Same validator the build layer applies to the `columns` prop.
@@ -8,6 +8,7 @@ import { initTabsPersistenceIn } from '../runtime/tabs';
 import { cx } from '../theme/cx';
 import { formatMessage, pageMessages } from '../theme/i18n';
 import { useEntryFilterSort } from '../xlist/filter-sort';
+import { ensureEntryBodies } from '../xlist/lazy';
 import { RevealRow } from '../xlist/RevealRow';
 import {
   columnSortDir,
@@ -17,6 +18,7 @@ import {
   sortableHeader,
 } from '../xlist/sort';
 import { SortHeader } from '../xlist/Sorter';
+import { htmlText } from '../xlist/static';
 import { nextXListUid } from '../xlist/uid';
 // Pure parse/cell logic lives in expandable-list-parse.ts (also imported by
 // the unit tests); this file keeps the island's UI only.
@@ -45,6 +47,13 @@ import './ExpandableList.css';
  */
 export interface ExpandableListProps {
   childrenHtml?: string;
+  /**
+   * Page-relative url of the externalized bodies asset (`entriesSrc` prop,
+   * stamped by the build's entryBodies hook). Set = the static children
+   * carry `data-ap-slot` markers and empty bodies; the island fetches the
+   * asset once after mount and fills its slot rows.
+   */
+  entriesSrc?: string;
   /** Search box on by default; disable with `:searchable="false"`. */
   searchable?: boolean | string;
   /**
@@ -83,6 +92,33 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   const t = pageMessages();
   const uid = nextXListUid();
   const parsed = parseChildren(props.childrenHtml ?? '');
+  // Bodies fill after the mount-time asset fetch, so the item array is a
+  // signal; meta cells never change (only html/haystack/slot do).
+  const [items, setItems] = createSignal(parsed.items);
+  const entriesSrc =
+    typeof props.entriesSrc === 'string' && props.entriesSrc !== ''
+      ? props.entriesSrc
+      : undefined;
+  if (entriesSrc !== undefined) {
+    // Post-paint fetch: the bytes left the page HTML precisely so they
+    // don't block first render; failures degrade to permanently folded
+    // rows (logged).
+    void ensureEntryBodies(entriesSrc).then(bodies => {
+      if (bodies === null) return;
+      setItems(prev =>
+        prev.map(item => {
+          if (item.slot === null) return item;
+          const html = bodies[item.slot] ?? '';
+          return {
+            ...item,
+            html,
+            slot: null,
+            haystack: `${item.haystack}\n${htmlText(html)}`.toLowerCase(),
+          };
+        }),
+      );
+    });
+  }
   const cols = normalizeColumns(props.columns);
   const inlineNames = normalizeColumns(props.inline);
 
@@ -106,7 +142,7 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
 
   const { query, setQuery, sort, cycleSort, filtered, isOpen, toggle } =
     useEntryFilterSort<ParsedEntry>({
-      entries: () => parsed.items,
+      entries: items,
       haystack: item => item.haystack,
       comparator: state => {
         if (state.col === 'title') {
@@ -124,7 +160,7 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
       },
     });
 
-  const hasExpandable = parsed.items.some(isExpandableRow);
+  const hasExpandable = (): boolean => items().some(isExpandableRow);
   const searchable = flagOn(props.searchable, true);
   const showCount = flagOn(props.showCount, true);
   const showHint = flagOn(props.hint, true);
@@ -142,8 +178,10 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
   let rootRef: HTMLDivElement | undefined;
   createEffect(
     () =>
+      // Body length rides along: the externalized-body fill swaps html in
+      // without changing ids, and the new islands must hydrate too.
       filtered()
-        .map(item => item.id)
+        .map(item => `${item.id}:${item.html.length}`)
         .join(','),
     () => {
       queueMicrotask(() => {
@@ -181,7 +219,7 @@ export function ExpandableList(props: ExpandableListProps): SolidElement {
           </Show>
         </div>
       </Show>
-      <Show when={showHint && hasExpandable && parsed.items.length > 0}>
+      <Show when={showHint && hasExpandable() && parsed.items.length > 0}>
         <p class="ap-xlist__hint">{t.xlist.expandHint}</p>
       </Show>
       <Show

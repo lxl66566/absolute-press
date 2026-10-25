@@ -317,9 +317,13 @@ function findTagEnd(src: string, pos: number): number {
 }
 
 /** Final island placeholder output; props are JSON, attribute-escaped. */
-export function renderIslandDiv(spec: IslandSpec, innerHtml: string): string {
+export function renderIslandDiv(
+  spec: IslandSpec,
+  innerHtml: string,
+  extraAttrs = '',
+): string {
   const props = escapeHtml(JSON.stringify(spec.props));
-  return `<div data-ap-island="${escapeHtml(spec.name)}" data-props="${props}">${innerHtml}</div>`;
+  return `<div data-ap-island="${escapeHtml(spec.name)}" data-props="${props}"${extraAttrs}>${innerHtml}</div>`;
 }
 
 /**

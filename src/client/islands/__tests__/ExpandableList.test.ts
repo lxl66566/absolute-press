@@ -110,6 +110,21 @@ describe('parseChildren', () => {
     const orphan = parseChildren(xlistHtml(itemRow('A', [])));
     expect(orphan.items[0]!.html).toBe('');
   });
+
+  it('reads externalized slot markers: slot index, empty html', () => {
+    const html = xlistHtml(
+      itemRow('Alpha', []) +
+        bodyRow('') +
+        itemRow('Beta', []) +
+        '<tr class="ap-xlist__item-expanded"><td class="ap-xlist__reveal-cell" colspan="1">' +
+        '<div class="ap-xlist__item-body" data-ap-slot="1"></div>' +
+        '</td></tr>',
+    );
+    const parsed = parseChildren(html);
+    // Inline bodies (dev, small lists) carry no slot.
+    expect(parsed.items[0]).toMatchObject({ html: '', slot: null });
+    expect(parsed.items[1]).toMatchObject({ html: '', slot: 1 });
+  });
 });
 
 describe('isDateCellText', () => {

@@ -195,6 +195,16 @@ export interface AbsolutePressConfig extends SiteConfig {
   label?: string;
   /** Code block presentation defaults (line numbers / folding / wrap). */
   code?: MarkdownCodeOptions;
+  /**
+   * Entry-list body externalization (built-in `ExpandableList` islands).
+   * Lists whose rendered entry bodies exceed the threshold ship the bodies
+   * in a content-hashed asset the client fetches after mount; the static
+   * page keeps title/meta rows and per-entry slot markers. `false` keeps
+   * every list inline. @default 16 (KiB of rendered body html per list)
+   */
+  xlist?: {
+    externalize?: number | false;
+  };
   /** Estimated reading time in the article meta row. @default true */
   readingTime?: boolean;
   /**
@@ -442,6 +452,8 @@ export interface ResolvedConfig {
   buildComponents: { disabled: string[] };
   /** Normalized code block options. */
   code: ResolvedCodeOptions;
+  /** Entry-list body externalization threshold (KiB); false keeps inline. */
+  xlist: { externalize: number | false };
   /** Estimated reading time in the article meta row. */
   readingTime: boolean;
   /** Home page options (article feed on/off, feed page size). */
@@ -694,6 +706,19 @@ export function resolveConfig(
     entryListIslands: config.entryListIslands ?? [],
     buildComponents: { disabled },
     code,
+    xlist: {
+      // `false` is a meaningful "keep every list inline" — an undefined-check
+      // routes it around resolveIntOption, which only accepts numbers.
+      externalize:
+        config.xlist?.externalize === false
+          ? false
+          : resolveIntOption(
+              config.xlist?.externalize,
+              16,
+              0,
+              'xlist.externalize',
+            ),
+    },
     readingTime: config.readingTime ?? true,
     home: {
       feed: config.home?.feed ?? true,

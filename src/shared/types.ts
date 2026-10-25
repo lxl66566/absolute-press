@@ -678,11 +678,37 @@ export interface MarkdownCodeOptions {
   copyLabel?: string;
 }
 
+/**
+ * One entry-list island's externalized bodies: where the client fetches
+ * them and whether the page must keep the katex stylesheet (bodies leave
+ * the page HTML, so the shell's html-level katex sniff cannot see their
+ * math — the hook reports it instead).
+ */
+export interface ExternalizedEntryBodies {
+  /** Page-relative url of the emitted bodies asset (base prefix included). */
+  src: string;
+  /** Bodies contain katex markup; the page keeps the katex stylesheet. */
+  katex: boolean;
+}
+
 export interface MarkdownOptions {
   /** Resolve an internal `.md` link to a page-relative href; null = dead link. */
   resolveLink?: (href: string, env: MarkdownEnv) => string | null;
   /** Rewrite a relative image src (build layer copies the asset). */
   resolveImage?: (src: string, env: MarkdownEnv) => string;
+  /**
+   * Entry-list body externalization for the built-in entry-list islands:
+   * called once per island with the rendered body html per entry (static
+   * row order). Return the asset descriptor to ship the bodies in a
+   * content-hashed module (the static page keeps title/meta rows plus
+   * `data-ap-slot` markers), or null to keep them inline. Only consulted
+   * for built-in entry-list islands — data-backed site islands own their
+   * item pipeline client-side and stay inline.
+   */
+  entryBodies?: (
+    bodies: readonly string[],
+    env: MarkdownEnv,
+  ) => ExternalizedEntryBodies | null;
   /** Islands whose tags may appear in markdown. */
   islands?: MarkdownIsland[];
   /**

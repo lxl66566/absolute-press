@@ -23,6 +23,7 @@ import type { SiteScanContext } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
+import type { MarkdownRendererOptions } from '../markdown/options.ts';
 import {
   assertNoSyntheticCollisions,
   groupArchiveArticles,
@@ -104,6 +105,7 @@ import {
   type SiteScan,
 } from './scan.ts';
 import { baseOf, renderShell, type ShellInput } from './shell.ts';
+import { xlistAsset } from './xlist-asset.ts';
 
 interface RenderedEntry {
   mtimeMs: number;
@@ -253,6 +255,13 @@ export class SiteStore {
   private refs: RefsScan | null = null;
   /** Ref renders keyed `<locale>/<id>`; freshness mirrors `rendered`. */
   private refRendered = new Map<string, { mtimeMs: number; html: string }>();
+  /**
+   * Externalized entry-list body modules (see entryBodiesHook): accumulated
+   * across syncs because mtime-fresh render-cache hits skip the hook while
+   * their html still references the asset; emitAll emits only the modules
+   * some rendered page still references.
+   */
+  private xlistAssets = new Map<string, string>();
   // Sync-time "refs directory missing" notice fires once per process; a
   // per-id follow-up would only repeat it (see termHooks.onMiss).
   private refsMissingWarned = false;
@@ -329,6 +338,12 @@ export class SiteStore {
       // Site-wide code options flow in explicitly (resolveConfig already
       // merged the defaults), instead of a module-level ambient state.
       code: this.config.code,
+      // Built-in entry-list islands past the config threshold externalize
+      // their bodies into content-hashed assets (drained by emitAll); the
+      // hook reads the live mode/config at render time.
+      ...(this.config.xlist.externalize !== false
+        ? { entryBodies: this.entryBodiesHook() }
+        : {}),
       shikiLangs: [...langs],
       islands: this.islandSpecs(),
       // Build component tags always resolve for extraction; the disable
@@ -1126,6 +1141,37 @@ export class SiteStore {
    * one warning per unknown id. The closures read the live scan at render
    * time, so renderer reuse across syncs stays correct.
    */
+  /**
+   * MarkdownOptions.entryBodies: externalize a built-in entry-list island's
+   * bodies when the rendered list passes the config threshold. Dev keeps
+   * every list inline (the watcher re-renders per edit; no assets to
+   * manage). The page-relative src derives from the rendering page's base,
+   * exactly like resolveLink's hrefs.
+   */
+  private entryBodiesHook(): NonNullable<
+    MarkdownRendererOptions['entryBodies']
+  > {
+    if (this.config.xlist.externalize === false) {
+      // resolveConfig keeps false out of the renderer options; this guard
+      // exists for the type, not for reachable behavior.
+      return () => null;
+    }
+    const minBytes = this.config.xlist.externalize * 1024;
+    return (bodies, env) => {
+      if (this.trustWatcher) return null;
+      const joined = bodies.join('');
+      if (joined.length < minBytes) return null;
+      const page = this.links.pageForFile(env.filePath);
+      if (page === undefined) return null;
+      const asset = xlistAsset(bodies);
+      this.xlistAssets.set(asset.fileName, asset.source);
+      return {
+        src: baseOf(page.route) + asset.fileName,
+        katex: pageUsesKatex(joined),
+      };
+    };
+  }
+
   private termHooks(): TermHooks {
     return {
       titleOf: (id, env) => {
@@ -1320,7 +1366,10 @@ export class SiteStore {
     }
     const usesKatex =
       pageUsesKatex(content) ||
-      (refBodies !== null && pageUsesKatex(refBodies));
+      (refBodies !== null && pageUsesKatex(refBodies)) ||
+      // Externalized entry-list bodies left the document; the renderer
+      // stamps this marker on islands whose shipped bodies carry math.
+      content.includes('data-ap-entries-katex');
     return { content, usesKatex };
   }
 
@@ -1802,6 +1851,22 @@ export class SiteStore {
     // content-hashed, immutable-cached, fetched by the client on demand.
     for (const [fileName, source] of ctx.refsAssets) {
       out.push({ fileName, source });
+    }
+    // Externalized entry-list body modules (see entryBodiesHook). The map
+    // accumulates across syncs (render-cache hits skip the hook), so emit
+    // only modules some emitted html still references — stale entries from
+    // edited-away lists drop out instead of piling up in dist.
+    const referencedXlist = new Set<string>();
+    for (const { source } of out) {
+      if (typeof source !== 'string') continue;
+      for (const match of source.matchAll(/xlist-[0-9a-f]{8}\.js/g)) {
+        referencedXlist.add(match[0]);
+      }
+    }
+    for (const [fileName, source] of this.xlistAssets) {
+      if (referencedXlist.has(fileName.replace(/^assets\//, ''))) {
+        out.push({ fileName, source });
+      }
     }
     // KaTeX css + woff2 fonts ship only when at least one page's decorated
     // content (or its externalized term-ref bodies) needs them — the same

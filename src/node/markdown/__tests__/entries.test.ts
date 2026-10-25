@@ -521,3 +521,73 @@ describe('ExpandableList rendering', () => {
     expect(html.match(/shared <strong>body<\/strong>/g)).toHaveLength(2);
   });
 });
+
+describe('ExpandableList body externalization', () => {
+  const SRC = [
+    '<ExpandableList>',
+    '',
+    '@@@ First',
+    '',
+    '**bold** entry',
+    '',
+    '@@@ Second',
+    '',
+    '$E=mc^2$ body',
+    '',
+    '</ExpandableList>',
+  ].join('\n');
+
+  it('skeleton mode: slot markers replace bodies, props carry the asset url', async () => {
+    const md = await makeRenderer({
+      islands: [{ name: 'ExpandableList' }],
+      entryBodies: bodies => ({
+        src: 'assets/xlist-test.js',
+        katex: bodies.join('').includes('katex'),
+      }),
+    });
+    const html = md.render(SRC, ENV).html;
+    // Bodies leave the document; each empty body div carries its row index.
+    expect(html).toContain(
+      '<div class="ap-xlist__item-body" data-ap-slot="0"></div>',
+    );
+    expect(html).toContain(
+      '<div class="ap-xlist__item-body" data-ap-slot="1"></div>',
+    );
+    expect(html).not.toContain('<strong>bold</strong>');
+    // The island learns the asset url through its props.
+    expect(html).toContain(
+      '&quot;entriesSrc&quot;:&quot;assets/xlist-test.js&quot;',
+    );
+    // The hook's katex verdict (math in `$...$` renders katex spans) rides
+    // the island div for the page's stylesheet decision.
+    expect(html).toContain('data-ap-entries-katex="1"');
+  });
+
+  it('a null verdict keeps the bodies inline (small lists, dev)', async () => {
+    const md = await makeRenderer({
+      islands: [{ name: 'ExpandableList' }],
+      entryBodies: () => null,
+    });
+    const html = md.render(SRC, ENV).html;
+    expect(html).toContain('<strong>bold</strong>');
+    expect(html).not.toContain('data-ap-slot');
+    expect(html).not.toContain('entriesSrc');
+    expect(html).not.toContain('data-ap-entries-katex');
+  });
+
+  it('site entryList islands stay inline even with the hook present', async () => {
+    const md = await makeRenderer({
+      islands: [
+        { name: 'ExpandableList' },
+        { name: 'MyList', entryList: true },
+      ],
+      entryBodies: () => ({ src: 'assets/xlist-test.js', katex: false }),
+    });
+    const html = md.render(
+      '<MyList>\n\n@@@ KEY\n\nbody **one**\n\n</MyList>',
+      ENV,
+    ).html;
+    expect(html).toContain('<strong>one</strong>');
+    expect(html).not.toContain('entriesSrc');
+  });
+});

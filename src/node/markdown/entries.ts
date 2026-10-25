@@ -36,6 +36,7 @@
  * JS the table renders fully expanded.
  */
 import { normalizeColumns } from '../../shared/columns.ts';
+import type { ExternalizedEntryBodies } from '../../shared/types.ts';
 import { escapeHtml } from '../escape.ts';
 import type { AbsCtx } from './env.ts';
 import { fenceOpenOf, isFenceClose, type FenceOpen } from './fence.ts';
@@ -224,6 +225,13 @@ export function resolveAliases(entries: ListEntry[]): void {
  * the title column, the rest name the meta columns. When given, every row's
  * meta cell count is padded up to `max(columns.length - 1, max segments)`
  * so columns stay aligned.
+ *
+ * `externalize` moves the bodies out of the document: when it returns a
+ * descriptor the body divs render empty with `data-ap-slot="<row>"`
+ * markers and the caller ships `bodies` in the asset the descriptor names
+ * (see src/node/build/xlist-asset.ts); the client island refills them
+ * after fetching. Null keeps every body inline (no-JS visitors see the
+ * full table).
  */
 export function renderEntryListChildren(
   inner: string,
@@ -231,7 +239,8 @@ export function renderEntryListChildren(
   renderFragment: (src: string, parent: AbsCtx, topLevel: boolean) => string,
   renderMeta: (src: string, parent: AbsCtx) => string,
   props?: unknown,
-): string {
+  externalize?: (bodies: readonly string[]) => ExternalizedEntryBodies | null,
+): { html: string; external: ExternalizedEntryBodies | null } {
   const { preamble, entries } = splitEntries(inner);
   resolveAliases(entries);
   const cols = normalizeColumns(
@@ -244,6 +253,16 @@ export function renderEntryListChildren(
   );
   let metaCount = segsOf.reduce((max, segs) => Math.max(max, segs.length), 0);
   if (cols) metaCount = Math.max(metaCount, cols.length - 1);
+
+  // Bodies render up front so the externalize hook sees the full list size
+  // before any row markup exists; skeleton mode then drops them from the
+  // document and marks each empty body div with its row index.
+  const bodies = entries.map(entry => renderFragment(entry.md, ctx, false));
+  const external = externalize?.(bodies) ?? null;
+  const bodyDiv = (index: number): string =>
+    external === null
+      ? `<div class="ap-xlist__item-body">${bodies[index]}</div>`
+      : `<div class="ap-xlist__item-body" data-ap-slot="${index}"></div>`;
 
   const parts: string[] = ['<div class="ap-xlist">'];
   if (preamble.trim() !== '') {
@@ -303,9 +322,7 @@ export function renderEntryListChildren(
     parts.push(
       '<tr class="ap-xlist__item-expanded">' +
         `<td class="ap-xlist__reveal-cell" colspan="${metaCount + 1}">` +
-        '<div class="ap-xlist__item-body">' +
-        renderFragment(entry.md, ctx, false) +
-        '</div>' +
+        bodyDiv(index) +
         '</td>' +
         '</tr>',
     );
@@ -313,7 +330,7 @@ export function renderEntryListChildren(
   parts.push('</tbody>');
   parts.push('</table>');
   parts.push('</div>');
-  return parts.join('\n');
+  return { html: parts.join('\n'), external };
 }
 
 /**

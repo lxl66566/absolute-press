@@ -224,6 +224,16 @@ code: {
 
 代码块呈现的站点级默认值（markdown 管线消费）：`collapsedLines` 用 `??=` 语义区分「未配置」与「显式 `null`」，写 `null` 才是关闭折叠。每个代码块可用围栏 meta 覆盖站点默认：`{1,3-5}` 行高亮、`title="..."`、`:collapsed-lines[=N]`、`:no-collapsed-lines`、`:wrap=true|false`，语法与演示见[Markdown 扩展](./markdown.md#代码高亮)。
 
+## xlist
+
+```ts
+xlist: {
+  externalize: 16, // KiB 阈值；false 保持全部内联，默认 16
+}
+```
+
+`ExpandableList`（含内置名单内的同类 entry-list 岛屿）的条目正文外置阈值：单个列表渲染后的正文合计超过该值（KiB）时，正文离开页面 HTML，写入内容 hash 的资产模块（`assets/xlist-<hash>.js`），静态页只留标题行、meta 行与 `data-ap-slot` 槽位标记；客户端岛挂载后再拉取资产回填。条目多的列表页因此不再把全部折叠正文压进首屏文档。交换代价：无 JS 访客只能看到标题与 meta（锚点保留），正文不参与搜索索引。设 `false` 全部内联。
+
 ## home
 
 ```ts
@@ -379,7 +389,7 @@ onScan: (ctx: SiteScanContext) => ({
 - `profile`：见上文
 - `onScan`：见上文
 - `entryListIslands: string[]`：复用 `@@@` 条目管线的站点 island 名单（名字必须已在 `islands` 注册）——构建期把这些 island 的 children 按 ExpandableList 同款规则拆成「标题 + meta + 正文」静态表格骨架，island 客户端接 `childrenHtml` 填充数据，见[Islands](./islands.md#站点-island-复用条目管线-entrylist)
-- `code` / `readingTime`：见上文
+- `code` / `xlist` / `readingTime`：见上文
 - `islands` / `lang` / `label`：见上文
 
 ## vite 层

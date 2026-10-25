@@ -144,6 +144,11 @@ export class LinkResolver {
     return this.byRoute.get(route);
   }
 
+  /** Page a content file renders as (entry-list asset base resolution). */
+  pageForFile(filePath: string): PageSource | undefined {
+    return this.byFile.get(filePath);
+  }
+
   /**
    * MarkdownOptions.resolveLink: `./x.md#anchor` -> `x#anchor` (relative).
    * VuePress-style resolution: the trailing slash is normalized away, then

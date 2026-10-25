@@ -854,6 +854,88 @@ describe('SiteStore', () => {
     expect(payloadOf(devHtml).refs).toBeUndefined();
   });
 
+  it('build externalizes heavy xlist bodies; small lists and dev stay inline', async () => {
+    const list = (name: string): string =>
+      `# ${name}\n\n<ExpandableList>\n\n@@@ Alpha\n\nbody **one**\n\n@@@ Beta\n\nbody two\n\n</ExpandableList>\n`;
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'big.md': list('Big'),
+        'small.md': list('Small'),
+      },
+      {
+        // Threshold 0 externalizes every list; the default would keep these
+        // tiny fixtures inline.
+        xlist: { externalize: 0 },
+      },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+
+    const bigHtml = String(
+      files.find(f => f.fileName === 'big.html')?.source ?? '',
+    );
+    // The page ships slot markers plus the island prop, not the bodies.
+    expect(bigHtml).toContain('data-ap-slot="0"');
+    expect(bigHtml).toContain('data-ap-slot="1"');
+    expect(bigHtml).not.toContain('body <strong>one</strong>');
+    const srcMatch = /assets\/xlist-[0-9a-f]{8}\.js/.exec(bigHtml);
+    expect(srcMatch).not.toBeNull();
+    const assetName = srcMatch![0];
+    const asset = String(
+      files.find(f => f.fileName === assetName)?.source ?? '',
+    );
+    expect(asset).toMatch(/^export default \[/);
+    expect(asset).toContain('body <strong>one</strong>');
+    // Both fixture lists render identical bodies: one shared asset.
+    const assetNames = files
+      .map(f => f.fileName)
+      .filter(n => /^assets\/xlist-[0-9a-f]{8}\.js$/.test(n));
+    expect(assetNames).toEqual([assetName]);
+
+    // Dev: no assets, no markers — the bodies stay inline.
+    const devStore = new SiteStore(fx.config);
+    await devStore.sync('dev');
+    const devHtml = devStore.devHtml('/big') ?? '';
+    expect(devHtml).toContain('body <strong>one</strong>');
+    expect(devHtml).not.toContain('data-ap-slot');
+  });
+
+  it('externalized math-only bodies still pull the katex stylesheet', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md':
+          '# Home\n\n<ExpandableList>\n\n@@@ Math\n\n$E=mc^2$ body\n\n@@@ Plain\n\ntiny body\n\n</ExpandableList>\n',
+      },
+      { xlist: { externalize: 0 } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const html = String(
+      files.find(f => f.fileName === 'index.html')?.source ?? '',
+    );
+    // Bodies live in the asset; the page html itself carries no math, so
+    // the renderer-stamped marker is the only katex signal.
+    expect(html).not.toContain('mc');
+    expect(html).toContain('data-ap-entries-katex="1"');
+    expect(html).toContain('assets/katex/katex.min.css');
+    const asset = String(
+      files.find(f => /^assets\/xlist-[0-9a-f]{8}\.js$/.test(f.fileName))
+        ?.source ?? '',
+    );
+    expect(asset).toContain('katex');
+  });
+
   it('emits one chrome asset per differing locale and scopes _headers rules', async () => {
     const fx = await contentFixture(
       {

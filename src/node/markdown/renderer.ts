@@ -209,20 +209,40 @@ export async function createMarkdownRenderer(
       if (options.resolveImage) {
         resolveZoomedImgSrc(spec, ctx.env, options.resolveImage);
       }
+      let entriesKatex = false;
+      // Local const: property narrowing doesn't survive into the closure.
+      const entryHook = options.entryBodies;
       const innerHtml =
         isEntryListIsland(spec.name) || entryListIslands.has(spec.name)
           ? // Entry-list islands split their children into titled entries at
             // build time; each entry renders as its own markdown fragment. The
-            // props carry the optional `columns` header labels.
+            // props carry the optional `columns` header labels. Built-in
+            // entry-list islands may externalize their bodies (site islands
+            // own their item pipeline client-side and stay inline).
             renderEntryListChildren(
               spec.inner,
               ctx,
               renderFragment,
               renderFragmentInline,
               spec.props,
+              entryHook !== undefined && isEntryListIsland(spec.name)
+                ? bodies => entryHook(bodies, ctx.env)
+                : undefined,
             )
-          : renderFragment(spec.inner, ctx, false);
-      const div = renderIslandDiv(spec, innerHtml);
+          : { html: renderFragment(spec.inner, ctx, false), external: null };
+      if (innerHtml.external !== null) {
+        // Props flow into the island component (like ZoomedImg's src above);
+        // the katex marker keeps the page's stylesheet decision informed:
+        // the bodies left the document, so the html-level sniff cannot see
+        // their math (pageHtml greps this attr).
+        spec.props['entriesSrc'] = innerHtml.external.src;
+        entriesKatex = innerHtml.external.katex;
+      }
+      const div = renderIslandDiv(
+        spec,
+        innerHtml.html,
+        entriesKatex ? ' data-ap-entries-katex="1"' : '',
+      );
       // Function replacement: island HTML may contain `$` patterns.
       html = html.replace(islandPlaceholder(index), () => div);
     });
