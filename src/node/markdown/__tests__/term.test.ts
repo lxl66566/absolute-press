@@ -34,6 +34,17 @@ describe('term rule', () => {
     expect(misses).toEqual([]);
   });
 
+  it('drops a trailing .md from the id', () => {
+    const result = md.render('[[known.md]] and [[nested/known.md|text]]', ENV);
+    expect(result.html).toContain(
+      '<span class="ap-term" data-term="known" tabindex="0">title of known</span>',
+    );
+    expect(result.html).toContain(
+      '<span class="ap-term" data-term="nested/known" tabindex="0">text</span>',
+    );
+    expect(misses).toEqual([]);
+  });
+
   it('supports subdirectory ids and [[id|display]] with inline markdown', () => {
     const result = md.render('[[nested/known|**bold** text]]', ENV);
     expect(result.html).toContain(

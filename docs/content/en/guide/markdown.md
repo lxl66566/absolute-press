@@ -398,7 +398,7 @@ heimu (`!!text!!`) is the spoiler mask common in ACG culture: by default a black
 
 ## Term references
 
-`[[id]]` references an article from the term library (the roots named by config `refs`, off by default): the text renders as a dotted-underline term, and hovering opens a content-sized popover showing that article's fully rendered markdown; touch taps and keyboard focus trigger it too. `[[id|display text]]` overrides the term text; ids may use subdirectory paths.
+`[[id]]` references an article from the term library (the roots named by config `refs`, off by default): the text renders as a dotted-underline term, and hovering opens a content-sized popover showing that article's fully rendered markdown; touch taps and keyboard focus trigger it too. `[[id|display text]]` overrides the term text; ids may use subdirectory paths, and a trailing `.md` is dropped (`[[dir/term.md]]` equals `[[dir/term]]`).
 
 On this site (`refs: ['reference']`): the framework uses an [[island]] architecture, rendering at build time via [[ssg|SSG]], shipped as an [[architecture/mpa|MPA]]. The smallest term is a one-liner: [[minimal]].
 

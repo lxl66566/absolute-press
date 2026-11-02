@@ -7,7 +7,9 @@ import { getCtx } from './env.ts';
  * Term reference inline syntax: `[[id]]` / `[[id|display text]]` renders a
  * dotted-underline span (`<span class="ap-term" data-term="id">`) that the
  * client pairs with the build-time `<template data-ap-term>` popover of the
- * referenced article. Only registered when the site configures a refs
+ * referenced article. Ids are refs-relative paths without the `.md`
+ * extension; a trailing `.md` is dropped, so `[[term.md]]` matches
+ * `[[term]]`. Only registered when the site configures a refs
  * directory (the renderer receives TermHooks); otherwise the brackets stay
  * literal. Like heimu this is a paired inline rule; the explicit display
  * text is tokenized as inline markdown, the implicit one (`[[id]]`) is the
@@ -36,7 +38,11 @@ export function termRule(hooks: TermHooks) {
 
     const inner = state.src.slice(start + 2, end);
     const bar = inner.indexOf('|');
-    const id = (bar === -1 ? inner : inner.slice(0, bar)).trim();
+    // Scan keys carry no `.md` extension; drop a trailing one so
+    // `[[dir/term.md]]` resolves the same ref as `[[dir/term]]`.
+    const id = (bar === -1 ? inner : inner.slice(0, bar))
+      .trim()
+      .replace(/\.md$/, '');
     // Ids travel into a data attribute and a CSS selector; no whitespace and
     // no markup-sensitive characters. A bad id is literal text, not an error.
     if (id === '' || /[\s"'<>&]/.test(id)) return false;
