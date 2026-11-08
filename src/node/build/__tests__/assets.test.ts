@@ -118,6 +118,74 @@ describe('LinkResolver.resolveLink', () => {
   });
 });
 
+describe('LinkResolver.anchorLinks', () => {
+  it('records resolved fragment links with target route and id', () => {
+    expect(resolver.resolveLink('./b.md#sec', ENV_A)).toBe('b#sec');
+    expect(resolver.anchorLinks).toEqual([
+      {
+        file: ENV_A.filePath,
+        raw: './b.md#sec',
+        targetRoute: '/b',
+        fragment: 'sec',
+      },
+    ]);
+  });
+
+  it('strips scroll-text directives down to the element id', () => {
+    expect(resolver.resolveLink('./b.md#sec:~:text=hello', ENV_A)).toBe(
+      'b#sec:~:text=hello',
+    );
+    expect(resolver.anchorLinks).toEqual([
+      {
+        file: ENV_A.filePath,
+        raw: './b.md#sec:~:text=hello',
+        targetRoute: '/b',
+        fragment: 'sec',
+      },
+    ]);
+  });
+
+  it('does not record pure scroll-text fragments (no element id)', () => {
+    expect(resolver.resolveLink('./b.md#:~:text=hello', ENV_A)).toBe(
+      'b#:~:text=hello',
+    );
+    expect(resolver.anchorLinks).toEqual([]);
+  });
+
+  it('does not record fragment-less links or dead targets', () => {
+    resolver.resolveLink('./b.md', ENV_A);
+    resolver.resolveLink('./missing.md#sec', ENV_A);
+    expect(resolver.anchorLinks).toEqual([]);
+    // The dead target still lands in the dead-link report, anchor and all.
+    expect(resolver.deadLinks).toEqual([
+      { file: ENV_A.filePath, raw: './missing.md#sec' },
+    ]);
+  });
+
+  it('records fragment links rendered from a registered ref root', () => {
+    const REF = file('reference/term.md');
+    resolver.setRefs([{ filePath: REF, root: path.resolve('/content') }]);
+    expect(
+      resolver.resolveLink('./blog/log.md#anchor', { filePath: REF }),
+    ).toBe(`${ASSET_TOKEN}blog/log#anchor`);
+    expect(resolver.anchorLinks).toEqual([
+      {
+        file: REF,
+        raw: './blog/log.md#anchor',
+        targetRoute: '/blog/log',
+        fragment: 'anchor',
+      },
+    ]);
+  });
+
+  it('is cleared by setPages with the dead links', () => {
+    resolver.resolveLink('./b.md#sec', ENV_A);
+    expect(resolver.anchorLinks).toHaveLength(1);
+    resolver.setPages(PAGES);
+    expect(resolver.anchorLinks).toEqual([]);
+  });
+});
+
 describe('deadLinkReport', () => {
   const A = file('a.md');
 
@@ -160,6 +228,22 @@ describe('deadLinkReport', () => {
     ];
     expect(deadLinkReport(dead, [{ file: A, links }])).toEqual([
       { file: A, raw: './x.md' },
+    ]);
+  });
+
+  it('joins lines for anchor-bearing dead links (raw carries the fragment)', () => {
+    const dead: DeadLink[] = [{ file: A, raw: './x.md#sec' }];
+    const links: CollectedLink[] = [
+      {
+        raw: './x.md#sec',
+        resolved: './x.md#sec',
+        kind: 'internal',
+        dead: true,
+        line: 4,
+      },
+    ];
+    expect(deadLinkReport(dead, [{ file: A, links }])).toEqual([
+      { file: A, raw: './x.md#sec', line: 4 },
     ]);
   });
 });

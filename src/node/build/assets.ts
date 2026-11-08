@@ -23,6 +23,18 @@ export interface DeadLink {
   line?: number;
 }
 
+/** A resolved internal link carrying a fragment (`./x.md#sec`). */
+export interface AnchorLinkRecord {
+  /** File the link was written in. */
+  file: string;
+  /** Raw href as written in markdown, fragment included. */
+  raw: string;
+  /** Resolved clean route of the link target. */
+  targetRoute: string;
+  /** Element id the fragment names (scroll-text directives stripped). */
+  fragment: string;
+}
+
 /**
  * Dead-link report entries: resolver records joined with the source lines
  * carried by the rendered CollectedLink entries (matched by file+raw).
@@ -33,7 +45,7 @@ export function deadLinkReport(
   dead: readonly DeadLink[],
   rendered: ReadonlyArray<{ file: string; links: readonly CollectedLink[] }>,
 ): DeadLink[] {
-  const lineByKey = lineKeysOf(rendered, link => link.dead);
+  const lineByKey = linkLinesOf(rendered, link => link.dead);
   const seen = new Set<string>();
   const out: DeadLink[] = [];
   for (const record of dead) {
@@ -54,7 +66,7 @@ export function deadLinkReport(
 export function bareLinkReport(
   rendered: ReadonlyArray<{ file: string; links: readonly CollectedLink[] }>,
 ): DeadLink[] {
-  const lineByKey = lineKeysOf(rendered, link => link.bare === true);
+  const lineByKey = linkLinesOf(rendered, link => link.bare === true);
   const seen = new Set<string>();
   const out: DeadLink[] = [];
   for (const page of rendered) {
@@ -75,7 +87,7 @@ export function bareLinkReport(
 }
 
 /** file+raw -> first source line, over the links matching `keep`. */
-function lineKeysOf(
+export function linkLinesOf(
   rendered: ReadonlyArray<{ file: string; links: readonly CollectedLink[] }>,
   keep: (link: CollectedLink) => boolean,
 ): Map<string, number> {
@@ -99,6 +111,8 @@ export class LinkResolver {
   /** Emitted image file name -> content, emitted as assets during build. */
   readonly images = new Map<string, Buffer>();
   readonly deadLinks: DeadLink[] = [];
+  /** Resolved fragment-bearing links, for the dead-anchor report. */
+  readonly anchorLinks: AnchorLinkRecord[] = [];
   private readonly byFile = new Map<string, PageSource>();
   private readonly byRoute = new Map<string, PageSource>();
   /**
@@ -121,10 +135,11 @@ export class LinkResolver {
   }
 
   setPages(pages: PageSource[]): void {
-    // A new page set opens a fresh resolution round: dead links/images
-    // recorded in an earlier round (fixed or deleted since) must not leak
-    // into the new one.
+    // A new page set opens a fresh resolution round: dead links/images and
+    // anchor records collected in an earlier round (fixed or deleted since)
+    // must not leak into the new one.
     this.deadLinks.length = 0;
+    this.anchorLinks.length = 0;
     this.images.clear();
     this.byFile.clear();
     this.byRoute.clear();
@@ -179,6 +194,20 @@ export class LinkResolver {
     if (!target) {
       this.deadLinks.push({ file: env.filePath, raw: href });
       return null;
+    }
+    if (anchor !== '') {
+      // Scroll-text directives (`#foo:~:text=…`) are not element ids: only
+      // the part before `:~:` names an element; a bare directive targets
+      // none and stays unrecorded.
+      const fragment = anchor.slice(1).split(':~:', 1)[0]!;
+      if (fragment !== '') {
+        this.anchorLinks.push({
+          file: env.filePath,
+          raw: href,
+          targetRoute: target.route,
+          fragment,
+        });
+      }
     }
     if (refRoot !== undefined) {
       // Root-relative token; applyAssetBase (shell) swaps in the host page's

@@ -55,6 +55,18 @@ describe('link collection and rewriting', () => {
     });
   });
 
+  it('keeps the fragment on a dead link (resolver raw/report key parity)', () => {
+    const result = md.render('[go](./dead.md#sec)', ENV);
+    expect(result.html).toContain('href="./dead.md#sec"');
+    expect(result.links[0]).toEqual({
+      raw: './dead.md#sec',
+      resolved: './dead.md#sec',
+      kind: 'internal',
+      dead: true,
+      line: 1,
+    });
+  });
+
   it('classifies external links', () => {
     const result = md.render('[go](https://example.com/x)', ENV);
     expect(result.html).toContain('href="https://example.com/x"');

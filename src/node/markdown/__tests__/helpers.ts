@@ -13,10 +13,15 @@ export function makeRenderer(
   options: MarkdownRendererOptions = {},
 ): Promise<MarkdownRenderer> {
   return createMarkdownRenderer({
-    resolveLink: href =>
-      href.includes('dead')
-        ? null
-        : `/resolved/${href.replace(/^\.\//, '').replace(/\.md$/, '')}`,
+    // The resolver contract includes the fragment: split it off for the
+    // dead-link check, re-append verbatim (like the production resolver).
+    resolveLink: href => {
+      const hashIndex = href.indexOf('#');
+      const path = hashIndex === -1 ? href : href.slice(0, hashIndex);
+      const fragment = hashIndex === -1 ? '' : href.slice(hashIndex);
+      if (path.includes('dead')) return null;
+      return `/resolved/${path.replace(/^\.\//, '').replace(/\.md$/, '')}${fragment}`;
+    },
     resolveImage: src => `/assets/${src.replace(/^\.\//, '')}`,
     ...options,
   });

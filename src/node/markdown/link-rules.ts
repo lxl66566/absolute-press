@@ -102,9 +102,10 @@ export function installLinkRules(
 }
 
 /**
- * Classify and rewrite a link href. The fragment (including `#:~:text=`
- * scroll-text fragments) is split off and re-appended to the resolved route
- * verbatim, so `resolveLink` only ever sees the `.md` path.
+ * Classify and rewrite a link href. The full href — fragment included —
+ * goes to `resolveLink` (it records anchor links and re-appends the
+ * fragment, including `#:~:text=` scroll-text fragments, verbatim); the
+ * markdown-link shape checks run on the fragment-stripped path.
  */
 function resolveHref(
   raw: string,
@@ -119,13 +120,13 @@ function resolveHref(
   }
   const hashIndex = raw.indexOf('#');
   const path = hashIndex === -1 ? raw : raw.slice(0, hashIndex);
-  const fragment = hashIndex === -1 ? '' : raw.slice(hashIndex);
   if (isMarkdownLink(path)) {
-    const route = resolveLink ? resolveLink(path, env) : null;
-    // Dead link: keep the raw href; the build layer reports it.
+    const route = resolveLink ? resolveLink(raw, env) : null;
+    // Dead link: keep the raw href (fragment included, matching the
+    // resolver's own dead-link record); the build layer reports it.
     if (route === null)
       return { raw, resolved: raw, kind: 'internal', dead: true };
-    return { raw, resolved: route + fragment, kind: 'internal', dead: false };
+    return { raw, resolved: route, kind: 'internal', dead: false };
   }
   // Bare relative markdown link (no `./` `../` prefix): same shape as
   // isMarkdownLink accepts, minus the explicit prefixes. Passed through
