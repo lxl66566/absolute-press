@@ -282,6 +282,13 @@ export class SiteStore {
    * emitAll keeps exactly the modules some page still references.
    */
   private xlistRefs = new Map<string, Set<string>>();
+  /**
+   * Dev RenderContext cached across requests (build builds a fresh one per
+   * emit): sibling index, listings and integrations are site-sized, and
+   * every dev request paying that cost only warms the same data back up.
+   * sync() drops it — the scan is the only thing that can change pages.
+   */
+  private devCtx: RenderContext | null = null;
   // Sync-time "refs directory missing" notice fires once per process; a
   // per-id follow-up would only repeat it (see termHooks.onMiss).
   private refsMissingWarned = false;
@@ -450,6 +457,7 @@ export class SiteStore {
     // only buy one redundant refresh.
     this.langsDirty = false;
     this.relatedCache = null;
+    this.devCtx = null;
     // New resolution round: page warnings may fire again from scratch.
     this.devWarned.clear();
     if (mode === 'build' || this.gitTimes.size === 0) {
@@ -510,6 +518,9 @@ export class SiteStore {
         if (fresh) {
           refs.set(id, fresh);
           this.refRendered.delete(`${fresh.locale}/${fresh.id}`);
+          // Dev embeds the rendered template in page html; the cached dev
+          // context would keep the stale embed.
+          this.devCtx = null;
           // Same renderer-warm-up concern as invalidate(): an edit adding a
           // fence language outside the live shiki set must rebuild.
           for (const lang of fresh.fenceLangs) {
@@ -520,6 +531,7 @@ export class SiteStore {
           }
         } else {
           refs.delete(id);
+          this.devCtx = null;
         }
         return;
       }
@@ -537,6 +549,9 @@ export class SiteStore {
       this.links.dropFileRecords(key);
     }
     this.relatedCache = null;
+    // A fresh render joins the next request's context; the cached one
+    // would keep serving the pre-edit html.
+    this.devCtx = null;
     // The renderer's shiki set is frozen at creation; an edit introducing a
     // fence language outside it must rebuild, or the block highlights as
     // plain text until a restart. The refreshed scan entry carries the new
@@ -589,6 +604,7 @@ export class SiteStore {
     this.rendered.clear();
     this.refRendered.clear();
     this.relatedCache = null;
+    this.devCtx = null;
   }
 
   /** Dev: structural change (add/unlink) — rescan and clear all caches. */
@@ -598,6 +614,7 @@ export class SiteStore {
     // Drop the git-times cache too: sync() re-pulls it only when empty, and
     // commits landing mid-dev-session must surface as fresh lastmod values.
     this.gitTimes.clear();
+    this.devCtx = null;
     await this.sync(mode);
   }
 
@@ -1830,7 +1847,7 @@ export class SiteStore {
     // (`/guide` in slash mode, `/guide/` in bare mode) are a
     // production-host redirect concern; dev simply 404s them.
     const route = url === '' ? '/' : url;
-    const ctx = this.buildContext();
+    const ctx = (this.devCtx ??= this.buildContext());
     const page = this.links.pageForRoute(route);
     if (page) return this.htmlForPage(page, this.devAssets, ctx);
     const { category, tag } = this.archivesOf(ctx);
