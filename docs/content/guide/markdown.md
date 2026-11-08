@@ -560,6 +560,8 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 
 带其他扩展名的相对链接（如 `./assets/demo.svg`、`../rss.xml`）按资源 URL 原样透传，不做 md resolve。
 
+跨页锚点也参与校验：`./x.md#锚点` 在构建期与目标页渲染产物中的元素 id 集合比对（标题锚、XList 条目锚、脚注 id 都在内），id 不存在即构建报错，dev 下 warn；`#:~:text=` scroll-to-text 片段按主 id 校验，纯 text fragment（`#:~:text=...`）不检查。本页锚点（`#...`）指向当前页面，不参与。
+
 裸相对链接（无 `./` 前缀，如 `[x](guide/a.md)`）不参与上述机制：既不重写为站内路由，也不进死链检查，会原样产出指向 `.md` 的链接。站点配置 `strictLinks` 控制对它们的报告力度（默认 `'warn'` 构建时列出清单，`'error'` 直接构建失败，`'off'` 静默），见[配置参考](./configuration.md#strictlinks)。站内链接请始终带 `./` 或 `../` 前缀。
 
 ## HTML 透传

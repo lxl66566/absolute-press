@@ -305,6 +305,35 @@ describe('SiteStore', () => {
     }
   });
 
+  it('invalidate drops stale link and anchor records of the edited file', async () => {
+    const fx = await contentFixture({
+      'a.md': '[dead](./missing.md)\n\n[anchor](./b.md#gone)\n',
+      'b.md': '# B\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('dev');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // One request collects both issues: the dead link and the dead anchor.
+      store.devHtml('/a');
+      const calls = (): string[] => warn.mock.calls.map(c => String(c[0]));
+      expect(calls().some(m => m.includes('dead link(s)'))).toBe(true);
+      expect(calls().some(m => m.includes('dead anchor(s)'))).toBe(true);
+
+      // Fix both in the file and invalidate like the watcher does: without
+      // dropping the file's records, the raw hrefs the edit removed would
+      // keep warning until the next setPages round.
+      await writeFile(fx.abs('a.md'), '[ok](./b.md#b)\n');
+      store.invalidate(fx.abs('a.md'));
+      warn.mockClear();
+      const html = store.devHtml('/a');
+      expect(html).toContain('ok');
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('warns about ref dead links once and sweeps only new records', async () => {
     const fx = await contentFixture(
       {
@@ -359,6 +388,72 @@ describe('SiteStore', () => {
     expect(rss).toContain('https://test.example.com/p');
     expect(rss).not.toContain('hidden');
   });
+  it('ships one feed per extra locale, filtered to its articles', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'p.md': '---\ndate: 2024-01-01\n---\n\n# Post\n',
+        'en/index.md': '# EN Home\n',
+        'en/e.md': '---\ndate: 2024-01-02\n---\n\n# English post\n',
+      },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('en/rss.xml');
+    // No near-duplicate of the root feed for the default locale.
+    expect(names).not.toContain('root/rss.xml');
+
+    const root = rssOf(files);
+    // Root feed stays all-locales.
+    expect(root).toContain('https://test.example.com/p');
+    expect(root).toContain('https://test.example.com/en/e');
+
+    const en = String(
+      files.find(f => f.fileName === 'en/rss.xml')?.source ?? '',
+    );
+    expect(en).toContain('<language>en</language>');
+    expect(en).toContain('https://test.example.com/en/e');
+    expect(en).not.toContain('<link>https://test.example.com/p</link>');
+    // The self reference follows the per-locale URL.
+    expect(en).toContain('href="https://test.example.com/en/rss.xml"');
+    // rss() with a locale mirrors the emitted file.
+    await store.sync('dev');
+    expect(store.rss(fx.config.locales[1])).toContain(
+      '<language>en</language>',
+    );
+  });
+
+  it('feed.full ships rewritten full-content descriptions', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'p.md':
+          '---\ndate: 2024-01-01\n---\n\n# Post\n\n[other](./o.md) and text\n',
+        'o.md': '# Other\n',
+      },
+      { feed: { full: true } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const rss = rssOf(files);
+    // Internal link rewritten to the absolute target URL inside the escaped
+    // full-content body (quotes escape as &quot;).
+    expect(rss).toContain('href=&quot;https://test.example.com/o&quot;');
+    expect(rss).toContain('Post&lt;/h1&gt;');
+  });
+
   it('ships one feed per extra locale, filtered to its articles', async () => {
     const fx = await contentFixture(
       {
@@ -1660,6 +1755,64 @@ describe('SiteStore onScan', () => {
       expect(warn.mock.calls[0]?.[0]).toMatch(
         /RecentArticles.*disabled.*buildComponents\.disable/,
       );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('build fails on cross-page anchors missing from the target page', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '# A\n\n[bad](./b.md#missing-anchor)\n',
+      'b.md': '# B\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    await expect(
+      store.emitAll({
+        isBuild: true,
+        scriptFile: 'assets/entry.js',
+        cssFiles: [],
+      }),
+    ).rejects.toThrow(/dead anchor\(s\)/);
+  });
+
+  it('anchors present on the target page pass; dev warns about dead ones', async () => {
+    // The build fails on ANY dead anchor (previous test), so the passing
+    // build carries only the live anchor; the dev fixture adds the bad one.
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '# A\n\n[ok](./b.md#b)\n',
+      'b.md': '# B\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    expect(
+      String(files.find(f => f.fileName === 'a.html')?.source ?? ''),
+    ).toContain('href="b#b"');
+
+    const devFx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '# A\n\n[ok](./b.md#b) [bad](./b.md#nope)\n',
+      'b.md': '# B\n',
+    });
+    const devStore = new SiteStore(devFx.config);
+    await devStore.sync('dev');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      devStore.devHtml('/a');
+      expect(
+        warn.mock.calls.some(
+          c =>
+            String(c[0]).includes('dead anchor(s) in') &&
+            String(c[0]).includes('no id "nope" on /b'),
+        ),
+      ).toBe(true);
     } finally {
       warn.mockRestore();
     }

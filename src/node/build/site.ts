@@ -24,6 +24,7 @@ import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
 import type { MarkdownRendererOptions } from '../markdown/options.ts';
+import { anchorReport, htmlIdsOf, type DeadAnchor } from './anchors.ts';
 import {
   assertNoSyntheticCollisions,
   groupArchiveArticles,
@@ -106,7 +107,7 @@ import {
   type SiteScan,
 } from './scan.ts';
 import { baseOf, renderShell, type ShellInput } from './shell.ts';
-import { xlistAsset } from './xlist-asset.ts';
+import { createEntryBodiesHook } from './xlist-hook.ts';
 
 interface RenderedEntry {
   mtimeMs: number;
@@ -173,6 +174,16 @@ function alternatesIn<T>(
     if (found) out.push(alternateOf(found));
   }
   return out.length > 1 ? out : undefined;
+}
+
+/** Report lines of dead anchors, same shape as the dead-link error. */
+function deadAnchorList(anchors: readonly DeadAnchor[]): string {
+  return anchors
+    .map(
+      a =>
+        `  ${a.file}${a.line === undefined ? '' : `:${a.line}`} -> ${a.raw} (no id "${a.fragment}" on ${a.targetRoute})`,
+    )
+    .join('\n');
 }
 
 /**
@@ -263,6 +274,14 @@ export class SiteStore {
    * some rendered page still references.
    */
   private xlistAssets = new Map<string, string>();
+  /**
+   * filePath -> asset file names the page's latest fresh render references
+   * (see entryBodiesHook). renderPage seeds an empty set per fresh render
+   * (serial) and renderMissing replaces it with the worker's per-page list,
+   * so a page edited below the threshold self-heals to an empty set;
+   * emitAll keeps exactly the modules some page still references.
+   */
+  private xlistRefs = new Map<string, Set<string>>();
   // Sync-time "refs directory missing" notice fires once per process; a
   // per-id follow-up would only repeat it (see termHooks.onMiss).
   private refsMissingWarned = false;
@@ -511,7 +530,11 @@ export class SiteStore {
   invalidate(file: string): void {
     const posix = file.split(path.sep).join('/');
     for (const key of this.rendered.keys()) {
-      if (key.split(path.sep).join('/') === posix) this.rendered.delete(key);
+      if (key.split(path.sep).join('/') !== posix) continue;
+      this.rendered.delete(key);
+      // The re-render re-collects this file's link records; stale ones (a
+      // dead link the edit fixed) must not linger until the next setPages.
+      this.links.dropFileRecords(key);
     }
     this.relatedCache = null;
     // The renderer's shiki set is frozen at creation; an edit introducing a
@@ -678,6 +701,10 @@ export class SiteStore {
       if (this.trustWatcher) return cached;
       if (cached.mtimeMs === file.mtimeMs) return cached;
     }
+    // Fresh render: the page's xlist reference set rebuilds from scratch
+    // (a fresh render below the threshold must drop stale references),
+    // seeded BEFORE the render so the entry-bodies hook can fill it during.
+    this.xlistRefs.set(page.filePath, new Set());
     const result = renderer.render(file.source, {
       filePath: page.filePath,
       // Build-time copy (heimu tooltip) resolves by lang, like the client.
@@ -725,6 +752,11 @@ export class SiteStore {
     });
     if (stale.length < POOL_MIN_TASKS) return;
 
+    // Bytes form of the config threshold; false keeps worker lists inline.
+    const xlistThreshold: number | false =
+      this.config.xlist.externalize === false
+        ? false
+        : this.config.xlist.externalize * 1024;
     const common = {
       pages: this.pages,
       refRoots: this.refRootEntries(),
@@ -735,6 +767,7 @@ export class SiteStore {
       code: this.config.code,
       islands: this.islandSpecs(),
       shikiLangs: [...this.rendererLangs],
+      xlistThreshold,
     };
     const tasks = stale.map(p => {
       const file = this.scanOf(p);
@@ -758,12 +791,18 @@ export class SiteStore {
             result: e.result,
             excerpt: e.excerpt,
           });
+          // Worker renders reference their assets directly; same-shard
+          // duplicate assets dedupe below by first write wins.
+          this.xlistRefs.set(e.filePath, new Set(e.xlistFiles));
         }
         for (const ref of r.refHtml) {
           this.refRendered.set(ref.key, {
             mtimeMs: ref.mtimeMs,
             html: ref.html,
           });
+        }
+        for (const [name, source] of r.xlistAssets) {
+          if (!this.xlistAssets.has(name)) this.xlistAssets.set(name, source);
         }
         this.links.deadLinks.push(...r.deadLinks);
         // Structured clone yields plain Uint8Arrays; Buffer.from over the
@@ -1152,8 +1191,10 @@ export class SiteStore {
    * MarkdownOptions.entryBodies: externalize a built-in entry-list island's
    * bodies when the rendered list passes the config threshold. Dev keeps
    * every list inline (the watcher re-renders per edit; no assets to
-   * manage). The page-relative src derives from the rendering page's base,
-   * exactly like resolveLink's hrefs.
+   * manage). The shared factory (xlist-hook.ts) is the same one the render
+   * workers build, so pool and serial renders externalize identically; the
+   * page-relative src derives from the rendering page's base, exactly like
+   * resolveLink's hrefs.
    */
   private entryBodiesHook(): NonNullable<
     MarkdownRendererOptions['entryBodies']
@@ -1163,20 +1204,19 @@ export class SiteStore {
       // exists for the type, not for reachable behavior.
       return () => null;
     }
-    const minBytes = this.config.xlist.externalize * 1024;
-    return (bodies, env) => {
-      if (this.trustWatcher) return null;
-      const joined = bodies.join('');
-      if (joined.length < minBytes) return null;
-      const page = this.links.pageForFile(env.filePath);
-      if (page === undefined) return null;
-      const asset = xlistAsset(bodies);
-      this.xlistAssets.set(asset.fileName, asset.source);
-      return {
-        src: baseOf(page.route) + asset.fileName,
-        katex: pageUsesKatex(joined),
-      };
-    };
+    const hook = createEntryBodiesHook({
+      thresholdBytes: this.config.xlist.externalize * 1024,
+      pageForFile: fp => this.links.pageForFile(fp),
+      collect: (asset, env) => {
+        this.xlistAssets.set(asset.fileName, asset.source);
+        // renderPage seeds the fresh-render set; a mid-render island adds to it.
+        this.xlistRefs.get(env.filePath)?.add(asset.fileName);
+      },
+    });
+    // One renderer instance can serve both modes in one process (tests,
+    // dev-then-build stores), so the dev gate reads the live flag at
+    // render time instead of freezing the hook for one mode.
+    return (bodies, env) => (this.trustWatcher ? null : hook(bodies, env));
   }
 
   private termHooks(): TermHooks {
@@ -1502,14 +1542,43 @@ export class SiteStore {
   }
 
   /**
+   * Cross-page fragment validation over the anchor records the link
+   * resolver collected (successful targets only): each fragment must match
+   * an id of the target page's rendered html. Target pages outside the
+   * emit context (archives, listings) report as unknown and stay out —
+   * a missing report entry is safe where a false positive is not.
+   */
+  private deadAnchorReport(ctx: RenderContext): DeadAnchor[] {
+    const idSets = new Map<string, Set<string> | null>();
+    const idSetOf = (route: string): Set<string> | undefined => {
+      let ids = idSets.get(route);
+      if (ids === undefined) {
+        const page = ctx.byRoute.get(route);
+        ids = page ? htmlIdsOf(page.html) : null;
+        idSets.set(route, ids);
+      }
+      return ids ?? undefined;
+    };
+    const rendered = [...this.rendered].map(([file, entry]) => ({
+      file,
+      links: entry.result.links,
+    }));
+    return anchorReport(this.links.anchorLinks, idSetOf, rendered);
+  }
+
+  /**
    * Dev feedback parity for the served page (build reports both as errors in
    * generateBundle): dead links (markdown + images, same record/line join as
-   * the build error) and frontmatter icons missing from the config map.
-   * Warns once per issue — deduped across requests, reset by sync() with the
-   * resolver's record round — and only ever inspects the current page, so
-   * the request path gains no site-wide scan.
+   * the build error), dead anchors, and frontmatter icons missing from the
+   * config map. Warns once per issue — deduped across requests, reset by
+   * sync() with the resolver's record round — and only ever inspects the
+   * current page, so the request path gains no site-wide scan.
    */
-  private warnDevPageIssues(page: PageSource, rendered: EmittedPage): void {
+  private warnDevPageIssues(
+    page: PageSource,
+    rendered: EmittedPage,
+    ctx: RenderContext,
+  ): void {
     const entry = this.rendered.get(page.filePath);
     if (!entry) return;
     const dead = deadLinkReport(
@@ -1526,6 +1595,20 @@ export class SiteStore {
       this.warnOnce(
         `dead:${page.filePath}:${dead.map(d => d.raw).join('|')}`,
         `[absolute-press] dev: ${dead.length} dead link(s) in ${page.filePath} (build will fail):\n${list}`,
+      );
+    }
+    const anchors = anchorReport(
+      this.links.anchorLinks.filter(r => r.file === page.filePath),
+      route => {
+        const target = ctx.byRoute.get(route);
+        return target ? htmlIdsOf(target.html) : undefined;
+      },
+      [{ file: page.filePath, links: entry.result.links }],
+    );
+    if (anchors.length > 0) {
+      this.warnOnce(
+        `anchor:${page.filePath}:${anchors.map(a => a.raw).join('|')}`,
+        `[absolute-press] dev: ${anchors.length} dead anchor(s) in ${page.filePath} (build will fail):\n${deadAnchorList(anchors)}`,
       );
     }
     const [badIcon] = this.invalidIcons([rendered]);
@@ -1558,7 +1641,7 @@ export class SiteStore {
   ): { html: string; usesKatex: boolean } {
     const rendered = this.renderedOf(page, ctx);
     // Dev-only feedback; the build emit path reports through generateBundle.
-    if (this.trustWatcher) this.warnDevPageIssues(page, rendered);
+    if (this.trustWatcher) this.warnDevPageIssues(page, rendered, ctx);
     const payload = this.payloadFor(rendered, ctx);
     const { content, usesKatex } = this.decorateContent(
       page,
@@ -1778,10 +1861,7 @@ export class SiteStore {
    * articles; the unfiltered root feed stays all-locales (the mixed
    * default) for drop-in readers.
    */
-  private feedableOf(
-    pages: EmittedPage[],
-    locale?: LocaleInfo,
-  ): EmittedPage[] {
+  private feedableOf(pages: EmittedPage[], locale?: LocaleInfo): EmittedPage[] {
     return pages.filter(
       p =>
         (locale === undefined || p.locale.key === locale.key) &&
@@ -1816,6 +1896,12 @@ export class SiteStore {
         .join('\n');
       throw new Error(
         `[absolute-press] frontmatter icon(s) not registered in config icons map:\n${list}`,
+      );
+    }
+    const deadAnchors = this.deadAnchorReport(ctx);
+    if (deadAnchors.length > 0) {
+      throw new Error(
+        `[absolute-press] ${deadAnchors.length} dead anchor(s) found:\n${deadAnchorList(deadAnchors)}`,
       );
     }
     // Prime every locale's externalized chrome asset before any page
@@ -1881,19 +1967,19 @@ export class SiteStore {
     for (const [fileName, source] of ctx.refsAssets) {
       out.push({ fileName, source });
     }
-    // Externalized entry-list body modules (see entryBodiesHook). The map
-    // accumulates across syncs (render-cache hits skip the hook), so emit
-    // only modules some emitted html still references — stale entries from
-    // edited-away lists drop out instead of piling up in dist.
+    // Externalized entry-list body modules (see entryBodiesHook). Fresh
+    // renders maintain the per-page reference sets (serial seeds in
+    // renderPage, pooled merges in renderMissing), so this keeps exactly
+    // the modules some rendered page still references; stale entries from
+    // edited-away lists drop out of the emit naturally.
     const referencedXlist = new Set<string>();
-    for (const { source } of out) {
-      if (typeof source !== 'string') continue;
-      for (const match of source.matchAll(/xlist-[0-9a-f]{8}\.js/g)) {
-        referencedXlist.add(match[0]);
+    for (const page of this.pages) {
+      for (const name of this.xlistRefs.get(page.filePath) ?? []) {
+        referencedXlist.add(name);
       }
     }
     for (const [fileName, source] of this.xlistAssets) {
-      if (referencedXlist.has(fileName.replace(/^assets\//, ''))) {
+      if (referencedXlist.has(fileName)) {
         out.push({ fileName, source });
       }
     }

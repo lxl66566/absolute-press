@@ -53,6 +53,10 @@ const candidates = bare.endsWith('.md')
 
 失败即报错的理由：静态站的链接部署后就是契约，构建期是最后一个能整体检查的时机，宽松通过等于主动发布 404。本地图片走同一条管线：`resolveImage` 读盘失败同样记死链；成功时 build 复制成带内容 hash 的 `assets/img/<name>.<hash><ext>`，dev 走 `/@fs/` 直出。不带 `./` 前缀的裸相对链接不报错，由 `strictLinks` 配置单独处理。
 
+### 锚点校验
+
+解析成功的链接若带锚点，`LinkResolver.anchorLinks` 额外记一条 `{file, raw, targetRoute, fragment}`（`:~:text=` scroll-to-text 片段截取主 id，纯 text fragment 不记）。构建收尾时 `anchorReport`（`src/node/build/anchors.ts`）把每条 fragment 与目标页渲染 html 的元素 id 集合（`htmlIdsOf`：标题锚、XList 条目锚、脚注 id 全在内）比对，缺失即报错，行号与死链同源 join。不在本次渲染上下文里的目标（归档页等）查不到 id 集合，保守跳过——漏报无害，误报会断构建。dev 对当前页面 warn 一条，语义与死链一致。
+
 ## git 最后编辑时间
 
 页面 meta 的 `updatedAt` 来自 git 最后提交时间（`src/node/build/git.ts`）。逐文件调 `git log` 太慢，`getGitTimes` 做批量查询：

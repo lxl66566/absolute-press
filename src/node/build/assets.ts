@@ -155,6 +155,21 @@ export class LinkResolver {
     for (const entry of entries) this.refRoots.set(entry.filePath, entry.root);
   }
 
+  /**
+   * Drop one file's dead-link and anchor records ahead of its re-render
+   * (dev invalidate): the fresh render re-collects what still applies, and
+   * records for hrefs the edit removed would otherwise linger until the
+   * next setPages round.
+   */
+  dropFileRecords(filePath: string): void {
+    for (let i = this.deadLinks.length - 1; i >= 0; i--) {
+      if (this.deadLinks[i]!.file === filePath) this.deadLinks.splice(i, 1);
+    }
+    for (let i = this.anchorLinks.length - 1; i >= 0; i--) {
+      if (this.anchorLinks[i]!.file === filePath) this.anchorLinks.splice(i, 1);
+    }
+  }
+
   pageForRoute(route: string): PageSource | undefined {
     return this.byRoute.get(route);
   }
@@ -200,12 +215,16 @@ export class LinkResolver {
       // the part before `:~:` names an element; a bare directive targets
       // none and stays unrecorded.
       const fragment = anchor.slice(1).split(':~:', 1)[0]!;
-      if (fragment !== '') {
+      // Percent-encoded fragments resolve against decoded ids in browsers
+      // (HTML spec scrolls to the decoded fragment), so validation compares
+      // the decoded form; malformed encodings keep the raw value.
+      const id = decodeFragment(fragment);
+      if (id !== '') {
         this.anchorLinks.push({
           file: env.filePath,
           raw: href,
           targetRoute: target.route,
-          fragment,
+          fragment: id,
         });
       }
     }
@@ -245,6 +264,15 @@ export class LinkResolver {
 function splitAnchor(href: string): [string, string] {
   const i = href.indexOf('#');
   return i === -1 ? [href, ''] : [href.slice(0, i), href.slice(i)];
+}
+
+/** Percent-decode an anchor id for comparison; malformed encodings pass raw. */
+function decodeFragment(fragment: string): string {
+  try {
+    return decodeURIComponent(fragment);
+  } catch {
+    return fragment;
+  }
 }
 
 /**

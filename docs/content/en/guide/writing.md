@@ -64,7 +64,7 @@ So daily writing only needs one `date` written at creation; "last edited" is mai
 
 ## Internal links and dead link checking
 
-Relative links starting with `./` `../` are resolved at build time; a failure is a build error, so broken links cannot be published. Always cross-link articles with relative paths carrying the `.md` suffix (`./related.md`, cross-page anchors like `./related.md#section`): they are protected by dead link checking and friendly to editors when files move. Resolve order, asset passthrough, and bare-link policy are covered in [Markdown extensions](./markdown.md#site-links-and-dead-link-checking).
+Relative links starting with `./` `../` are resolved at build time; a failure is a build error, so broken links cannot be published. Always cross-link articles with relative paths carrying the `.md` suffix (`./related.md`, cross-page anchors like `./related.md#section`): the link and the cross-page anchor are both validated at build time (a missing target id fails the build the same way), and editors stay friendly when files move. Resolve order, asset passthrough, and bare-link policy are covered in [Markdown extensions](./markdown.md#site-links-and-dead-link-checking).
 
 ## Images
 

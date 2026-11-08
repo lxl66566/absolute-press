@@ -53,6 +53,10 @@ const candidates = bare.endsWith('.md')
 
 Why fail hard: the links of a static site are a contract once deployed, and build time is the last moment to check them globally. Passing loosely means publishing 404s on purpose. Local images go through the same pipeline: `resolveImage` records a dead link when the disk read fails; on success, build copies the image to `assets/img/<name>.<hash><ext>` with a content hash, and dev serves it via `/@fs/`. Bare relative links without a `./` prefix are not errors; they are handled separately by the `strictLinks` option.
 
+### Anchor validation
+
+A resolved link that carries an anchor gets an extra record in `LinkResolver.anchorLinks`: `{file, raw, targetRoute, fragment}` (`:~:text=` scroll-to-text fragments keep their main id; pure text fragments are not recorded). At the end of the build, `anchorReport` (`src/node/build/anchors.ts`) checks each fragment against the element id set of the target page's rendered html (`htmlIdsOf`: heading anchors, xlist entry anchors and footnote ids all count); a miss fails the build with source lines joined the same way as dead links. Targets outside the current render context (archive pages) have no known id set and are skipped — a missed report is harmless, a false positive would break the build. Dev warns for the requested page, same semantics as dead links.
+
 ## Git last-edited time
 
 Page meta `updatedAt` comes from the git last-commit time (`src/node/build/git.ts`). Calling `git log` per file is too slow, so `getGitTimes` queries in batches:

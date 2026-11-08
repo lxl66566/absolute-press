@@ -54,7 +54,8 @@ export interface RenderShard {
    * absent, until the site wires it) keeps every list inline. Wired into
    * the renderer via createEntryBodiesHook.
    */
-  xlistThreshold?: number | false;
+  /** Entry-list externalization threshold in bytes; false keeps lists inline. */
+  xlistThreshold: number | false;
 }
 
 /** One worker's combined output. */
