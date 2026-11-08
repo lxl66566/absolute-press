@@ -506,6 +506,13 @@ export interface SiteConfig {
      * `rss.xml`. @default 20
      */
     rssLimit?: number;
+    /**
+     * Full-content mode: each item's description carries the full rendered
+     * HTML with on-site relative URLs rewritten to absolute ones, instead
+     * of the plain-text excerpt. Feed readers vary widely in their HTML
+     * support, so the excerpt stays the default. @default false
+     */
+    full?: boolean;
   };
   /** SEO head options. */
   seo?: {

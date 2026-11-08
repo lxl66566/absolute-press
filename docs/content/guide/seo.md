@@ -45,8 +45,11 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 - 收录默认 locale 与各 locale 的文章，按 `createdAt` 倒序取最新 `feed.rssLimit` 篇（默认 20），见[配置参考](./configuration.md#feed)
 - frontmatter `feed: false` 的页面退出订阅源（首页文章流仍收录）
 - 每条 item 含标题、绝对链接（`hostname` 拼接）、`pubDate`（来自 `date`）与 `category`
+- item description 默认是 200 字纯文本摘要；`feed.full: true` 改为全文渲染 HTML，站内相对链接改写为绝对 URL
 
 订阅地址就是 `<hostname>/rss.xml`，阅读器直接订阅即可；每页 head 同时输出该地址的 `<link rel="alternate" type="application/rss+xml">`，阅读器可自动发现订阅源。
+
+配置了额外 locale 的站点，每个 locale 另有一份独立订阅源 `<hostname>/<key>/rss.xml`（只收录该 locale 的文章，`<language>` 为该 locale 的语言标签）；`<hostname>/rss.xml` 保持全站混合收录，两者互不影响。
 
 ## sitemap 与 robots.txt
 

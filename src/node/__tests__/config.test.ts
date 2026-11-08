@@ -233,22 +233,25 @@ describe('resolveConfig pagination and feed sizes', () => {
       feedPerPage: HOME_FEED_PER_PAGE,
     });
     expect(config.archive).toEqual({ perPage: ARCHIVE_PER_PAGE });
-    expect(config.feed).toEqual({ rssLimit: DEFAULT_RSS_LIMIT });
+    expect(config.feed).toEqual({
+      rssLimit: DEFAULT_RSS_LIMIT,
+      full: false,
+    });
   });
 
-  it('keeps user-provided page sizes and rss limit', () => {
+  it('keeps user-provided page sizes and rss options', () => {
     const config = resolveConfig(
       {
         ...baseConfig(),
         home: { feedPerPage: 5 },
         archive: { perPage: 30 },
-        feed: { rssLimit: 50 },
+        feed: { rssLimit: 50, full: true },
       },
       '/root',
     );
     expect(config.home).toEqual({ feed: true, feedPerPage: 5 });
     expect(config.archive).toEqual({ perPage: 30 });
-    expect(config.feed).toEqual({ rssLimit: 50 });
+    expect(config.feed).toEqual({ rssLimit: 50, full: true });
   });
 
   it('rejects non-integer or sub-1 sizes', () => {
@@ -266,6 +269,17 @@ describe('resolveConfig pagination and feed sizes', () => {
     const badRss = { ...baseConfig(), feed: { rssLimit: -1 } };
     expect(() => resolveConfig(badRss, '/root')).toThrowError(
       /feed\.rssLimit must be an integer >= 1, got -1/,
+    );
+  });
+
+  it('rejects a non-boolean feed.full', () => {
+    // JS config files bypass the boolean type; the resolver guards at
+    // runtime. The JSON round-trip mirrors the unchecked input.
+    const badFull = JSON.parse(
+      JSON.stringify({ ...baseConfig(), feed: { full: 'yes' } }),
+    ) as Parameters<typeof resolveConfig>[0];
+    expect(() => resolveConfig(badFull, '/root')).toThrowError(
+      /feed\.full must be a boolean, got yes/,
     );
   });
 });

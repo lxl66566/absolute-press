@@ -1,10 +1,9 @@
 /**
- * Plain-text excerpt of rendered markdown HTML, shared by the RSS item
- * description and the head meta description. Full-content output would need
- * every asset token and page-relative link rewritten to absolute URLs (they
- * only resolve on-site), which duplicates the shell's base logic in a
- * fragile way — a compact preview plus the item/page link is the practical
- * shape for both consumers.
+ * Plain-text excerpt of rendered markdown HTML, shared by the head meta
+ * description and the RSS item description (unless the site configures
+ * `feed.full`, which ships the rewritten full-content HTML instead). A
+ * compact preview plus the item/page link is the practical default for
+ * both consumers.
  */
 
 /** Plain-text cap of one rss.xml item description. */

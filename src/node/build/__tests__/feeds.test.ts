@@ -18,7 +18,15 @@ const rssConfig = {
   title: 'Site',
   description: 'site description',
   locales: [RSS_LOCALE],
-  feed: { rssLimit: 20 },
+  feed: { rssLimit: 20, full: false },
+} as ResolvedConfig;
+
+const fullConfig = {
+  hostname: 'https://example.com',
+  title: 'Site',
+  description: 'site description',
+  locales: [RSS_LOCALE],
+  feed: { rssLimit: 20, full: true },
 } as ResolvedConfig;
 
 function article(n: number, html = '<p>Body text.</p>'): FeedArticle {
@@ -43,7 +51,7 @@ describe('renderRss', () => {
     expect(xml).toContain('https://example.com/a20');
     expect(xml).not.toContain('https://example.com/a21');
     const bigger = renderRss(
-      { ...rssConfig, feed: { rssLimit: 3 } },
+      { ...rssConfig, feed: { rssLimit: 3, full: false } },
       Array.from({ length: 25 }, (_, i) => article(i + 1)),
     );
     expect(bigger.match(/<item>/g)).toHaveLength(3);
@@ -99,6 +107,101 @@ describe('renderRss', () => {
       '<atom:link href="https://example.com/rss.xml" rel="self" ' +
         'type="application/rss+xml"/>',
     );
+  });
+
+  it('declares the locale language of a per-locale feed', () => {
+    const locale: LocaleInfo = {
+      key: 'en',
+      lang: 'en-US',
+      label: 'English',
+      prefix: '/en',
+    };
+    const xml = renderRss(rssConfig, [article(1)], locale);
+    expect(xml).toContain('<language>en-US</language>');
+    expect(xml).not.toContain('<language>zh-CN</language>');
+  });
+
+  it('keeps the excerpt description when full is false', () => {
+    const a = article(1, '<p>Hello <em>world</em></p>');
+    expect(renderRss(rssConfig, [a])).toContain(
+      '<description>Hello world</description>',
+    );
+  });
+});
+
+describe('renderRss full mode', () => {
+  it('rewrites asset-token links and images to absolute URLs', () => {
+    const a = article(
+      1,
+      '<p><a href="absasset:guide/b">B</a>' +
+        '<img src="absasset:assets/img/pic.abcd12.png" alt=""/></p>',
+    );
+    const xml = renderRss(fullConfig, [a]);
+    expect(xml).toContain('href=&quot;https://example.com/guide/b&quot;');
+    expect(xml).toContain(
+      'src=&quot;https://example.com/assets/img/pic.abcd12.png&quot;',
+    );
+  });
+
+  it('resolves ./ and ../ hrefs against the route directory', () => {
+    const a = {
+      ...article(1),
+      route: '/guide/a',
+      html: '<p><a href="./b">b</a><a href="../c">c</a></p>',
+    };
+    const xml = renderRss(fullConfig, [a]);
+    expect(xml).toContain('href=&quot;https://example.com/guide/b&quot;');
+    expect(xml).toContain('href=&quot;https://example.com/c&quot;');
+  });
+
+  it('resolves hrefs of the site root against the hostname', () => {
+    const a = {
+      ...article(1),
+      route: '/',
+      html: '<p><a href="./x">x</a></p>',
+    };
+    expect(renderRss(fullConfig, [a])).toContain(
+      'href=&quot;https://example.com/x&quot;',
+    );
+  });
+
+  it('resolves bare same-directory hrefs of root-depth pages', () => {
+    // relativeRoute's shortest form on a root-depth page has no ./ prefix.
+    const a = { ...article(1), route: '/p', html: '<p><a href="o">o</a></p>' };
+    expect(renderRss(fullConfig, [a])).toContain(
+      'href=&quot;https://example.com/o&quot;',
+    );
+  });
+
+  it('leaves absolute, protocol-relative, anchor and data URLs untouched', () => {
+    const a = article(
+      1,
+      '<p><a href="https://other.dev/x">o</a>' +
+        '<a href="//cdn.dev/x">c</a>' +
+        '<a href="#sec">s</a>' +
+        '<img src="data:image/gif;base64,R0=" alt=""/></p>',
+    );
+    const xml = renderRss(fullConfig, [a]);
+    expect(xml).toContain('href=&quot;https://other.dev/x&quot;');
+    expect(xml).toContain('href=&quot;//cdn.dev/x&quot;');
+    expect(xml).toContain('href=&quot;#sec&quot;');
+    expect(xml).toContain('src=&quot;data:image/gif;base64,R0=&quot;');
+  });
+
+  it('keeps a literal absasset: in prose untouched', () => {
+    const a = article(1, '<p>token <code>absasset:x.png</code> stays</p>');
+    expect(renderRss(fullConfig, [a])).toContain(
+      'token &lt;code&gt;absasset:x.png&lt;/code&gt; stays',
+    );
+  });
+
+  it('escapes the full HTML as XML text without CDATA', () => {
+    const a = article(1, '<p>a &amp; b < em ]]></p>');
+    const xml = renderRss(fullConfig, [a]);
+    expect(xml).toContain(
+      '<description>&lt;p&gt;a &amp;amp; b &lt; em ]]&gt;&lt;/p&gt;</description>',
+    );
+    expect(xml).not.toContain('<![CDATA[');
   });
 });
 

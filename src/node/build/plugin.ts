@@ -359,6 +359,15 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
                 res.end(store.rss());
                 return;
               }
+              // Per-locale feeds mirror the build's `<key>/rss.xml` files.
+              const feedLocale = config.locales.find(
+                l => l.prefix !== '' && url === `${l.prefix}/rss.xml`,
+              );
+              if (feedLocale) {
+                res.setHeader('content-type', 'application/xml; charset=utf-8');
+                res.end(store.rss(feedLocale));
+                return;
+              }
               const html = store.devHtml(url);
               if (html === null) {
                 next();

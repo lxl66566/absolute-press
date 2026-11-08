@@ -359,6 +359,71 @@ describe('SiteStore', () => {
     expect(rss).toContain('https://test.example.com/p');
     expect(rss).not.toContain('hidden');
   });
+  it('ships one feed per extra locale, filtered to its articles', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'p.md': '---\ndate: 2024-01-01\n---\n\n# Post\n',
+        'en/index.md': '# EN Home\n',
+        'en/e.md': '---\ndate: 2024-01-02\n---\n\n# English post\n',
+      },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('en/rss.xml');
+    // No near-duplicate of the root feed for the default locale.
+    expect(names).not.toContain('root/rss.xml');
+
+    const root = rssOf(files);
+    // Root feed stays all-locales.
+    expect(root).toContain('https://test.example.com/p');
+    expect(root).toContain('https://test.example.com/en/e');
+
+    const en = String(
+      files.find(f => f.fileName === 'en/rss.xml')?.source ?? '',
+    );
+    expect(en).toContain('<language>en</language>');
+    expect(en).toContain('https://test.example.com/en/e');
+    expect(en).not.toContain('<link>https://test.example.com/p</link>');
+    // The self reference follows the per-locale URL.
+    expect(en).toContain('href="https://test.example.com/en/rss.xml"');
+    // rss() with a locale mirrors the emitted file.
+    await store.sync('dev');
+    expect(store.rss(fx.config.locales[1])).toContain(
+      '<language>en</language>',
+    );
+  });
+
+  it('feed.full ships rewritten full-content descriptions', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'p.md':
+          '---\ndate: 2024-01-01\n---\n\n# Post\n\n[other](./o.md) and text\n',
+        'o.md': '# Other\n',
+      },
+      { feed: { full: true } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const rss = rssOf(files);
+    // Internal link rewritten to the absolute target URL inside the escaped
+    // full-content body (quotes escape as &quot;).
+    expect(rss).toContain('href=&quot;https://test.example.com/o&quot;');
+    expect(rss).toContain('Post&lt;/h1&gt;');
+  });
 
   it('keeps `related` off home payloads either way the feed is configured', async () => {
     // The home links a post, so its related map entry is non-empty — yet the

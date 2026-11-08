@@ -45,8 +45,11 @@ The build artifact `rss.xml`:
 - Collects articles from the default locale and every other locale, taking the latest `feed.rssLimit` (default 20) by `createdAt` descending; see [Configuration reference](./configuration.md#feed)
 - Pages with frontmatter `feed: false` leave the feed (the home article feed still includes them)
 - Each item carries title, absolute link (joined with `hostname`), `pubDate` (from `date`), and `category`
+- The item description is a 200-char plain-text excerpt by default; `feed.full: true` switches it to the full rendered HTML with on-site relative URLs rewritten to absolute ones
 
 The feed address is simply `<hostname>/rss.xml` — point a reader at it; every page's head also emits `<link rel="alternate" type="application/rss+xml">` with that address, so readers can auto-discover the feed.
+
+Sites with extra locales get one additional feed per locale at `<hostname>/<key>/rss.xml` (only that locale's articles, `<language>` set to its BCP-47 tag); `<hostname>/rss.xml` stays the site-wide mixed feed, and the two never interfere.
 
 ## sitemap and robots.txt
 

@@ -108,6 +108,21 @@ function resolveIntOption(
   return value;
 }
 
+/** Runtime guard for a boolean option (JS config files bypass the types). */
+function resolveBooleanOption(
+  value: boolean | undefined,
+  fallback: boolean,
+  key: string,
+): boolean {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') {
+    throw new Error(
+      `[absolute-press] ${key} must be a boolean, got ${String(value)}`,
+    );
+  }
+  return value;
+}
+
 /**
  * Validate the canonical site URL. A scheme-less `example.com` would silently
  * produce invalid canonical/RSS/sitemap URLs, so require a full http(s) URL.
@@ -753,6 +768,7 @@ export function resolveConfig(
         1,
         'feed.rssLimit',
       ),
+      full: resolveBooleanOption(config.feed?.full, false, 'feed.full'),
     },
     seo: resolveSeo(config.seo),
     // Blank entries would emit empty lines into every head; drop them here.

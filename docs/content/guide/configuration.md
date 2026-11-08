@@ -315,10 +315,13 @@ URL 形态选项。目前只有一个键：目录索引页（`guide/index.md`）
 ```ts
 feed: {
   rssLimit: 20, // rss.xml 收录的最新文章数，默认 20
+  full: false, // item description 携带全文 HTML，默认 false
 }
 ```
 
-订阅源选项：`rss.xml` 收录各 locale 最新文章的总数上限（`feed: false` 的页面始终排除），取值须为不小于 1 的整数。全文输出 RSS 需要把站内资源链接改写为绝对 URL，框架刻意不做（摘要 + 链接是订阅源的实用形态），可调的只有收录条数。
+订阅源选项：`rssLimit` 是 `rss.xml` 收录各 locale 最新文章的总数上限（`feed: false` 的页面始终排除），取值须为不小于 1 的整数。`full` 为 true 时每条 item 的 description 携带全文渲染 HTML，站内相对链接（`absasset:` token 与 `./` `../` 相对地址）改写为以 `hostname` 拼接的绝对 URL，外链与锚点原样保留；默认 false 保持纯文本摘要。全文 item 的体积随文章长度增长；xlist 外置的列表在 feed 里只剩标题骨架（懒加载资产订阅器拿不到）。
+
+额外 locale 各产出一份独立订阅源 `/<key>/rss.xml`，只收录该 locale 的文章，`<language>` 为该 locale 的语言标签；`/rss.xml` 始终是全站混合订阅源，`rssLimit` 对两者各自生效。
 
 ## footer
 

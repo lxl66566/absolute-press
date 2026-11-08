@@ -1756,15 +1756,31 @@ export class SiteStore {
       : this.listingHtml(match, this.devAssets, ctx);
   }
 
-  rss(): string {
-    // Gated pages stay out: a feed item advertises the URL, title and
-    // content excerpt exactly like a sitemap entry would.
-    const feedable = this.renderAll().filter(
+  rss(locale?: LocaleInfo): string {
+    return renderRss(
+      this.config,
+      this.feedArticles(this.feedableOf(this.renderAll(), locale)),
+      locale,
+    );
+  }
+
+  /**
+   * Pages eligible as feed items: `feed: false` and encrypt-gated pages
+   * stay out — a feed item advertises the URL, title and content exactly
+   * like a sitemap entry would. A locale filter narrows to that locale's
+   * articles; the unfiltered root feed stays all-locales (the mixed
+   * default) for drop-in readers.
+   */
+  private feedableOf(
+    pages: EmittedPage[],
+    locale?: LocaleInfo,
+  ): EmittedPage[] {
+    return pages.filter(
       p =>
+        (locale === undefined || p.locale.key === locale.key) &&
         p.meta.frontmatter.feed !== false &&
         !encryptRuleFor(p.route, this.config.encrypt),
     );
-    return renderRss(this.config, this.feedArticles(feedable));
   }
 
   /** Feed items: article info zipped with the page's rendered content HTML. */
@@ -1919,15 +1935,25 @@ export class SiteStore {
     ];
     // Sitemap parity for the feed: gated pages stay out (a feed item
     // advertises the URL, title and content excerpt the same way).
-    const feedable = ctx.pages.filter(
-      p =>
-        p.meta.frontmatter.feed !== false &&
-        !encryptRuleFor(p.route, this.config.encrypt),
-    );
+    const feedable = this.feedableOf(ctx.pages);
     out.push({
       fileName: 'rss.xml',
       source: renderRss(this.config, this.feedArticles(feedable)),
     });
+    // One feed per extra locale: `<key>/rss.xml` carries only that locale's
+    // articles (`locale.prefix` mirrors the route prefix the file sits
+    // under). The root feed stays all-locales, so the default locale has no
+    // duplicate of its own.
+    for (const locale of this.config.locales.slice(1)) {
+      out.push({
+        fileName: `${locale.key}/rss.xml`,
+        source: renderRss(
+          this.config,
+          this.feedArticles(this.feedableOf(ctx.pages, locale)),
+          locale,
+        ),
+      });
+    }
     out.push({
       fileName: 'sitemap.xml',
       source: renderSitemap(this.config, sitemapEntries),

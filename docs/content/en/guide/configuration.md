@@ -315,10 +315,13 @@ Each platform redirects the other's form once (GH 301s `/guide` to `/guide/`, CF
 ```ts
 feed: {
   rssLimit: 20, // number of latest articles included in rss.xml, default 20
+  full: false, // ship the full content HTML as item descriptions, default false
 }
 ```
 
-Feed options: the cap on how many latest articles `rss.xml` collects across all locales (pages with `feed: false` are always excluded); must be an integer no less than 1. Full-text RSS would require rewriting internal resource links to absolute URLs, which the framework deliberately does not do (excerpt + link is the practical shape of a feed); the only knob is the item count.
+Feed options: `rssLimit` is the cap on how many latest articles `rss.xml` collects across all locales (pages with `feed: false` are always excluded); must be an integer no less than 1. With `full: true`, each item's description carries the full rendered HTML, with on-site relative URLs (the `absasset:` token and `./` `../` relatives) rewritten into absolute URLs joined with `hostname`; external links and anchors pass through untouched. The default `false` keeps the plain-text excerpt. Full-content items grow with article length, and an externalized xlist body leaves only the title skeleton in the feed (feed consumers cannot fetch the lazily loaded asset).
+
+Every extra locale also emits its own feed `/<key>/rss.xml`, collecting only that locale's articles with `<language>` set to its BCP-47 tag; `/rss.xml` stays the site-wide mixed feed, and `rssLimit` applies to each feed separately.
 
 ## footer
 

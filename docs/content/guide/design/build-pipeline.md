@@ -72,8 +72,8 @@ const candidates = bare.endsWith('.md')
 
 渲染器实例本身也按 Shiki 语言集合缓存：`SiteStore` 先扫全部源文件的 fence 语言，把集合传给 `createMarkdownRenderer`，冷启动只加载站点实际用到的语法（默认全量加载实测约 2 秒）。dev 中某次编辑引入了新语言会置脏标记，下一个请求前重建渲染器并清空渲染缓存。
 
-## RSS 只输出摘要
+## RSS 的摘要与全文
 
-`renderRss`（`src/node/build/feeds.ts`）的 item description 是 `plainExcerpt(html, FEED_EXCERPT_LIMIT)`，不输出全文。取舍的原因写在 `excerpt.ts` 的头部注释里：全文输出需要把正文里的 asset token 和页内相对链接全部改写成绝对 URL——这些地址只在站内可解——等于在摘要逻辑之外复制一份 shell 的 base 改写，维护两份易碎的 URL 逻辑不划算。紧凑预览加 item 链接是两个消费方（RSS 阅读器与 head meta）都能用的形状。
+`renderRss`（`src/node/build/feeds.ts`）的 item description 默认是 `plainExcerpt(html, FEED_EXCERPT_LIMIT)`，不输出全文；`feed.full: true` 切换为全文渲染 HTML。全文必须把正文里的 asset token 与页内相对链接改写成绝对 URL（这些地址只在站内可解），由内部函数 `feedContent` 完成：只匹配 `href=` / `src=` 属性位置（与 shell 的 `applyAssetBase` 同款契约，正文里的字面量 token 不动），`absasset:` token 直接拼 `hostname`，`./` `../` 用 `new URL(href, hostname + route 所在目录)` 解析；改写结果经 `escapeXml` 进 `<description>`，不用 CDATA——正文可能含 `]]>` 字面量。默认关闭摘要形态的原因：阅读器对 HTML 的支持参差不齐，摘要加 item 链接是两个消费方（RSS 阅读器与 head meta）都能用的形状。
 
-其余细节：`feed: false` 的页面在取数前过滤；条目数上限 `feed.rssLimit` 默认 20；feed 是单语言的，`<language>` 取默认 locale 的 BCP-47 tag。sitemap 的 `lastmod` 用上面 git 批查的结果，归档页没有源文件、不给 `lastmod`；跨 locale 的页面与归档都带 hreflang alternate，与页面 head 里的链接同源。
+其余细节：`feed: false` 的页面在取数前过滤；条目数上限 `feed.rssLimit` 默认 20；全站 feed 的 `<language>` 取默认 locale 的 BCP-47 tag，每个额外 locale 的独立 feed（`/<key>/rss.xml`，第三参数传入）取该 locale 的。sitemap 的 `lastmod` 用上面 git 批查的结果，归档页没有源文件、不给 `lastmod`；跨 locale 的页面与归档都带 hreflang alternate，与页面 head 里的链接同源。
