@@ -60,12 +60,12 @@ hreflang 互链按「同 relPath 的跨 locale 镜像页」推导：locale 目�
 
 ## 404 页面
 
-构建额外产出完全内联的 `404.html`（无外部 css/js/字体），Cloudflare Pages / GitHub Pages 等静态主机会用它响应不存在的路径，避免「软 404」——任意路径返回 200 + 首页会被搜索引擎收录。页面带 `<meta name="robots" content="noindex">`，文案与 `<html lang>` 跟随默认 locale，亮暗色由内联的 `prefers-color-scheme` 媒体查询提供。
+构建额外产出完全内联的 `404.html`（无外部 css/js/字体），Cloudflare Pages / GitHub Pages 等静态主机会用它响应不存在的路径，避免「软 404」——任意路径返回 200 + 首页会被搜索引擎收录。页面带 `<meta name="robots" content="noindex">`，文案与 `<html lang>` 跟随默认 locale，亮暗色由内联的 `prefers-color-scheme` 媒体查询提供。配置了额外 locale 的站点还会产出 `<key>/404.html` 伴随页（跟随各自 locale 的语言），支持按目录路由 404 的主机（如 nginx）与 `vite preview` 会优先命中它；根路径的 `404.html` 仍是 GH Pages / CF Pages 唯一认的入口。`vite preview` 对未命中任何文件的扩展名无关路径同样以 404 状态返回该页（与静态主机行为一致）。
 
 两处已知边界：
 
 - 404 会在任意深度的未知 URL 下被服务，相对路径必坏，所以页面必须完全内联；同理返回首页的链接写成根绝对的 `href="/"`——框架无法感知部署子路径，子路径部署（如 `https://user.github.io/repo/`）下该链接指向域名根而非站点根
-- 内容根放一个 `404.md` 即可用自己的页面替换生成的兜底页
+- 内容根放一个 `404.md` 即可用自己的页面替换生成的兜底页；某 locale 放 `404.md` 则替换该 locale 的伴随页
 
 ## 其他 head 注入
 

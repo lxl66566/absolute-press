@@ -1993,12 +1993,23 @@ export class SiteStore {
       out.push(...katexAssets());
     }
     // Static hosts serve /404.html for unknown paths; a content page
-    // occupying the route (a 404.md at the content root) wins.
+    // occupying the route (a 404.md at the content root) wins. Extra
+    // locales get a companion `<key>/404.html` with their own language:
+    // hosts that route per-directory 404s (nginx) and the dev preview pick
+    // them up; a locale carrying its own content 404 page suppresses the
+    // companion for that locale.
     if (!ctx.byRoute.has('/404')) {
       out.push({
         fileName: '404.html',
         source: minifyHtml(renderNotFound(this.config)),
       });
+      for (const locale of this.config.locales.slice(1)) {
+        if (ctx.byRoute.has(`${locale.prefix}/404`)) continue;
+        out.push({
+          fileName: `${locale.key}/404.html`,
+          source: minifyHtml(renderNotFound(this.config, locale)),
+        });
+      }
     }
     // Pages carry their git last-commit time as lastmod; synthetic archive
     // and listing pages have no source file and stay lastmod-less. Both

@@ -1,4 +1,5 @@
 import { messagesForLang } from '../../shared/i18n/index.ts';
+import type { LocaleInfo } from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
 
@@ -27,9 +28,10 @@ const NOT_FOUND_CSS = [
 /**
  * Standalone `404.html` (CF Pages / GH Pages / nginx serve it for unknown
  * paths, fixing the soft-404 "200 + home page" response). Emitted in the
- * default locale; `noindex` keeps it out of search indexes. The home link
- * stays root-absolute (`/`): the build cannot know the deploy subpath
- * (documented limitation).
+ * default locale, with per-locale companions (`<key>/404.html`) carrying
+ * their own `<html lang>` and copy; `noindex` keeps them out of search
+ * indexes. The home link stays root-absolute (`/`): the build cannot know
+ * the deploy subpath (documented limitation).
  */
 /**
  * Route check for a content 404 override page (any locale prefix). The
@@ -40,10 +42,13 @@ export function isNotFoundRoute(route: string): boolean {
   return route.split('/').pop() === '404';
 }
 
-export function renderNotFound(config: ResolvedConfig): string {
-  // locales[0] is always the default locale (resolveConfig puts it first);
-  // the fallback only satisfies noUncheckedIndexedAccess.
-  const lang = config.locales[0]?.lang ?? 'zh-CN';
+export function renderNotFound(
+  config: ResolvedConfig,
+  locale?: LocaleInfo,
+): string {
+  // The default locale when unmarked; unknown langs fall back to zh copy
+  // (messagesForLang), same resolution as the client chrome.
+  const lang = locale?.lang ?? config.locales[0]?.lang ?? 'zh-CN';
   const t = messagesForLang(lang).notFound;
   return [
     '<!doctype html>',

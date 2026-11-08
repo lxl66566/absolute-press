@@ -215,7 +215,27 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
           next();
           return;
         }
-        if (!existsInDist(url.pathname, '/index.html')) return next();
+        if (!existsInDist(url.pathname, '/index.html')) {
+          // Unknown extensionless path: serve the 404 page with a 404
+          // status (GH Pages parity), locale-aware when the prefix matches
+          // an emitted companion; hosts without a matching file keep the
+          // static server's own 404.
+          const locale = config.locales.find(
+            l => l.prefix !== '' && url.pathname.startsWith(`${l.prefix}/`),
+          );
+          const file = path.join(
+            outDir,
+            locale ? `${locale.key}/404.html` : '404.html',
+          );
+          if (fs.existsSync(file)) {
+            res.statusCode = 404;
+            res.setHeader('content-type', 'text/html; charset=utf-8');
+            res.end(fs.readFileSync(file));
+            return;
+          }
+          next();
+          return;
+        }
         // Directory URL without the trailing slash. Slash mode mirrors GH
         // Pages (301 to `/guide/`); bare mode mirrors CF Pages (serve the
         // directory index here, no redirect).

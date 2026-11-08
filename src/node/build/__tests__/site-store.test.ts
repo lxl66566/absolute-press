@@ -1840,4 +1840,48 @@ describe('SiteStore onScan', () => {
     await devStore.sync('dev');
     expect(devStore.devHtml('/') ?? '').toMatch(/<\/h1>\s+<p>/);
   });
+
+  it('ships locale 404 companions, skipping overridden locales', async () => {
+    const fx = await contentFixture(
+      {
+        'index.md': '# Home\n',
+        'en/index.md': '# EN Home\n',
+        'en/404.md': '# Custom not found\n',
+      },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const names = files.map(f => f.fileName);
+    expect(names).toContain('404.html');
+    // The en content 404 page wins its slot: no companion overwrite.
+    expect(
+      String(files.find(f => f.fileName === 'en/404.html')?.source ?? ''),
+    ).toContain('Custom not found');
+    expect(
+      String(files.find(f => f.fileName === 'en/404.html')?.source ?? ''),
+    ).not.toContain('<p class="code">404</p>');
+
+    // Without the override, the companion carries the locale language.
+    const plain = await contentFixture(
+      { 'index.md': '# Home\n', 'en/index.md': '# EN Home\n' },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const plainStore = new SiteStore(plain.config);
+    await plainStore.sync('build');
+    const plainFiles = await plainStore.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const companion = String(
+      plainFiles.find(f => f.fileName === 'en/404.html')?.source ?? '',
+    );
+    expect(companion).toContain('<html lang="en">');
+  });
 });
