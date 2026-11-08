@@ -19,7 +19,7 @@ Content syntax, URLs, and Chinese heading anchors are character-for-character co
 
 ### Why frontmatter keys like `order` and `sticky` have no effect
 
-Frontmatter recognizes only six keys: `date` / `category` / `tag` / `icon` / `feed` / `overview`; the rest are ignored. Capabilities like nav ordering and pinning are expressed through site config and directory structure (e.g. `nav.exclude` for "exists but not in nav").
+Frontmatter recognizes only seven keys: `date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview`; the rest are ignored. Capabilities like nav ordering and pinning are expressed through site config and directory structure (e.g. `nav.exclude` for "exists but not in nav").
 
 ### Does the password protection in old articles still work
 

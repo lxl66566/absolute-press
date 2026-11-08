@@ -23,7 +23,7 @@ The conclusion: a framework under full control, with every requirement built in,
 
 absolute-press is an MPA + islands static blog framework, not a general-purpose site generator. The positioning rules:
 
-- The directory is the configuration. The navbar, sidebar, category/tag archives, homepage article feed, and TOC are all derived from the content directory structure; `index.md` is the directory index page. Frontmatter only recognizes six keys: `date / category / tag / icon / feed / overview`.
+- The directory is the configuration. The navbar, sidebar, category/tag archives, homepage article feed, and TOC are all derived from the content directory structure; `index.md` is the directory index page. Frontmatter only recognizes seven keys: `date / updated / category / tag / icon / feed / overview`.
 - Everything that can be done at build time is done at build time. Markdown rendering, containers and tabs, Shiki highlighting, KaTeX, dead-link checking, git last-edited time, and RSS/sitemap all happen at build time. The output is plain HTML.
 - Page interactivity goes to islands only. Write `<MyIsland prop="str" :num="1">inner markdown</MyIsland>` directly in the markdown body; it is pre-rendered into a placeholder at build time, and only those nodes execute code in the browser. The body stays plain HTML.
 

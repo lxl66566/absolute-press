@@ -132,4 +132,4 @@ MPA 每次导航都是完整页面加载，目标页的阻塞 CSS 没就绪时 C
 
 ## 数据契约
 
-构建侧和运行侧共享的类型集中在 `src/shared/types.ts`：`PageFrontmatter`（只认六个键）、`PageMeta`、`PagePayload`、`NavItem` 等。这个文件是全链路的真相源，改动它意味着 payload 序列化、客户端渲染、构建期聚合要一起动，所以注释里标了「改动需慎重」。内置 island 名单在 `src/shared/islands.ts`，运行时的注册表有编译期覆盖检查，防止名单和实现脱节。
+构建侧和运行侧共享的类型集中在 `src/shared/types.ts`：`PageFrontmatter`（只认七个键）、`PageMeta`、`PagePayload`、`NavItem` 等。这个文件是全链路的真相源，改动它意味着 payload 序列化、客户端渲染、构建期聚合要一起动，所以注释里标了「改动需慎重」。内置 island 名单在 `src/shared/islands.ts`，运行时的注册表有编译期覆盖检查，防止名单和实现脱节。

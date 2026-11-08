@@ -19,11 +19,11 @@ icon: solid/circle-question
 
 ### frontmatter 里的 `order`、`sticky` 等键怎么不生效
 
-frontmatter 只认 `date` / `category` / `tag` / `icon` / `feed` / `overview` 六个键，其余被忽略。导航排序、置顶等能力以站点配置与目录结构表达（如 `nav.exclude` 控制「存在但不进导航」）。
+frontmatter 只认 `date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview` 七个键，其余被忽略。导航排序、置顶等能力以站点配置与目录结构表达（如 `nav.exclude` 控制「存在但不进导航」）。
 
 ### 旧文章里的密码保护还能用吗
 
-语义变了：theme-hope 是构建期真加密，Absolute Press 是客户端密码门，正文仍随 HTML 下发。详见[加密](./encrypt.md#边界重要)。
+语义变了：theme-hope 是构建期真加密，Absolute Press 是客户端密码门，正文仍随 HTML 下发。详见[加密](./encrypt.md#边界-重要)。
 
 ## 已知边界
 
@@ -37,7 +37,7 @@ markdown 管线开着 `html: true`，未知 HTML 一律透传。`<MyComp />` 不
 
 ### 加密页面为什么能在源码里看到内容
 
-客户端密码门只隐藏不加密，正文完整随 HTML 下发，设计如此，见[加密](./encrypt.md#边界重要)。
+客户端密码门只隐藏不加密，正文完整随 HTML 下发，设计如此，见[加密](./encrypt.md#边界-重要)。
 
 ### 关联文章图为什么只有几篇文章
 

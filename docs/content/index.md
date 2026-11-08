@@ -16,7 +16,7 @@ pnpm install && pnpm dev
 
 ## 特性
 
-- **目录即信息架构**：导航、侧边栏、分类/标签归档、首页文章流都从内容目录推导，frontmatter 只有六个键
+- **目录即信息架构**：导航、侧边栏、分类/标签归档、首页文章流都从内容目录推导，frontmatter 只有七个键
 - **markdown 增强全开**：八种容器、tabs/代码组、Shiki 双主题高亮、KaTeX、脚注、黑幕、死链检查，见[Markdown 扩展](./guide/markdown.md)
 - **islands 交互**：正文纯静态，交互组件在 markdown 里直接写标签，构建期预渲染、客户端按需激活，见[Islands](./guide/islands.md)
 - **站点能力内置**：搜索、评论、RSS/sitemap、密码门、关联文章图、多语言，填配置即用，见[配置参考](./guide/configuration.md)

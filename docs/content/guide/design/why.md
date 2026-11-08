@@ -23,7 +23,7 @@ tag: [ssg]
 
 absolute-press 是 MPA + islands 的静态博客框架，不是通用站点生成器。定位上的几条约定：
 
-- 目录即配置。导航、侧边栏、分类/标签归档、首页文章流、TOC 全部由内容目录结构推导，`index.md` 就是目录索引页。frontmatter 只认 `date / category / tag / icon / feed / overview` 六个键。
+- 目录即配置。导航、侧边栏、分类/标签归档、首页文章流、TOC 全部由内容目录结构推导，`index.md` 就是目录索引页。frontmatter 只认 `date / updated / category / tag / icon / feed / overview` 七个键。
 - 一切能在构建期解决的都在构建期解决。markdown 渲染、容器与 tabs、Shiki 高亮、KaTeX、死链检查、git 最后编辑时间、RSS/sitemap 全部发生在构建期，产物是纯 HTML。
 - 页面交互只交给 islands。markdown 正文里直接写 `<MyIsland prop="str" :num="1">内部 markdown</MyIsland>`，构建期预渲染成占位标记，浏览器里只有这些节点执行代码，正文始终是纯 HTML。
 

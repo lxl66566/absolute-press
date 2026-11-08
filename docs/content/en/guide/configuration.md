@@ -381,7 +381,7 @@ Motivation: locale directory ownership, README/index semantics, frontmatter norm
 - `route: string`: locale-prefixed clean route — leaf `/guide/a`, directory index `/guide/` (`/guide` with `urls.directoryIndex: 'bare'`), locale home `/en/`, site home `/`
 - `relPath: string`: path relative to the locale content root, posix separators
 - `locale: LocaleInfo`: the page's locale (`key` / `lang` / `label` / `prefix`)
-- `frontmatter: PageFrontmatter`: the normalization result over the framework-recognized keys (the six keys; semantics in [per-page config](#per-page-config-frontmatter))
+- `frontmatter: PageFrontmatter`: the normalization result over the framework-recognized keys (the seven keys; semantics in [per-page config](#per-page-config-frontmatter))
 - `rawFrontmatter: Record<string, unknown>`: the frontmatter as the yaml parser produced it; custom keys live here, bare dates are `Date` objects
 - `createdAt: string | null`: frontmatter `date` as an ISO string; null when absent or unparsable
 - `updatedAt: string | null`: last git commit time as an ISO string; null when unavailable (e.g. not a git repo)
@@ -401,4 +401,4 @@ Outside `absolutePress()` this is still a standard vite config: `build.target` s
 
 ## Per-page config (frontmatter)
 
-Frontmatter recognizes only six keys: `date` / `category` / `tag` / `icon` / `feed` / `overview`. Semantics in the [Writing guide](./writing.md#the-six-frontmatter-keys). Pages with `feed: false` leave RSS (the article feed still includes them).
+Frontmatter recognizes only seven keys: `date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview`. Semantics in the [Writing guide](./writing.md#the-seven-frontmatter-keys). Pages with `feed: false` leave RSS (the article feed still includes them).

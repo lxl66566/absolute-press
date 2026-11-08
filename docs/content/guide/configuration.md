@@ -381,7 +381,7 @@ onScan: (ctx: SiteScanContext) => ({
 - `route: string`：带 locale 前缀的 clean 路由——叶子页 `/guide/a`、目录索引 `/guide/`（`urls.directoryIndex: 'bare'` 时为 `/guide`）、locale 首页 `/en/`、站点首页 `/`
 - `relPath: string`：相对 locale 内容根的路径，posix 分隔符
 - `locale: LocaleInfo`：页面所属 locale（`key` / `lang` / `label` / `prefix`）
-- `frontmatter: PageFrontmatter`：框架识别键的规范化结果（六个键，语义见[页面级配置](#页面级配置-frontmatter)）
+- `frontmatter: PageFrontmatter`：框架识别键的规范化结果（七个键，语义见[页面级配置](#页面级配置-frontmatter)）
 - `rawFrontmatter: Record<string, unknown>`：yaml 原生解析结果，自定义键在这里；裸日期是 `Date` 对象
 - `createdAt: string | null`：frontmatter `date` 的 ISO 字符串，缺失或不可解析为 `null`
 - `updatedAt: string | null`：git 最后提交时间的 ISO 字符串，不可用（如不在 git 仓库）为 `null`
@@ -401,4 +401,4 @@ onScan: (ctx: SiteScanContext) => ({
 
 ## 页面级配置（frontmatter）
 
-frontmatter 只认六个键：`date` / `category` / `tag` / `icon` / `feed` / `overview`，语义见[写作指南](./writing.md#frontmatter-六个键)。`feed: false` 的页面退出 RSS（文章流仍收录）。
+frontmatter 只认七个键：`date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview`，语义见[写作指南](./writing.md#frontmatter-七个键)。`feed: false` 的页面退出 RSS（文章流仍收录）。

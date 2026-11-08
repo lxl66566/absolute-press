@@ -52,7 +52,7 @@ The following syntaxes behave the same as theme-hope; content moves over directl
 ## Known incompatibilities
 
 - **`<template #xxx>` and vue component syntax**: passed through as unknown HTML (the framework is incompatible); convert page by page when migrating — turn them into islands or rewrite with markdown syntax
-- **Frontmatter recognizes only six keys**: `date` / `category` / `tag` / `icon` / `feed` / `overview`; other theme-hope keys (like `order`, `sticky`) are ignored, and capabilities like nav ordering come from site config (e.g. `nav.exclude`)
+- **Frontmatter recognizes only seven keys**: `date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview`; other theme-hope keys (like `order`, `sticky`) are ignored, and capabilities like nav ordering come from site config (e.g. `nav.exclude`)
 - **Icons must be registered**: frontmatter `icon` must be a key of the site config `icons` map, validated at build time; theme-hope's iconfont class syntax needs to be swapped for a registered svg
 - **Encryption semantics**: theme-hope's password encryption is real build-time encryption; Absolute Press is a client-side password gate (sha256 comparison + sessionStorage, content still ships with the HTML). See [Encryption](./encrypt.md)
 - **The related-articles graph** contains first-degree neighbors only; the ArticleCard icon is still a text chip
