@@ -125,6 +125,12 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         },
         build: {
           ...(userEmpty === null ? { emptyOutDir: false } : {}),
+          // Lazy islands (mermaid with elk, G2Plot, docsearch) split into
+          // on-demand chunks past vite's 500 kB default; the size warning is
+          // noise for code no page loads eagerly. An explicit user value wins.
+          ...(cfg.build?.chunkSizeWarningLimit === undefined
+            ? { chunkSizeWarningLimit: 1600 }
+            : {}),
           rollupOptions: { input: clientEntry() },
         },
         server: { fs: { allow: devFsAllow(cfg, root) } },

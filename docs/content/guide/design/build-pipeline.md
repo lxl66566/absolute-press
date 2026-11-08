@@ -89,3 +89,5 @@ emit 的页面 HTML 经过 `minifyHtml`（`src/node/build/minify-html.ts`）：�
 ## 增量产出
 
 `pnpm build` 默认不再清空 dist：插件在 config 阶段把 `build.emptyOutDir` 设为 `false`，把整目录 wipe 换成 `writeBundle` 阶段的 stale 清理（`src/node/build/incremental.ts`）——此时 rolldown 已把 bundle 与全部 emit 资产写盘，keep 集合收 bundle 文件名与 public 目录拷贝，集合之外的文件（改名后的旧 hash 资产、被删页面的 html）连同空目录一并删除。附带收益：构建在 `generateBundle` 阶段报错（死链、坏锚点）时不会到达清理阶段，dist 完整保留上一次的可用产出。注意清理是无状态的，keep 之外一律删除：手动放进 dist 的文件（`CNAME`、`.well-known/` 等）与第三方插件绕过 `emitFile` 直接写盘的产物都不在集合内，这类文件应放 public 目录（构建会把拷贝收进 keep 集合）。用户显式设置 `emptyOutDir: true` 恢复每次清空的原行为，清理跳过。
+
+插件同阶段把 `build.chunkSizeWarningLimit` 默认提到 1600 kB：内置懒加载岛（含 elk 的 mermaid、G2Plot、docsearch）按需拆出的 chunk 超过 vite 的 500 kB 默认阈值，警告对首屏零加载的代码只是噪音，且会淹没真正值得警惕的新增大 chunk。用户显式设置该值时原样生效。
