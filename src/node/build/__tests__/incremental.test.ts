@@ -5,18 +5,17 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { pruneStale, walkFiles } from '../incremental.ts';
 
-// Windows temp is not a RAM disk; use the shared scratch dir.
-const base = process.env.TEMP?.startsWith('Z:') ? process.env.TEMP : 'Z:/Temp';
 const roots: string[] = [];
 
 function root(): string {
-  const dir = mkdtempSync(join(base, 'incr-'));
+  const dir = mkdtempSync(join(tmpdir(), 'incr-'));
   roots.push(dir);
   return dir;
 }
