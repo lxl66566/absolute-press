@@ -85,3 +85,7 @@ const candidates = bare.endsWith('.md')
 ## 页面压缩
 
 emit 的页面 HTML 经过 `minifyHtml`（`src/node/build/minify-html.ts`）：单趟扫描，只删「块级闭合/void 标签的 `>` + 纯空白串 + 块级开标签的 `<`」之间的空白，另有整文档首尾 trim。`pre/textarea/script/style/svg/template` 是 raw 区域，内容逐字保留、边界按 inline 处理，所以 payload JSON、内联脚本、代码块缩进与属性值都不受影响；inline 标签边界、注释、文本节点一律不动。保守规则下缩减幅度有限（块间换行是主要目标），但任何渲染差异都是零。dev 不压缩，与 vite 的 dev 输出保持一致。
+
+## 增量产出
+
+`pnpm build` 默认不再清空 dist：插件在 config 阶段把 `build.emptyOutDir` 设为 `false`，把整目录 wipe 换成 `writeBundle` 阶段的 stale 清理（`src/node/build/incremental.ts`）——此时 rolldown 已把 bundle 与全部 emit 资产写盘，keep 集合收 bundle 文件名与 public 目录拷贝，集合之外的文件（改名后的旧 hash 资产、被删页面的 html）连同空目录一并删除。附带收益：构建在 `generateBundle` 阶段报错（死链、坏锚点）时不会到达清理阶段，dist 完整保留上一次的可用产出。注意清理是无状态的，keep 之外一律删除：手动放进 dist 的文件（`CNAME`、`.well-known/` 等）与第三方插件绕过 `emitFile` 直接写盘的产物都不在集合内，这类文件应放 public 目录（构建会把拷贝收进 keep 集合）。用户显式设置 `emptyOutDir: true` 恢复每次清空的原行为，清理跳过。

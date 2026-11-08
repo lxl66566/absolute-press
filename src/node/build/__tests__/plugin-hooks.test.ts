@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -1447,5 +1448,83 @@ describe('absolutePress generateBundle', () => {
     const names = ctx.emitted.map(f => f.fileName);
     expect(names).toContain('rss.xml');
     expect(names).not.toContain('index.html');
+  });
+
+  it('writeBundle prunes stale outDir output: removes stale files, keeps bundle and public files', async () => {
+    const root = await makeTmp('ap-write-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = livePlugin(userConfig());
+    // unset user emptyOutDir -> the plugin takes over the outDir lifecycle
+    const cfgOut = runConfig(plugin, { root }, hookEnv('build'));
+    expect(cfgOut.build?.emptyOutDir).toBe(false);
+    callHook(
+      plugin.configResolved,
+      {},
+      { root, build: { outDir: 'dist', write: true } },
+    );
+    await callHook(plugin.buildStart, {});
+    const ctx = stubBuildCtx();
+    await callHook(
+      plugin.generateBundle,
+      ctx,
+      {},
+      bundleOf([entryChunk(), cssAsset('assets/app.css')]),
+      true,
+    );
+    const outDir = path.join(root, 'dist');
+    await mkdir(outDir, { recursive: true });
+    // Previous-build leftovers: a stale page and a bundle-owned file whose
+    // new bytes were written by rolldown before writeBundle.
+    await writeFile(path.join(outDir, 'old-page.html'), 'stale');
+    await mkdir(path.join(outDir, 'assets'), { recursive: true });
+    await writeFile(path.join(outDir, 'assets/entry-x.js'), 'ROLLDOWN BYTES');
+
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    try {
+      callHook(plugin.writeBundle, {}, {}, bundleOf([entryChunk()]));
+    } finally {
+      info.mockRestore();
+    }
+
+    // Stale output from a previous build is gone.
+    expect(fs.existsSync(path.join(outDir, 'old-page.html'))).toBe(false);
+    // Bundle-owned names ride the keep set: rolldown owns those writes.
+    expect(
+      fs.readFileSync(path.join(outDir, 'assets/entry-x.js'), 'utf8'),
+    ).toBe('ROLLDOWN BYTES');
+  });
+
+  it('writeBundle stays inert when the user keeps emptyOutDir: true', async () => {
+    const root = await makeTmp('ap-write-user-');
+    await mkdir(path.join(root, 'content'), { recursive: true });
+    await writeFile(path.join(root, 'content', 'index.md'), '# Home\n');
+    const plugin = livePlugin(userConfig());
+    const cfgOut = runConfig(
+      plugin,
+      { root, build: { emptyOutDir: true } },
+      hookEnv('build'),
+    );
+    // The explicit user value wins: vite keeps its wipe, no cleanup hook.
+    expect(cfgOut.build?.emptyOutDir).toBeUndefined();
+    callHook(
+      plugin.configResolved,
+      {},
+      { root, build: { outDir: 'dist', write: true } },
+    );
+    await callHook(plugin.buildStart, {});
+    const ctx = stubBuildCtx();
+    await callHook(
+      plugin.generateBundle,
+      ctx,
+      {},
+      bundleOf([entryChunk(), cssAsset('assets/app.css')]),
+      true,
+    );
+    const outDir = path.join(root, 'dist');
+    await mkdir(outDir, { recursive: true });
+    await writeFile(path.join(outDir, 'old-page.html'), 'stale');
+    callHook(plugin.writeBundle, {}, {}, bundleOf([entryChunk()]));
+    expect(fs.existsSync(path.join(outDir, 'old-page.html'))).toBe(true);
   });
 });

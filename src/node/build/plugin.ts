@@ -14,6 +14,7 @@ import type { AbsolutePressConfig } from '../config.ts';
 import { resolveConfig, type ResolvedConfig } from '../config.ts';
 import { devFsUrl } from './assets.ts';
 import { clientEntry, packageRoot } from './clientEntry.ts';
+import { pruneStale, walkFiles } from './incremental.ts';
 import { isRefFile, refsDirsOf } from './refs.ts';
 import { SiteStore } from './site.ts';
 
@@ -59,6 +60,12 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
   // First store sync (build buildStart / dev configureServer); the site-data
   // module's load awaits it so its default export never serves pre-sync.
   let syncDone: Promise<void> | null = null;
+  // Incremental emit state: the resolved outDir (buildOutDir), whether the
+  // bundler writes to disk at all, and the user's own emptyOutDir setting
+  // (true keeps vite's wipe and disables the stale cleanup).
+  let buildOutDir = 'dist';
+  let buildWrite = true;
+  let userEmpty: boolean | null = null;
 
   const islandsModule = (): string => {
     const entries = Object.entries(config.islands);
@@ -97,6 +104,10 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
       // module and asset resolution below must follow that root, not the
       // arbitrary process cwd vite may have been started from.
       const root = path.resolve(cfg.root ?? process.cwd());
+      // null = user did not set emptyOutDir; the plugin then takes over the
+      // outDir lifecycle (false) and swaps the wipe for the writeBundle
+      // stale cleanup. An explicit user value wins unchanged.
+      userEmpty = cfg.build?.emptyOutDir ?? null;
       return {
         // No index.html SPA fallback; the middleware serves pages itself.
         appType: 'custom',
@@ -113,6 +124,7 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
           alias: solidWebAlias(env.command === 'serve', root),
         },
         build: {
+          ...(userEmpty === null ? { emptyOutDir: false } : {}),
           rollupOptions: { input: clientEntry() },
         },
         server: { fs: { allow: devFsAllow(cfg, root) } },
@@ -126,6 +138,11 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
         // vite leaves publicDir '' when disabled via `publicDir: false`.
         viteConfig.publicDir || false,
       );
+      buildOutDir = path.resolve(
+        viteConfig.root,
+        viteConfig.build?.outDir ?? 'dist',
+      );
+      buildWrite = viteConfig.build?.write !== false;
       store = new SiteStore(config, userConfig.onScan);
     },
     resolveId(id) {
@@ -436,6 +453,29 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
           fileName: file.fileName,
           source: file.source,
         });
+      }
+    },
+    /**
+     * Stale-output cleanup: rolldown wrote the bundle and every emitted
+     * asset before this phase, so the disk now holds the complete new
+     * output plus anything the previous build left behind. Remove the
+     * leftovers — renamed hashed assets, pages this build no longer emits —
+     * replacing the outDir wipe the config hook disabled. Bundle file names
+     * and public-dir files ride the keep set: this build's writers own them.
+     * A user-set `emptyOutDir: true` keeps vite's wipe and skips the cleanup
+     * entirely.
+     */
+    writeBundle(_options: unknown, bundle: Record<string, unknown>) {
+      if (inert || !isBuild || !buildWrite || userEmpty === true) return;
+      const keep = new Set(Object.keys(bundle));
+      if (config.publicDir && fs.existsSync(config.publicDir)) {
+        for (const name of walkFiles(config.publicDir)) keep.add(name);
+      }
+      const removed = pruneStale(buildOutDir, keep);
+      if (removed > 0) {
+        console.info(
+          `[absolute-press] incremental emit: ${removed} stale file(s) removed`,
+        );
       }
     },
   };
