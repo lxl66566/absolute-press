@@ -48,6 +48,13 @@ export interface RenderShard {
   code: ResolvedCodeOptions;
   islands: { name: string; entryList?: boolean }[];
   shikiLangs: string[];
+  /**
+   * Byte threshold past which built-in entry-list islands externalize
+   * their bodies (= config `xlist.externalize` KiB * 1024); false (or
+   * absent, until the site wires it) keeps every list inline. Wired into
+   * the renderer via createEntryBodiesHook.
+   */
+  xlistThreshold?: number | false;
 }
 
 /** One worker's combined output. */
@@ -58,12 +65,20 @@ export interface ShardResult {
     mtimeMs: number;
     result: RenderResult;
     excerpt: string;
+    /** Emitted xlist body modules this page's html references (0 or 1). */
+    xlistFiles: string[];
   }[];
   /** Ref popover renders keyed `<locale>/<id>`. */
   refHtml: { key: string; mtimeMs: number; html: string }[];
   deadLinks: DeadLink[];
   /** Copied images by emitted file name (bytes survive structured clone). */
   images: [string, Uint8Array][];
+  /**
+   * Externalized entry-list body modules [fileName, source]. Identical
+   * content hashes collide across workers; the main thread keeps the first
+   * write per file name.
+   */
+  xlistAssets: [string, string][];
   /** One-shot warnings (key + message) for the main thread to dedupe. */
   warns: [string, string][];
 }

@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { LocaleInfo } from '../../../shared/types.ts';
 import { resolveConfig } from '../../config.ts';
 import { localeContentRoot, scanRefEntry } from '../refs.ts';
 import {
@@ -25,6 +26,19 @@ afterAll(async () => {
 
 function task(filePath: string, source: string, mtimeMs = 1): RenderTask {
   return { filePath, source, mtimeMs };
+}
+
+/** One-entry ExpandableList island wrapping the given body markdown. */
+function expandableList(body: string): string {
+  return [
+    '<ExpandableList>',
+    '',
+    '@@@ First',
+    '',
+    body,
+    '',
+    '</ExpandableList>',
+  ].join('\n');
 }
 
 describe('shardTasks', () => {
@@ -152,6 +166,9 @@ describe('runRenderShards', () => {
       code: config.code,
       islands: [],
       shikiLangs: ['ts'],
+      // No entry-list externalization in this fixture (main-thread parity
+      // is covered by the dedicated xlist test below).
+      xlistThreshold: false as const,
     };
     const shards: RenderShard[] = shardTasks(tasks, 2).map((t, index) => ({
       ...common,
@@ -212,7 +229,70 @@ describe('runRenderShards', () => {
       },
       islands: [{ name: 'ZoomedImg' }],
       shikiLangs: [],
+      xlistThreshold: false,
     };
     await expect(runRenderShards([bad])).rejects.toThrow(/invalid JSON/);
+  });
+
+  it('externalizes a large entry list and returns the asset reference', async () => {
+    const LOCALE: LocaleInfo = {
+      key: '',
+      lang: 'zh-CN',
+      label: 'zh',
+      prefix: '',
+    };
+    // The same big list twice: externalized past the threshold, inline below.
+    const big = 'x'.repeat(48);
+    const shard = (threshold: number | false, body: string): RenderShard => ({
+      index: 0,
+      tasks: [task('a.md', expandableList(body))],
+      pages: [
+        {
+          filePath: 'a.md',
+          locale: LOCALE,
+          relPath: 'a.md',
+          route: '/a',
+        },
+      ],
+      refRoots: [],
+      refs: new Map(),
+      refsPresent: false,
+      locales: [LOCALE],
+      contentDir: 'C:/unused',
+      code: {
+        lineNumbers: true,
+        collapsedLines: null,
+        wrap: false,
+        copyLabel: 'copy',
+      },
+      islands: [{ name: 'ExpandableList' }],
+      shikiLangs: [],
+      xlistThreshold: threshold,
+    });
+
+    // Threshold past the bodies: skeleton rows plus the emitted module.
+    const external = (await runRenderShards([shard(32, big)]))[0]!;
+    expect(external.entries).toHaveLength(1);
+    const entry = external.entries[0]!;
+    expect(entry.xlistFiles).toHaveLength(1);
+    const fileName = entry.xlistFiles[0]!;
+    expect(fileName).toMatch(/^assets\/xlist-[0-9a-f]{8}\.js$/);
+    expect(external.xlistAssets).toEqual([
+      [fileName, `export default ${JSON.stringify([`<p>${big}</p>\n`])};\n`],
+    ]);
+    // Bodies left the html; the island props carry the asset url.
+    expect(entry.result.html).toContain('data-ap-slot="0"');
+    expect(entry.result.html).not.toContain(`<p>${big}</p>`);
+    expect(entry.result.html).toContain(
+      `&quot;entriesSrc&quot;:&quot;${fileName}&quot;`,
+    );
+
+    // Threshold false: identical list stays fully inline, no asset.
+    const inline = (await runRenderShards([shard(false, big)]))[0]!;
+    const inlineEntry = inline.entries[0]!;
+    expect(inlineEntry.xlistFiles).toEqual([]);
+    expect(inline.xlistAssets).toEqual([]);
+    expect(inlineEntry.result.html).toContain(`<p>${big}</p>`);
+    expect(inlineEntry.result.html).not.toContain('data-ap-slot');
   });
 });

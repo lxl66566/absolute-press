@@ -56,10 +56,12 @@ function stubShardResult(shard: RenderShard): ShardResult {
         readingTime: 1,
       },
       excerpt: 'pooled excerpt',
+      xlistFiles: [],
     })),
     refHtml: [],
     deadLinks: [{ file: 'x.md', raw: './y.md' }],
     images: [['assets/img/p.12345678.png', new Uint8Array([1, 2, 3])]],
+    xlistAssets: [],
     warns: [['warn-key', '[absolute-press] pooled warn message']],
   };
 }

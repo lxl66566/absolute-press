@@ -17,6 +17,7 @@ import { LinkResolver } from './assets.ts';
 import { lookupRef, localeKeyOf, refTitle } from './refs.ts';
 import type { RenderShard, ShardMessage, ShardResult } from './render-pool.ts';
 import { REF_SEQ_RESERVE } from './render-pool.ts';
+import { createEntryBodiesHook } from './xlist-hook.ts';
 
 const TERM_ID_RE = /data-term="([^"]+)"/g;
 
@@ -66,6 +67,19 @@ async function renderShard(shard: RenderShard): Promise<ShardResult> {
         }
       : undefined;
 
+  /** Emitted xlist module names (first write wins per name). */
+  const xlistEmitted = new Set<string>();
+  /** Rendering page -> the xlist module file names its html references. */
+  const xlistByPage = new Map<string, string[]>();
+  const result: ShardResult = {
+    entries: [],
+    refHtml: [],
+    deadLinks: links.deadLinks,
+    images: [],
+    warns,
+    xlistAssets: [],
+  };
+
   const renderer = await createMarkdownRenderer({
     resolveLink: links.resolveLink,
     resolveImage: links.resolveImage,
@@ -76,14 +90,27 @@ async function renderShard(shard: RenderShard): Promise<ShardResult> {
     refSeqStart: (shard.index + 1) * REF_SEQ_RESERVE,
     islands: shard.islands,
     buildComponents: new Set(BUILD_COMPONENT_NAMES),
+    // Same externalization contract as the serial renderer: built-in
+    // entry-list islands past the threshold emit their bodies as modules;
+    // without this, pool builds inline them and diverge from serial builds.
+    // An absent threshold (site not wired yet) keeps lists inline.
+    ...(typeof shard.xlistThreshold === 'number'
+      ? {
+          entryBodies: createEntryBodiesHook({
+            thresholdBytes: shard.xlistThreshold,
+            pageForFile: filePath => links.pageForFile(filePath),
+            collect: (asset, env) => {
+              if (xlistEmitted.has(asset.fileName)) return;
+              xlistEmitted.add(asset.fileName);
+              result.xlistAssets.push([asset.fileName, asset.source]);
+              const refs = xlistByPage.get(env.filePath);
+              if (refs) refs.push(asset.fileName);
+              else xlistByPage.set(env.filePath, [asset.fileName]);
+            },
+          }),
+        }
+      : {}),
   });
-  const result: ShardResult = {
-    entries: [],
-    refHtml: [],
-    deadLinks: links.deadLinks,
-    images: [],
-    warns,
-  };
 
   // Pages first: term popover rendering needs the ids the html references.
   const htmls: string[] = [];
@@ -99,6 +126,7 @@ async function renderShard(shard: RenderShard): Promise<ShardResult> {
       excerpt:
         r.frontmatter.description?.trim() ||
         plainExcerpt(r.html, META_EXCERPT_LIMIT),
+      xlistFiles: xlistByPage.get(task.filePath) ?? [],
     });
   }
 
