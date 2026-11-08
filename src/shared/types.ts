@@ -180,6 +180,13 @@ export interface SocialEntry {
   title: string;
 }
 
+/** Navbar search implementation shipped in the payload `site` block. */
+export type SiteSearch =
+  /** Algolia DocSearch (external crawler index + account). */
+  | { kind: 'algolia'; appId: string; apiKey: string; indexName: string }
+  /** Local offline index: docs emitted per locale, searched client-side. */
+  | { kind: 'local'; index: string };
+
 export type SidebarItem =
   | { kind: 'link'; text: string; link: string; icon?: string }
   | {
@@ -332,8 +339,14 @@ export interface PagePayload {
     icons?: Record<string, string>;
     /** Brand image for the navbar/drawer, resolved against the page base. */
     logo?: string;
-    /** Present when Algolia DocSearch is configured. */
-    algolia?: { appId: string; apiKey: string; indexName: string };
+    /**
+     * Site search implementation. Absent when the site configures no search:
+     * the navbar renders no search box. `local.index` is a root-relative URL
+     * of the page locale's index module (no leading slash — joined onto
+     * `site.base`), identical for every page of one locale on build; dev
+     * payloads point at the all-locales dev endpoint instead.
+     */
+    search?: SiteSearch;
     /** Present when navbar social links are configured. */
     social?: SocialEntry[];
     /**
@@ -582,6 +595,20 @@ export interface SiteConfig {
    * @default 'warn'
    */
   strictLinks?: StrictLinks;
+  /**
+   * Site search. One key picks the implementation: Algolia DocSearch
+   * (external crawler index + account) or the built-in local search
+   * (offline index generated from the site's own pages at build time,
+   * no account or network dependency). Configure at most one of `search`
+   * and the legacy `algolia` key — both set fails config resolution.
+   */
+  search?: SearchConfig;
+  /**
+   * Legacy Algolia DocSearch key, superseded by `search` (same fields under
+   * `{ kind: 'algolia', ... }`). Still honored; new sites should use
+   * `search`.
+   * @deprecated use `search`
+   */
   algolia?: { appId: string; apiKey: string; indexName: string };
   giscus?: {
     repo: string;
@@ -603,6 +630,26 @@ export interface SiteConfig {
 
 /** Policy for bare relative markdown links (see `SiteConfig.strictLinks`). */
 export type StrictLinks = 'off' | 'warn' | 'error';
+
+/** Site search config (see `SiteConfig.search`). */
+export type SearchConfig =
+  /** Algolia DocSearch; the payload carries the credentials verbatim. */
+  | { kind: 'algolia'; appId: string; apiKey: string; indexName: string }
+  | {
+      /**
+       * Local offline search: the build splits every rendered page into
+       * heading sections, strips them to plain text and ships them as a
+       * per-locale content-hashed module; the client lazy-loads it on
+       * first search open and runs MiniSearch in the browser.
+       */
+      kind: 'local';
+      /**
+       * Route prefixes kept out of the local index (match-normalized like
+       * `seo.exclude`). Password-gated pages (`encrypt`) are always excluded
+       * regardless — the gate must not leak through search.
+       */
+      exclude?: string[];
+    };
 
 /** Canonical form of directory-index routes (see `SiteConfig.urls`). */
 export type DirectoryIndex = 'slash' | 'bare';

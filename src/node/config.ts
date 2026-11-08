@@ -519,7 +519,7 @@ export interface ResolvedConfig {
     twoHopNodeLimit: number;
   };
   /** Site integrations passed through from SiteConfig. */
-  algolia?: SiteConfig['algolia'];
+  search?: ResolvedSearch;
   giscus?: SiteConfig['giscus'];
   encrypt?: SiteConfig['encrypt'];
   googleAnalytics?: string;
@@ -556,6 +556,59 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
 /** A blank value would emit empty text/attribute boxes; treat as unset. */
 function cleanOption(value: string | undefined): string | undefined {
   return value?.trim() ? value : undefined;
+}
+
+/** Normalized search config consumed by the build layer. */
+export type ResolvedSearch =
+  | { kind: 'algolia'; appId: string; apiKey: string; indexName: string }
+  | { kind: 'local'; exclude: string[] };
+
+/**
+ * Normalize the site search: the `search` union is canonical, the legacy
+ * `algolia` key folds into its algolia branch, and setting both fails —
+ * silently preferring one would hide a copy-paste migration leftover.
+ */
+function resolveSearch(
+  config: AbsolutePressConfig,
+): ResolvedSearch | undefined {
+  const search = config.search;
+  const legacy = config.algolia;
+  if (search !== undefined && legacy !== undefined) {
+    throw new Error(
+      '[absolute-press] configure either `search` or the legacy `algolia` key, not both',
+    );
+  }
+  const picked =
+    search ?? (legacy ? { kind: 'algolia' as const, ...legacy } : undefined);
+  if (picked === undefined) return undefined;
+  // JS configs bypass the union; guard the discriminator before narrowing.
+  // (Hoist the read: comparing picked.kind twice narrows it to never.)
+  const kind = picked.kind;
+  if (kind !== 'algolia' && kind !== 'local') {
+    throw new Error(
+      `[absolute-press] search.kind must be 'algolia' or 'local', got '${String(kind)}'`,
+    );
+  }
+  if (picked.kind === 'algolia') {
+    // Blank credentials would only surface as opaque DocSearch runtime errors.
+    for (const key of ['appId', 'apiKey', 'indexName'] as const) {
+      if (typeof picked[key] !== 'string' || picked[key].trim() === '') {
+        throw new Error(
+          `[absolute-press] search (algolia) requires a non-empty ${key}`,
+        );
+      }
+    }
+    return {
+      kind: 'algolia',
+      appId: picked.appId,
+      apiKey: picked.apiKey,
+      indexName: picked.indexName,
+    };
+  }
+  return {
+    kind: 'local',
+    exclude: (picked.exclude ?? []).map(normalizeRouteForMatch),
+  };
 }
 
 /**
@@ -734,6 +787,7 @@ export function resolveConfig(
   }
   const refs = resolveRefs(config.refs);
   const iconProvider = resolveIconProvider(config.iconProvider);
+  const search = resolveSearch(config);
   const resolvedProfile = resolveProfile(
     config.profile,
     config.title,
@@ -818,7 +872,7 @@ export function resolveConfig(
     // A blank credit would render an empty footer line; treat it as unset.
     ...(config.footer?.credit?.trim() ? { footer: config.footer } : {}),
     related,
-    ...(config.algolia ? { algolia: config.algolia } : {}),
+    ...(search ? { search } : {}),
     ...(config.giscus ? { giscus: config.giscus } : {}),
     ...(config.encrypt ? { encrypt: config.encrypt } : {}),
     ...(config.googleAnalytics

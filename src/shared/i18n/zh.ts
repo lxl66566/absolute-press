@@ -84,6 +84,8 @@ export const zh = {
     placeholder: '搜索文档',
     /** aria-label of the icon-only search button on mobile. */
     label: '搜索',
+    /** Empty-state copy of the local search results list. */
+    noResults: '没有匹配的结果',
   },
   xlist: {
     searchPlaceholder: '搜索条目…',

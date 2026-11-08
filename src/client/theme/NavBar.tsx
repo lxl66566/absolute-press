@@ -22,6 +22,7 @@ import {
   iconButtonClass,
   railOnlyClass,
 } from './navbar/classes';
+import { LocalSearch } from './navbar/LocalSearch';
 import { itemHref, NavEntry, slimNavItem } from './navbar/NavEntry';
 import { SearchBox } from './navbar/SearchBox';
 import { socialIconSet } from './navbar/social-icons';
@@ -156,10 +157,14 @@ export function NavBar(props: { payload: PagePayload }): SolidElement {
             centered ? 'ml-auto lg:ml-0' : 'ml-auto',
           )}
         >
-          <Show when={props.payload.site.algolia}>
-            {algolia => (
-              <SearchBox algolia={algolia()} site={props.payload.site} />
-            )}
+          <Show when={props.payload.site.search} keyed>
+            {search =>
+              search.kind === 'algolia' ? (
+                <SearchBox search={search} site={props.payload.site} />
+              ) : (
+                <LocalSearch search={search} site={props.payload.site} />
+              )
+            }
           </Show>
           <Show when={props.payload.site.locales.length > 1}>
             <div

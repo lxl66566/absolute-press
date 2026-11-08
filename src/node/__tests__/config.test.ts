@@ -46,6 +46,98 @@ describe('resolveConfig markdown plugins', () => {
   });
 });
 
+describe('resolveConfig search', () => {
+  it('defaults to no search', () => {
+    expect(resolveConfig(baseConfig(), '/root').search).toBeUndefined();
+  });
+
+  it('resolves local search, normalizing its excludes', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        search: { kind: 'local', exclude: ['draft/', '/%E7%A7%98%E5%AF%86//'] },
+      },
+      '/root',
+    );
+    expect(config.search).toEqual({
+      kind: 'local',
+      exclude: ['/draft', '/秘密'],
+    });
+  });
+
+  it('resolves algolia search with its credentials verbatim', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        search: {
+          kind: 'algolia',
+          appId: 'a',
+          apiKey: 'k',
+          indexName: 'i',
+        },
+      },
+      '/root',
+    );
+    expect(config.search).toEqual({
+      kind: 'algolia',
+      appId: 'a',
+      apiKey: 'k',
+      indexName: 'i',
+    });
+  });
+
+  it('folds the legacy algolia key into the union', () => {
+    const config = resolveConfig(
+      {
+        ...baseConfig(),
+        algolia: { appId: 'a', apiKey: 'k', indexName: 'i' },
+      },
+      '/root',
+    );
+    expect(config.search).toEqual({
+      kind: 'algolia',
+      appId: 'a',
+      apiKey: 'k',
+      indexName: 'i',
+    });
+  });
+
+  it('rejects configuring both search and the legacy algolia key', () => {
+    expect(() =>
+      resolveConfig(
+        {
+          ...baseConfig(),
+          algolia: { appId: 'a', apiKey: 'k', indexName: 'i' },
+          search: { kind: 'local' },
+        },
+        '/root',
+      ),
+    ).toThrowError(/configure either `search` or the legacy `algolia` key/);
+  });
+
+  it('rejects unknown kinds (JS configs)', () => {
+    expect(() =>
+      resolveConfig(
+        // @ts-expect-error -- runtime guard under test
+        { ...baseConfig(), search: { kind: 'typesense' } },
+        '/root',
+      ),
+    ).toThrowError(/search\.kind must be 'algolia' or 'local'/);
+  });
+
+  it('rejects blank algolia credentials', () => {
+    expect(() =>
+      resolveConfig(
+        {
+          ...baseConfig(),
+          search: { kind: 'algolia', appId: ' ', apiKey: 'k', indexName: 'i' },
+        },
+        '/root',
+      ),
+    ).toThrowError(/search \(algolia\) requires a non-empty appId/);
+  });
+});
+
 describe('resolveConfig code options', () => {
   it('applies the documented defaults', () => {
     const config = resolveConfig(

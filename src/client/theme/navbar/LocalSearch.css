@@ -1,0 +1,31 @@
+/**
+ * Local search modal styles. Visual tokens come from the --c-* design
+ * system (light/dark follow automatically); the panel rides the ap-chrome
+ * layer like every other theme component.
+ */
+
+@layer ap-chrome {
+  .ap-local-search__veil {
+    position: fixed;
+    inset: 0;
+    /* Level with the mobile drawer veil (45); the panel above it (46) is
+       the topmost chrome surface the framework renders. */
+    z-index: 45;
+    background: color-mix(in srgb, var(--c-bg) 55%, transparent);
+    backdrop-filter: blur(2px);
+  }
+
+  .ap-local-search__panel {
+    z-index: 46;
+  }
+
+  .ap-local-search mark {
+    border-radius: 0.125rem;
+    background: color-mix(in srgb, var(--c-accent) 22%, transparent);
+    color: var(--c-text);
+  }
+
+  .ap-local-search__results {
+    scrollbar-width: thin;
+  }
+}

@@ -10,12 +10,35 @@ icon: solid/comments
 
 # Search and Comments
 
-Search and comments are both site-level integrations: fill in a set of credentials in the site config, the build layer writes them into the page payload, and the theme chrome and islands mount the corresponding components on the client. Markdown content plays no part.
+Search and comments are both site-level integrations: the build layer writes the config into the page payload, and the theme chrome and islands mount the corresponding components on the client. Markdown content plays no part. Search has two implementations picked by the `search` config: the built-in **local search** works out of the box with zero dependencies; **Algolia DocSearch** rides an external crawler index.
+
+## Local search (recommended)
+
+```ts
+search: {
+  kind: 'local';
+}
+```
+
+At build time every page of each locale is split into heading sections, stripped to plain text, and emitted as a content-hashed index module (in `assets/` like the other shared artifacts, immutably cached). Retrieval happens in the browser: the index loads and builds on first search open, then stays in memory.
+
+- **Zero config, zero dependencies**: no account, crawler, or network; the index ships with the build output and works offline
+- **CJK and latin both search natively**: the index and the query share one tokenizer (words for latin, overlapping bigrams for CJK), so whole Chinese phrases, latin prefixes, and small typos all hit
+- **Results land precisely**: each hit is a heading section, clicking jumps to its anchor; title and section names rank higher, and matched terms are highlighted in the snippet
+- `Ctrl/Cmd + K` opens, `Esc` closes; the navbar shows a search box on desktop and an icon button on mobile
+- Encrypted pages (`encrypt`) never enter the index — the password gate must not leak through search; `exclude` drops more route prefixes:
+
+```ts
+search: { kind: 'local', exclude: ['/draft'] }
+```
+
+This site runs local search itself — try the navbar box (search for "search").
 
 ## Algolia DocSearch
 
 ```ts
-algolia: {
+search: {
+  kind: 'algolia',
   appId: 'XXX',
   apiKey: 'XXX',       // search-only key, safe to expose
   indexName: 'xxx',
@@ -25,8 +48,10 @@ algolia: {
 When configured, the navbar mounts a DocSearch box (the credentials ship with the payload; a search-only key is public by design). Three steps to wire it up:
 
 1. Apply at [DocSearch](https://docsearch.algolia.com/) or create an index yourself in the Algolia console to get the three credentials; when the application review asks to verify site ownership, add the verification meta Algolia gives you through the `head` config (see [configuration](./configuration.md#head))
-2. Fill them into the `algolia` field of the site config
+2. Fill them into the `search` field of the site config
 3. **Run one full re-crawl**: the CSS selectors in the crawler config must match the new theme's DOM structure (content container, heading levels); selectors from an old site do not adapt automatically
+
+The old three-line `algolia: { ... }` spelling still works (equivalent to `search: { kind: 'algolia', ... }`); setting both `search` and `algolia` fails at build start instead of silently forking between two configs during migration.
 
 The search box styling already follows light/dark; the style entry is `src/client/theme/docsearch.css`.
 
@@ -52,8 +77,8 @@ Behavior notes:
 
 ## Selection advice
 
-- A docs site (this site's shape) usually configures search only: DocSearch indexes documentation structure well, and it is free for open-source projects
-- A blog should configure search and comments together; both credential sets are public values, so shipping them in the output is not a security concern
-- Configure neither and the corresponding code is not bundled at all: the DocSearch and Giscus scripts load on demand only when configured; an unconfigured site pays zero bytes for them
+- Default to local search: no third-party service, and the index is versioned with the output so it can never go stale; on sites of a few hundred pages, both index build and queries run in milliseconds
+- Pick DocSearch when you already have an Algolia index or need cross-site search / search analytics; it is free for open-source projects
+- With no `search` config the navbar shows no search box and no search code is bundled; same for Giscus — the scripts load on demand only when configured, so an unconfigured site pays zero bytes for them
 
-This site has both configured: the search box in the navbar and the comment section at the bottom of any article are live — try them. The credentials are the two value sets in this repo's `vite.config.ts`.
+This site runs local search plus Giscus comments: the search box in the navbar and the comment section at the bottom of any article are live — try them. The config is the two value sets in this repo's `vite.config.ts`.

@@ -106,6 +106,12 @@ import {
   type ScannedFile,
   type SiteScan,
 } from './scan.ts';
+import {
+  DEV_SEARCH_INDEX,
+  searchAsset,
+  searchDocsOf,
+  type SearchPage,
+} from './search-index.ts';
 import { baseOf, renderShell, type ShellInput } from './shell.ts';
 import { createEntryBodiesHook } from './xlist-hook.ts';
 
@@ -204,6 +210,14 @@ interface RenderContext {
   chromeFiles: Map<string, string>;
   /** Emitted chrome modules keyed by file name (drained by emitAll). */
   chromeAssets: Map<string, string>;
+  /**
+   * locale key -> local-search index module file name
+   * ('assets/search-*.js'). Filled only by the build emit (searchFileOf);
+   * dev keeps payloads on the all-locales dev endpoint.
+   */
+  searchFiles: Map<string, string>;
+  /** Emitted local-search index modules keyed by file name (drained by emitAll). */
+  searchAssets: Map<string, string>;
   /** Emitted per-page term-ref modules keyed by file name (drained by emitAll). */
   refsAssets: Map<string, string>;
   /** relPath -> locale key -> page; hreflang counterpart lookup. */
@@ -219,10 +233,7 @@ interface RenderContext {
   archives: { category: ArchivePage[]; tag: ArchivePage[] } | null;
   /** Enabled built-in listing pages (config `pages`), config locale order. */
   listings: ListingPage[];
-  integrations: Pick<
-    PagePayload['site'],
-    'icons' | 'algolia' | 'social' | 'logo'
-  >;
+  integrations: Pick<PagePayload['site'], 'icons' | 'social' | 'logo'>;
 }
 
 export interface BuildAssets {
@@ -436,8 +447,6 @@ export class SiteStore {
     this.links.setMode(mode);
     this.trustWatcher = mode === 'dev';
     this.scan = await scanSite(this.config);
-    this.pages = this.scan.sources;
-    this.links.setPages(this.pages);
     // New resolution round: the ref dead-link sweep starts from zero, in
     // step with the resolver's cleared records.
     this.refDeadSwept = 0;
@@ -455,6 +464,15 @@ export class SiteStore {
     } else {
       this.refs = null;
     }
+    this.pages = this.scan.sources;
+    this.links.setPages(this.pages);
+    if (mode === 'build' || this.gitTimes.size === 0) {
+      this.gitTimes = await getGitTimes(
+        this.pages.map(p => p.filePath),
+        this.config.contentDir,
+      );
+    }
+    await this.refreshScanContext();
     await this.ensureRenderer();
     // The renderer set is now disk-fresh; a stale invalidate flag would
     // only buy one redundant refresh.
@@ -463,13 +481,6 @@ export class SiteStore {
     this.devCtx = null;
     // New resolution round: page warnings may fire again from scratch.
     this.devWarned.clear();
-    if (mode === 'build' || this.gitTimes.size === 0) {
-      this.gitTimes = await getGitTimes(
-        this.pages.map(p => p.filePath),
-        this.config.contentDir,
-      );
-    }
-    await this.refreshScanContext();
     if (mode === 'dev') this.warnArchiveCollisions();
   }
 
@@ -864,6 +875,8 @@ export class SiteStore {
       chrome: new Map(),
       chromeFiles: new Map(),
       chromeAssets: new Map(),
+      searchFiles: new Map(),
+      searchAssets: new Map(),
       refsAssets: new Map(),
       siblings: siblingIndex(pages),
       archiveAlternates: null,
@@ -936,7 +949,7 @@ export class SiteStore {
     if (file === undefined) {
       const chrome = this.chromeOf(ctx, localeKey);
       // Only icons of the integrations block move into the asset;
-      // algolia/social/logo are page-level site fields and stay inline.
+      // search/social/logo are page-level site fields and stay inline.
       const { icons } = ctx.integrations;
       const asset = chromeAsset({
         ...(icons ? { icons } : {}),
@@ -948,6 +961,76 @@ export class SiteStore {
       ctx.chromeAssets.set(file, asset.source);
     }
     return file;
+  }
+
+  /**
+   * Pages the local-search index of one locale may carry: the locale's pages
+   * minus password-gated routes (the gate must not leak through search) and
+   * the config `search.local.exclude` prefixes.
+   */
+  private searchDocPages(ctx: RenderContext, localeKey: string): SearchPage[] {
+    const exclude =
+      this.config.search?.kind === 'local' ? this.config.search.exclude : [];
+    return ctx.pages
+      .filter(
+        p =>
+          p.locale.key === localeKey &&
+          !encryptRuleFor(p.route, this.config.encrypt) &&
+          !isNavExcluded(p.route, exclude),
+      )
+      .map(p => ({
+        route: p.route,
+        locale: localeKey,
+        title: p.meta.title,
+        html: p.html,
+      }));
+  }
+
+  /**
+   * Externalized local-search index module of one locale (build only):
+   * content-hashed like the chrome asset; payloads' `site.search.index`
+   * references the returned file name. Dev keeps payloads on the
+   * all-locales endpoint (see devSearchIndex) and never calls this.
+   */
+  private searchFileOf(ctx: RenderContext, localeKey: string): string {
+    let file = ctx.searchFiles.get(localeKey);
+    if (file === undefined) {
+      const asset = searchAsset(
+        searchDocsOf(this.searchDocPages(ctx, localeKey)),
+      );
+      file = asset.fileName;
+      ctx.searchFiles.set(localeKey, file);
+      ctx.searchAssets.set(file, asset.source);
+    }
+    return file;
+  }
+
+  /**
+   * Dev endpoint body of the local-search index: every locale's docs in one
+   * module (the client filters by the page locale). Dev renders lazily, so
+   * the first request renders each page once and rides the render cache
+   * afterwards; content edits invalidate naturally through the cache.
+   */
+  devSearchIndex(): string {
+    const exclude =
+      this.config.search?.kind === 'local' ? this.config.search.exclude : [];
+    const kept = this.pages.filter(
+      p =>
+        !encryptRuleFor(p.route, this.config.encrypt) &&
+        !isNavExcluded(p.route, exclude),
+    );
+    const docs = searchDocsOf(
+      kept.map(p => {
+        const entry = this.renderPage(p, this.scanOf(p));
+        return {
+          route: p.route,
+          locale: p.locale.key,
+          title: entry.result.title ?? '',
+          html: entry.result.html,
+        };
+      }),
+    );
+    return `export default ${JSON.stringify({ docs })};\n`;
   }
 
   /**
@@ -1173,12 +1256,13 @@ export class SiteStore {
   }
 
   /**
-   * Icon subset used by the site's pages and social entries + Algolia
-   * config, when present.
+   * Icon subset used by the site's pages and social entries. Search config
+   * lives in siteBlock instead: the local branch is per-locale (each locale
+   * ships its own index module).
    */
   private siteIntegrations(
     pages: RenderedPage[],
-  ): Pick<PagePayload['site'], 'icons' | 'algolia' | 'social' | 'logo'> {
+  ): Pick<PagePayload['site'], 'icons' | 'social' | 'logo'> {
     const used = new Set<string>();
     for (const p of pages) {
       const icon = p.meta.frontmatter.icon;
@@ -1199,7 +1283,6 @@ export class SiteStore {
             ),
           }
         : {}),
-      ...(this.config.algolia ? { algolia: this.config.algolia } : {}),
       ...(this.config.nav.social ? { social: this.config.nav.social } : {}),
       ...(this.config.nav.logo ? { logo: this.config.nav.logo } : {}),
     };
@@ -1520,6 +1603,7 @@ export class SiteStore {
       ? listingRoutesOf(this.config, locale)
       : undefined;
     const { icons, ...integrations } = ctx.integrations;
+    const search = this.config.search;
     return {
       title: this.config.title,
       description: this.config.description,
@@ -1534,6 +1618,21 @@ export class SiteStore {
       ...extra,
       ...(ctx.chromeFiles.has(localeKey) ? {} : icons ? { icons } : {}),
       ...integrations,
+      ...(search
+        ? {
+            search:
+              search.kind === 'algolia'
+                ? search
+                : {
+                    kind: 'local',
+                    // Build payloads reference the locale's hashed module
+                    // (root-relative; the client joins it onto `base`).
+                    // Dev rides the all-locales endpoint instead — the docs
+                    // carry `locale` and the client filters.
+                    index: ctx.searchFiles.get(localeKey) ?? DEV_SEARCH_INDEX,
+                  },
+          }
+        : {}),
     };
   }
 
@@ -1933,6 +2032,13 @@ export class SiteStore {
     for (const locale of this.config.locales) {
       this.chromeFileOf(ctx, locale.key);
     }
+    // Same priming for the local-search index modules (payloads reference
+    // them through site.search.index).
+    if (this.config.search?.kind === 'local') {
+      for (const locale of this.config.locales) {
+        this.searchFileOf(ctx, locale.key);
+      }
+    }
     const out: EmittedFile[] = [];
     // The per-page katex verdict, accumulated for the asset decision below.
     let pagesUseKatex = false;
@@ -1983,6 +2089,12 @@ export class SiteStore {
     // Shared per-locale chrome modules (see chromeFileOf): content-hashed,
     // immutable-cached, referenced by every page of their locale.
     for (const [fileName, source] of ctx.chromeAssets) {
+      out.push({ fileName, source });
+    }
+    // Per-locale local-search index modules (see searchFileOf):
+    // content-hashed, immutable-cached, loaded by the client on first
+    // search open.
+    for (const [fileName, source] of ctx.searchAssets) {
       out.push({ fileName, source });
     }
     // Per-page term-ref definition modules (see decorateContent):

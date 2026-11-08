@@ -1,32 +1,13 @@
 import { createEffect } from 'solid-js';
 import type { Element as SolidElement } from 'solid-js';
 
-import type { PagePayload } from '../../../shared/types';
+import type { PagePayload, SiteSearch } from '../../../shared/types';
 import { cx } from '../cx';
 import { useMessages } from '../i18n';
 import { iconButtonClass } from './classes';
+import { SearchGlyph } from './SearchGlyph';
 
-type AlgoliaConfig = NonNullable<PagePayload['site']['algolia']>;
-
-/** Magnifier glyph, inline to keep icons.tsx untouched. */
-function SearchGlyph(props: { class?: string }): SolidElement {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-      class={props.class ?? 'size-5'}
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
+type AlgoliaConfig = Extract<SiteSearch, { kind: 'algolia' }>;
 
 /**
  * Algolia DocSearch trigger. @docsearch/js + css are lazy-loaded on first
@@ -36,7 +17,7 @@ function SearchGlyph(props: { class?: string }): SolidElement {
  * listener bootstraps it before that and stands down afterwards.
  */
 export function SearchBox(props: {
-  algolia: AlgoliaConfig;
+  search: AlgoliaConfig;
   site: PagePayload['site'];
 }): SolidElement {
   const t = useMessages(() => props.site);
@@ -52,9 +33,9 @@ export function SearchBox(props: {
       ]);
       if (!containerRef) return;
       docsearch({
-        appId: props.algolia.appId,
-        apiKey: props.algolia.apiKey,
-        indices: [props.algolia.indexName],
+        appId: props.search.appId,
+        apiKey: props.search.apiKey,
+        indices: [props.search.indexName],
         container: containerRef,
         placeholder: t.search.placeholder,
       });

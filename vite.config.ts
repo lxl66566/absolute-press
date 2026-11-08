@@ -31,9 +31,6 @@ const config: UserConfig = defineConfig({
         locales: {
           en: { lang: 'en', label: 'English' },
         },
-        head: [
-          '<meta name="algolia-site-verification"  content="154015213040B8F8" />',
-        ],
         // Docs landing page: the prose intro (hero/features/reading paths)
         // is the page's primary; the paginated article feed would push it
         // below the fold and read like a blog archive.
@@ -49,11 +46,9 @@ const config: UserConfig = defineConfig({
         // under its <pack>/<name> key; frontmatter `icon` references a
         // registered key.
         iconProvider: 'fontawesome',
-        algolia: {
-          appId: 'O9JW6I7R5M',
-          apiKey: '3b5ac7214c5b516709dec2584a3e9e2a',
-          indexName: 'absolute-press-crawler',
-        },
+        // Built-in local search: the docs site dogfoods the offline index
+        // path end to end (build asset + client MiniSearch UI).
+        search: { kind: 'local' },
         giscus: {
           repo: 'lxl66566/absolute-press',
           repoId: 'R_kgDOU_0Cgw',

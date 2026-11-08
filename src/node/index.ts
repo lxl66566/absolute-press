@@ -31,6 +31,7 @@ export { defineConfig, defineConfig as defineSiteConfig } from './config.ts';
 export type {
   LocaleConfig,
   RelatedDepth,
+  SearchConfig,
   SiteConfig,
   SocialEntry,
   StrictLinks,

@@ -97,17 +97,25 @@ encrypt: [
 
 客户端密码门规则数组：`match` 命中（字符串精确匹配或正则，避免 `/g` 标志）的页面正文被 PasswordGate island 包裹，输入 sha256 命中的密码后解锁，sessionStorage 按路由记住。中文等非 ASCII 路由直接写明文路径（构建期按解码后的路由匹配，正则看到的也是解码形式），不要写百分号编码。明文密码不会进入页面 payload（只输出 sha256 hex）。详见[加密](./encrypt.md)。
 
-## algolia
+## search
 
 ```ts
-algolia: {
-  appId: 'XXX',
-  apiKey: 'xxx',
-  indexName: 'xxx',
-}
+search:
+  | { kind: 'local', exclude?: string[] } // 内置本地搜索，见下
+  | {
+      kind: 'algolia', // Algolia DocSearch
+      appId: 'XXX',
+      apiKey: 'xxx',
+      indexName: 'xxx',
+    }
 ```
 
-配置后主题 chrome 挂载 Algolia DocSearch 搜索框，凭证进入页面 payload。
+站点搜索，二选一：
+
+- `{ kind: 'local' }`：内置本地搜索。构建期把每个 locale 的页面按标题切成小节、产出内容 hash 的索引模块，浏览器内完成检索；零配置零依赖，加密页永远不进索引，`exclude` 追加排除的路由前缀。默认推荐，详见[搜索与评论](./search-comments.md#本地搜索-推荐)
+- `{ kind: 'algolia', ... }`：Algolia DocSearch。凭证进入页面 payload，导航栏挂载 DocSearch 搜索框
+
+老写法 `algolia: { appId, apiKey, indexName }` 仍然有效（等价于 `search: { kind: 'algolia', ... }`）；`search` 与 `algolia` 同时配置会在构建开始时报错。
 
 ## giscus
 

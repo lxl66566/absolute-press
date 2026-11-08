@@ -411,6 +411,19 @@ export function absolutePress(userConfig: AbsolutePressConfig): Plugin {
                 res.end(store.rss(feedLocale));
                 return;
               }
+              // Local-search index module (config `search: { kind: 'local'
+              // }`): one endpoint carrying every locale's docs; the client
+              // filters by the page locale. Same ES-module shape as the
+              // build's content-hashed assets, so the client code path is
+              // identical in dev and build.
+              if (url === '/@ap-search') {
+                res.setHeader(
+                  'content-type',
+                  'application/javascript; charset=utf-8',
+                );
+                res.end(store.devSearchIndex());
+                return;
+              }
               const html = store.devHtml(url);
               if (html === null) {
                 next();

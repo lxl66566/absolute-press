@@ -83,6 +83,7 @@ export const en = {
   search: {
     placeholder: 'Search docs',
     label: 'Search',
+    noResults: 'No results',
   },
   xlist: {
     searchPlaceholder: 'Filter entries…',

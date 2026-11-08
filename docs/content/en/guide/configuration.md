@@ -97,17 +97,25 @@ encrypt: [
 
 An array of client-side password-gate rules: pages whose route matches `match` (exact string or regex; avoid the `/g` flag) get their content wrapped in the PasswordGate island, and unlock after entering a password whose sha256 matches. The unlocked state is remembered per route in sessionStorage. Write non-ASCII routes (e.g. Chinese) as plain decoded paths (matching runs against the decoded route, and regexes see the decoded form too), not percent-encoded. Plaintext passwords never enter the page payload (only sha256 hex is emitted). See [Encryption](./encrypt.md).
 
-## algolia
+## search
 
 ```ts
-algolia: {
-  appId: 'XXX',
-  apiKey: 'xxx',
-  indexName: 'xxx',
-}
+search:
+  | { kind: 'local', exclude?: string[] } // built-in local search, see below
+  | {
+      kind: 'algolia', // Algolia DocSearch
+      appId: 'XXX',
+      apiKey: 'xxx',
+      indexName: 'xxx',
+    }
 ```
 
-When configured, the theme chrome mounts an Algolia DocSearch box, and the credentials go into the page payload.
+Site search, pick one:
+
+- `{ kind: 'local' }`: the built-in local search. The build splits each locale's pages into heading sections and emits a content-hashed index module; retrieval runs entirely in the browser. Zero config and zero dependencies; encrypted pages never enter the index, and `exclude` drops more route prefixes. The recommended default — see [Search and Comments](./search-comments.md#local-search-recommended)
+- `{ kind: 'algolia', ... }`: Algolia DocSearch. The credentials go into the page payload and the navbar mounts a DocSearch box
+
+The old spelling `algolia: { appId, apiKey, indexName }` still works (equivalent to `search: { kind: 'algolia', ... }`); setting both `search` and `algolia` fails at build start.
 
 ## giscus
 
