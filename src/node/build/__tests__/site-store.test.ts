@@ -1664,4 +1664,27 @@ describe('SiteStore onScan', () => {
       warn.mockRestore();
     }
   });
+
+  it('minifies block-boundary whitespace of emitted pages only', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n\npara\n',
+    });
+    const store = new SiteStore(fx.config);
+    await store.sync('build');
+    const files = await store.emitAll({
+      isBuild: true,
+      scriptFile: 'assets/entry.js',
+      cssFiles: [],
+    });
+    const html = String(
+      files.find(f => f.fileName === 'index.html')?.source ?? '',
+    );
+    expect(html).not.toMatch(/<\/h1>\s+<p>/);
+    // Raw regions stay byte-identical: the payload JSON keeps its spacing.
+    expect(html).toContain('"__AP_DATA__"');
+
+    const devStore = new SiteStore(fx.config);
+    await devStore.sync('dev');
+    expect(devStore.devHtml('/') ?? '').toMatch(/<\/h1>\s+<p>/);
+  });
 });

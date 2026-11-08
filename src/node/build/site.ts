@@ -58,6 +58,7 @@ import {
   type ListingPage,
 } from './listing.ts';
 import { createMarkdownRenderer } from './markdown-adapter.ts';
+import { minifyHtml } from './minify-html.ts';
 import { buildChrome } from './nav-tree.ts';
 import { isNotFoundRoute, renderNotFound } from './not-found.ts';
 import {
@@ -1566,19 +1567,23 @@ export class SiteStore {
       ctx,
       assets.isBuild,
     );
+    const html = renderShell({
+      ...this.shellArgs(assets, page.locale),
+      // Profile homes lead with the profile card occupying the outline
+      // lane, so the shell omits the TOC container entirely.
+      ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
+      // Only math pages carry the katex stylesheet; the flag is
+      // decorateContent's verdict over this pass's content (and its
+      // externalized term-ref bodies), so it can never go stale.
+      ...(usesKatex ? { katexHref: this.katexHref(assets.isBuild) } : {}),
+      payload,
+      content,
+    });
     return {
-      html: renderShell({
-        ...this.shellArgs(assets, page.locale),
-        // Profile homes lead with the profile card occupying the outline
-        // lane, so the shell omits the TOC container entirely.
-        ...(this.config.profile && isLocaleHome(page) ? { hideToc: true } : {}),
-        // Only math pages carry the katex stylesheet; the flag is
-        // decorateContent's verdict over this pass's content (and its
-        // externalized term-ref bodies), so it can never go stale.
-        ...(usesKatex ? { katexHref: this.katexHref(assets.isBuild) } : {}),
-        payload,
-        content,
-      }),
+      // Build output minifies (conservative block-boundary whitespace only,
+      // raw regions verbatim — see minify-html.ts); dev html stays as
+      // rendered for debugging parity with vite's dev transform.
+      html: assets.isBuild ? minifyHtml(html) : html,
       usesKatex,
     };
   }
@@ -1627,11 +1632,12 @@ export class SiteStore {
     };
     // No katexHref: archive content is a plain heading plus the article
     // list — it never renders math.
-    return renderShell({
+    const html = renderShell({
       ...this.shellArgs(assets, archive.locale),
       payload,
       content: `<h1>${escapeHtml(archive.title, { attr: false })}</h1>`,
     });
+    return assets.isBuild ? minifyHtml(html) : html;
   }
 
   /**
@@ -1691,11 +1697,12 @@ export class SiteStore {
       tagChips: chrome.tagChips,
     };
     // No katexHref: listing content is headings, links and chips — no math.
-    return renderShell({
+    const html = renderShell({
       ...this.shellArgs(assets, listing.locale),
       payload,
       content: renderListingContent(listing, data, baseOf(listing.route)),
     });
+    return assets.isBuild ? minifyHtml(html) : html;
   }
 
   private katexHref(build: boolean): string {
@@ -1902,7 +1909,10 @@ export class SiteStore {
     // Static hosts serve /404.html for unknown paths; a content page
     // occupying the route (a 404.md at the content root) wins.
     if (!ctx.byRoute.has('/404')) {
-      out.push({ fileName: '404.html', source: renderNotFound(this.config) });
+      out.push({
+        fileName: '404.html',
+        source: minifyHtml(renderNotFound(this.config)),
+      });
     }
     // Pages carry their git last-commit time as lastmod; synthetic archive
     // and listing pages have no source file and stay lastmod-less. Both

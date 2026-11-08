@@ -77,3 +77,7 @@ const candidates = bare.endsWith('.md')
 `renderRss`（`src/node/build/feeds.ts`）的 item description 默认是 `plainExcerpt(html, FEED_EXCERPT_LIMIT)`，不输出全文；`feed.full: true` 切换为全文渲染 HTML。全文必须把正文里的 asset token 与页内相对链接改写成绝对 URL（这些地址只在站内可解），由内部函数 `feedContent` 完成：只匹配 `href=` / `src=` 属性位置（与 shell 的 `applyAssetBase` 同款契约，正文里的字面量 token 不动），`absasset:` token 直接拼 `hostname`，`./` `../` 用 `new URL(href, hostname + route 所在目录)` 解析；改写结果经 `escapeXml` 进 `<description>`，不用 CDATA——正文可能含 `]]>` 字面量。默认关闭摘要形态的原因：阅读器对 HTML 的支持参差不齐，摘要加 item 链接是两个消费方（RSS 阅读器与 head meta）都能用的形状。
 
 其余细节：`feed: false` 的页面在取数前过滤；条目数上限 `feed.rssLimit` 默认 20；全站 feed 的 `<language>` 取默认 locale 的 BCP-47 tag，每个额外 locale 的独立 feed（`/<key>/rss.xml`，第三参数传入）取该 locale 的。sitemap 的 `lastmod` 用上面 git 批查的结果，归档页没有源文件、不给 `lastmod`；跨 locale 的页面与归档都带 hreflang alternate，与页面 head 里的链接同源。
+
+## 页面压缩
+
+emit 的页面 HTML 经过 `minifyHtml`（`src/node/build/minify-html.ts`）：单趟扫描，只删「块级闭合/void 标签的 `>` + 纯空白串 + 块级开标签的 `<`」之间的空白，另有整文档首尾 trim。`pre/textarea/script/style/svg/template` 是 raw 区域，内容逐字保留、边界按 inline 处理，所以 payload JSON、内联脚本、代码块缩进与属性值都不受影响；inline 标签边界、注释、文本节点一律不动。保守规则下缩减幅度有限（块间换行是主要目标），但任何渲染差异都是零。dev 不压缩，与 vite 的 dev 输出保持一致。
