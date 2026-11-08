@@ -12,6 +12,22 @@ icon: solid/palette
 
 The theme chrome is a set of Solid components mounted onto placeholder DOM: `#ap-nav` (navbar), `#ap-sidebar` (sidebar), `#ap-toc` (table of contents), `#ap-content` (content container). Visual customization goes through CSS variables; no component changes needed.
 
+## Customization boundary
+
+The theme chrome (navbar, sidebar, TOC, footer shell) is rendered by built-in framework components: configurable and styleable, but **not replaceable**. There is no "swap the theme" component API — the page shell (placeholder DOM, payload, hydration flow) and the chrome are one contract, and keeping the chrome in-framework is what lets the DOM class hooks, dark mode, and the anti-FOUC script keep working across upgrades.
+
+The customization entry points by layer:
+
+| What you want to change    | Entry point                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Colors, fonts, spacing     | `--c-*` tokens and site CSS ([cascade layers](#cascade-layers), [override example](#override-example)) |
+| Sections, ordering, credit | `nav` / `sidebar` / `footer` config ([configuration reference](./configuration.md))                    |
+| Interactive components     | islands ([islands guide](./islands.md))                                                                |
+| Markdown rendering         | `markdown.plugins` ([custom markdown-it plugins](./markdown.md#custom-markdown-it-plugins))            |
+| Global head tags           | `head` config (analytics, site verification, fonts)                                                    |
+
+When you truly need a different page structure, forking the framework and editing `src/client/theme` is the path — this boundary buys upgrade safety and a smaller API surface.
+
 ## Design tokens --c-*
 
 `src/client/styles/theme.css` defines light and dark token sets: light in `:root`, dark in `html[data-theme='dark']`. Custom islands, site-level components, and injected styles read only these variables, so anything rendered anywhere on the page picks up both light and dark values automatically:

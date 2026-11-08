@@ -12,6 +12,22 @@ icon: solid/palette
 
 主题 chrome 是挂载到占位 DOM 的 Solid 组件：`#ap-nav`（导航栏）、`#ap-sidebar`（侧边栏）、`#ap-toc`（目录）、`#ap-content`（正文容器）。视觉定制走 CSS 变量，不需要改组件。
 
+## 定制边界
+
+主题 chrome（导航栏、侧边栏、TOC、页脚外壳）由框架内置组件渲染：可以配置、可以覆盖样式，**不可替换**。框架不提供「换主题」的组件替换 API——页面外壳（占位 DOM、payload、水合流程）与 chrome 是同一份契约，把 chrome 锁在框架内，DOM class 钩子、暗色机制与防 FOUC 脚本才能在升级后照常工作。
+
+按层面的定制入口：
+
+| 想改什么         | 入口                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| 配色、字体、间距 | `--c-*` 令牌与站点 CSS（[级联层](#级联层)、[覆盖示例](#覆盖示例)）                     |
+| 栏目、排序、署名 | `nav` / `sidebar` / `footer` 配置（[配置参考](./configuration.md)）                    |
+| 页面内交互组件   | islands（[islands 指南](./islands.md)）                                                |
+| markdown 渲染    | `markdown.plugins`（[自定义 markdown-it 插件](./markdown.md#自定义-markdown-it-插件)） |
+| 全局 head 标签   | `head` 配置（统计、站点验证、字体等）                                                  |
+
+确实需要完全不同的页面结构时，fork 框架改 `src/client/theme` 是唯一路径——这层边界换来的是升级安全与更小的 API 面。
+
 ## 设计令牌 --c-*
 
 `src/client/styles/theme.css` 定义亮暗双套令牌，亮色在 `:root`，暗色在 `html[data-theme='dark']`。自定义 island、站点级组件与注入样式只读这些变量，渲染在页面任意位置都能自动获得亮暗两套值：
