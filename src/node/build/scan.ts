@@ -1,16 +1,19 @@
 import fs from 'node:fs';
+import path from 'node:path';
 
 import type { PageFrontmatter } from '../../shared/types.ts';
 import type {
   ResolvedConfig,
   SiteScanContext,
   SiteScanPage,
+  VirtualPageInput,
 } from '../config.ts';
 import { mapWithLimit } from '../limit.ts';
 import { fenceLanguages } from '../markdown/fence.ts';
 import { parseFrontmatter } from '../markdown/frontmatter.ts';
-import { scanPages } from './pages.ts';
+import { routeOf, scanPages } from './pages.ts';
 import type { PageSource } from './pages.ts';
+import { localeContentRoot } from './refs.ts';
 
 /**
  * Read/parse concurrency of the tree scan. Content files are small, so a
@@ -157,12 +160,116 @@ export function siteScanPages(
 
 /**
  * Build the `onScan` hook argument; exported for tests of the ctx contract.
+ * `virtual` is the addPage collector of this hook run — entries are applied
+ * to the scan by the caller (SiteStore.applyVirtualPages) after the hook
+ * returns, so `pages` stays the real-file inventory for the hook itself.
  */
 export function siteScanContext(
   config: ResolvedConfig,
   scan: SiteScan,
   gitTimes: Map<string, string>,
   warn?: (message: string) => void,
+  virtual: VirtualPageInput[] = [],
 ): SiteScanContext {
-  return { config, pages: siteScanPages(scan, gitTimes, warn) };
+  return {
+    config,
+    pages: siteScanPages(scan, gitTimes, warn),
+    addPage: page => virtual.push(page),
+  };
+}
+
+/** Scan pass of a generated page: the mtime is a hash of the source, so a
+ * changed generation re-renders in build mode's mtime compare. */
+export function scanVirtualFile(filePath: string, source: string): ScannedFile {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  // Positive int32 keeps it a plausible mtimeMs everywhere downstream.
+  const mtimeMs = Math.abs(hash) + 1;
+  const file = scannedFileOf(filePath, source, mtimeMs);
+  return file;
+}
+
+/** Percent-decode every segment; malformed sequences keep the raw form. */
+function decodeRoute(route: string): string {
+  return route
+    .split('/')
+    .map(seg => {
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return seg;
+      }
+    })
+    .join('/');
+}
+
+/**
+ * Validate one addPage input and synthesize the scan entries that make the
+ * generated page indistinguishable from a markdown file at the route's
+ * location (filePath under the locale root, relPath and route recomputed by
+ * the same routeOf). `taken` holds routes claimed so far (real pages plus
+ * earlier generated ones); a collision fails loudly instead of letting one
+ * page silently shadow the other.
+ */
+export function virtualPageEntry(
+  config: ResolvedConfig,
+  input: VirtualPageInput,
+  taken: ReadonlySet<string>,
+): { source: PageSource; file: ScannedFile } {
+  if (typeof input.route !== 'string' || typeof input.source !== 'string') {
+    throw new Error(
+      '[absolute-press] onScan addPage requires string `route` and `source` fields',
+    );
+  }
+  const localeKey = input.locale ?? config.locales[0]!.key;
+  const locale = config.locales.find(l => l.key === localeKey);
+  if (!locale) {
+    throw new Error(
+      `[absolute-press] onScan addPage unknown locale '${String(localeKey)}' (configured: ${config.locales
+        .map(l => l.key)
+        .join(', ')})`,
+    );
+  }
+  const route = input.route;
+  if (!route.startsWith('/') || route.includes('\\')) {
+    throw new Error(
+      `[absolute-press] onScan addPage route must be a locale-relative clean route starting with '/', got '${route}'`,
+    );
+  }
+  if (decodeRoute(route) === '/') {
+    throw new Error(
+      "[absolute-press] onScan addPage route '/' is the site home — write it as a real content page",
+    );
+  }
+  // Route -> the would-be file, mirroring routeOf's index semantics: a
+  // trailing slash denotes the directory index page, anything else a leaf.
+  const relPath = route.endsWith('/')
+    ? `${route.slice(1)}index.md`
+    : `${route.slice(1)}.md`;
+  // Canonical round-trip against the prefix-less form (the input is
+  // locale-relative): non-canonical shapes per directoryIndex mode
+  // ('/friends/' in bare mode) are rejected for free.
+  if (
+    decodeRoute(routeOf(relPath, '', config.urls.directoryIndex)) !==
+    decodeRoute(route)
+  ) {
+    const canonical = routeOf(relPath, '', config.urls.directoryIndex);
+    throw new Error(
+      `[absolute-press] onScan addPage route '${route}' is not canonical for directoryIndex '${config.urls.directoryIndex}' (expected '${canonical}')`,
+    );
+  }
+  const canonical = routeOf(relPath, locale.prefix, config.urls.directoryIndex);
+  if (taken.has(canonical)) {
+    throw new Error(
+      `[absolute-press] onScan addPage route ${canonical} already exists (a content page or another generated page)`,
+    );
+  }
+  const filePath = path.join(localeContentRoot(config, locale.key), relPath);
+  return {
+    source: { filePath, locale, relPath, route: canonical },
+    file: scanVirtualFile(filePath, input.source),
+  };
 }

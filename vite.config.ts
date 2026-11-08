@@ -10,7 +10,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 // Official docs site. Also serves as an end-to-end showcase and self-test
 // of the framework: every guide page exercises a real feature path, and the
 // site config below is itself the full-featured reference (search, comments,
-// analytics, social, encrypt, i18n, custom island).
+// analytics, social, encrypt, i18n, custom island, generated pages).
 const config: UserConfig = defineConfig({
   build: {
     target: 'esnext',
@@ -49,6 +49,46 @@ const config: UserConfig = defineConfig({
         // Built-in local search: the docs site dogfoods the offline index
         // path end to end (build asset + client MiniSearch UI).
         search: { kind: 'local' },
+        // Data-generated pages (guide/configuration#数据生成分页-addpage):
+        // a per-locale site map derived from the scan inventory itself. The
+        // ./ links resolve through the normal dead-link pipeline — a
+        // generated page is exactly a file at its route's location.
+        onScan: ctx => {
+          for (const locale of ctx.config.locales) {
+            const en = locale.key === 'en';
+            const groups = new Map<string, string[]>();
+            for (const page of ctx.pages) {
+              if (page.locale.key !== locale.key) continue;
+              if (page.relPath === 'index.md') continue; // the home itself
+              const [group] = page.relPath.split('/');
+              const list = groups.get(group!) ?? [];
+              list.push(page.relPath);
+              groups.set(group!, list);
+            }
+            const sections = [...groups.entries()]
+              .toSorted(([a], [b]) => a.localeCompare(b))
+              .map(([group, list]) => {
+                const rows = list
+                  .toSorted()
+                  .map(
+                    rel =>
+                      `- [${rel.replace(/\.md$/, '').replace(/\/index$/, '/')}](./${rel.replace(/\.md$/, '')})`,
+                  )
+                  .join('\n');
+                return `## ${group}\n\n${rows}`;
+              })
+              .join('\n\n');
+            ctx.addPage({
+              route: '/site-map',
+              locale: locale.key,
+              source:
+                `---\nicon: solid/sitemap\n---\n` +
+                `# ${en ? 'Site Map' : '站点地图'}\n` +
+                `${en ? 'Every page of this site, generated from the build scan.' : '本站全部页面，由构建扫描生成。'}\n\n${sections}\n`,
+            });
+          }
+          return null;
+        },
         giscus: {
           repo: 'lxl66566/absolute-press',
           repoId: 'R_kgDOU_0Cgw',

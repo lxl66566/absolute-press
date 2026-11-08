@@ -1625,6 +1625,13 @@ describe('SiteStore listing pages', () => {
   });
 });
 
+// Collision fixture for the addPage guard: a hook trying to shadow a real
+// scanned page with the same route.
+const collidingOnScan = (ctx: SiteScanContext): null => {
+  ctx.addPage({ route: '/a', source: '# dup\n' });
+  return null;
+};
+
 describe('SiteStore onScan', () => {
   it('runs the hook at sync and exposes the result via siteData', async () => {
     const fx = await contentFixture({
@@ -1709,6 +1716,64 @@ describe('SiteStore onScan', () => {
     const store = new SiteStore(fx.config);
     await store.sync('dev');
     expect(store.siteData).toBeUndefined();
+  });
+
+  it('addPage feeds the generated page through the whole pipeline', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\nSee [the list](./friends).\n',
+      'a.md': '# A\n',
+    });
+    const onScan = (ctx: SiteScanContext): unknown => {
+      // The hook only sees real files — generated pages never chain.
+      expect(ctx.pages.every(p => p.filePath.startsWith(fx.root))).toBe(true);
+      ctx.addPage({
+        route: '/friends',
+        source: '# Friends\n\nLink to [A](./a.md).\n',
+      });
+      return { count: 1 };
+    };
+    const store = new SiteStore(fx.config, onScan);
+    await store.sync('build');
+
+    // Rendered like any page: markdown through the full pipeline.
+    const html = store.devHtml('/friends') ?? '';
+    expect(html).toContain('<h1 id="friends"');
+    expect(html).toContain('Friends');
+    // Relative links resolve in BOTH directions against the synthesized
+    // location (content root): real -> generated, generated -> real.
+    expect(html).toContain('href="a"');
+    expect(store.devHtml('/') ?? '').toContain('href="friends"');
+    expect(store.deadLinks()).toEqual([]);
+  });
+
+  it('re-applies the generated set on hook re-runs, dropping vanished pages', async () => {
+    const fx = await contentFixture({ 'index.md': '# Home\n' });
+    let version = 1;
+    const onScan = (ctx: SiteScanContext): unknown => {
+      ctx.addPage({ route: `/gen-${version}`, source: `# Gen ${version}\n` });
+      return version;
+    };
+    const store = new SiteStore(fx.config, onScan);
+    await store.sync('dev');
+    expect(store.devHtml('/gen-1') ?? '').toContain('Gen 1');
+
+    // A changed generation re-renders even though dev trusts the watcher
+    // (which never fires for synthesized paths), and the old route drops.
+    version = 2;
+    await store.refreshScanContext();
+    expect(store.devHtml('/gen-2') ?? '').toContain('Gen 2');
+    expect(store.devHtml('/gen-1')).toBeNull();
+  });
+
+  it('fails the scan when a generated route collides with a real page', async () => {
+    const fx = await contentFixture({
+      'index.md': '# Home\n',
+      'a.md': '# A\n',
+    });
+    const store = new SiteStore(fx.config, collidingOnScan);
+    await expect(store.sync('dev')).rejects.toThrowError(
+      /addPage route \/a already exists/,
+    );
   });
 
   it('renders the RecentArticles build component into final static html', async () => {

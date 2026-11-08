@@ -19,7 +19,7 @@ import type {
 import { ARCHIVE_PER_PAGE, HOME_FEED_PER_PAGE } from '../../shared/types.ts';
 import type { MarkdownRenderer, RenderResult } from '../../shared/types.ts';
 import type { ResolvedConfig } from '../config.ts';
-import type { SiteScanContext } from '../config.ts';
+import type { SiteScanContext, VirtualPageInput } from '../config.ts';
 import { escapeHtml } from '../escape.ts';
 import { META_EXCERPT_LIMIT, plainExcerpt } from '../excerpt.ts';
 import { localImageSize } from '../image-size.ts';
@@ -103,6 +103,7 @@ import {
   scanFile,
   scanSite,
   siteScanContext,
+  virtualPageEntry,
   type ScannedFile,
   type SiteScan,
 } from './scan.ts';
@@ -269,6 +270,11 @@ export class SiteStore {
   private pages: PageSource[] = [];
   /** Latest site scan: page sources plus the single-read file cache. */
   private scan: SiteScan = { sources: [], files: new Map() };
+  /**
+   * Generated pages of the latest onScan round, keyed by their synthesized
+   * filePath (see applyVirtualPages); entries live on the scan itself.
+   */
+  private virtualFiles = new Map<string, ScannedFile>();
   /** Config onScan hook, absent when unconfigured. */
   private readonly onScan?: (ctx: SiteScanContext) => unknown;
   /** Latest onScan hook result; undefined while no hook is configured. */
@@ -464,15 +470,20 @@ export class SiteStore {
     } else {
       this.refs = null;
     }
-    this.pages = this.scan.sources;
-    this.links.setPages(this.pages);
     if (mode === 'build' || this.gitTimes.size === 0) {
+      // Real files only at this point — generated pages join the scan in
+      // refreshScanContext below and carry no git history.
       this.gitTimes = await getGitTimes(
-        this.pages.map(p => p.filePath),
+        this.scan.sources.map(p => p.filePath),
         this.config.contentDir,
       );
     }
+    // The onScan hook re-applies the generated-page set on every scan, so
+    // everything derived below (page list, resolver, renderer languages)
+    // already includes them.
     await this.refreshScanContext();
+    this.pages = this.scan.sources;
+    this.links.setPages(this.pages);
     await this.ensureRenderer();
     // The renderer set is now disk-fresh; a stale invalidate flag would
     // only buy one redundant refresh.
@@ -492,13 +503,17 @@ export class SiteStore {
   /**
    * Rebuild the onScan context and hook result from the current caches
    * (no disk IO); called by sync() and after dev content edits so the
-   * site-data module stays fresh without a restart.
+   * site-data module stays fresh without a restart. The hook's addPage
+   * entries are applied to the scan right after the hook returns
+   * (applyVirtualPages).
    */
   async refreshScanContext(): Promise<void> {
     if (!this.onScan) {
       this.siteDataValue = undefined;
+      this.applyVirtualPages([]);
       return;
     }
+    const virtual: VirtualPageInput[] = [];
     const ctx: SiteScanContext = siteScanContext(
       this.config,
       this.scan,
@@ -511,8 +526,74 @@ export class SiteStore {
         this.dateWarned.add(message);
         console.warn(message);
       },
+      virtual,
     );
     this.siteDataValue = await this.onScan(ctx);
+    this.applyVirtualPages(virtual);
+  }
+
+  /**
+   * Replace the generated-page set on the scan with a fresh hook round.
+   * Synthesized entries are indistinguishable from real files (same
+   * PageSource/ScannedFile shapes, filePaths under the locale roots), so
+   * the whole pipeline consumes them without special cases; this method
+   * owns the three real differences: entries come and go with the hook
+   * (no watcher), their mtime is a source hash (no disk stat), and a
+   * dev-trusted render cache entry must be dropped explicitly when the
+   * source changed (the watcher never fires for it).
+   */
+  private applyVirtualPages(inputs: VirtualPageInput[]): void {
+    const real = this.scan.sources.filter(
+      p => !this.virtualFiles.has(p.filePath),
+    );
+    const taken = new Set(real.map(p => p.route));
+    const nextFiles = new Map<string, ScannedFile>();
+    const nextSources: PageSource[] = [];
+    for (const input of inputs) {
+      const { source, file } = virtualPageEntry(this.config, input, taken);
+      taken.add(source.route);
+      const prev = this.virtualFiles.get(source.filePath);
+      // Drop the render cache when the generation changed — dev trusts the
+      // watcher, which never fires for a synthesized path.
+      if (!prev || prev.source !== file.source) {
+        this.rendered.delete(source.filePath);
+      }
+      nextFiles.set(source.filePath, file);
+      nextSources.push(source);
+    }
+    // filePath encodes the route deterministically, so same keys + same
+    // sources — with the entries already living on the current scan (a
+    // resync rebuilt it from disk without them) — means the round changed
+    // nothing and downstream caches (pages, resolver, renderer) stay valid.
+    const unchanged =
+      nextFiles.size === this.virtualFiles.size &&
+      [...nextFiles].every(
+        ([key, file]) =>
+          this.virtualFiles.get(key)?.source === file.source &&
+          this.scan.files.get(key)?.source === file.source,
+      );
+    if (unchanged) return;
+    const files = new Map(this.scan.files);
+    for (const key of this.virtualFiles.keys()) files.delete(key);
+    for (const [key, file] of nextFiles) files.set(key, file);
+    this.virtualFiles = nextFiles;
+    this.scan = { sources: [...real, ...nextSources], files };
+    this.pages = this.scan.sources;
+    this.links.setPages(this.pages);
+    this.relatedCache = null;
+    this.devCtx = null;
+    // A new generation may carry fence languages outside the live shiki
+    // set; the dev middleware refreshes the renderer before serving.
+    if (this.rendererPromise !== null) {
+      for (const file of nextFiles.values()) {
+        for (const lang of file.fenceLangs) {
+          if (!this.rendererLangs.has(lang)) {
+            this.langsDirty = true;
+            break;
+          }
+        }
+      }
+    }
   }
 
   /**

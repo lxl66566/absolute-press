@@ -395,7 +395,7 @@ onScan: (ctx: SiteScanContext) => ({
 }),
 ```
 
-站点数据钩子：框架单遍扫描内容树，每轮扫描完成后、渲染前运行一次——dev 启动、构建、dev 结构变更 resync 与内容编辑都会触发。参数 `SiteScanContext` 是 `{ config, pages }`：`config` 是全量解析后的站点配置（`ResolvedConfig`），`pages` 是全部 locale 的页面清单，按配置 locale 顺序排列，类型可从 `absolute-press` 导入。
+站点数据钩子：框架单遍扫描内容树，每轮扫描完成后、渲染前运行一次——dev 启动、构建、dev 结构变更 resync 与内容编辑都会触发。参数 `SiteScanContext` 是 `{ config, pages, addPage }`：`config` 是全量解析后的站点配置（`ResolvedConfig`），`pages` 是全部 locale 的页面清单，按配置 locale 顺序排列，类型可从 `absolute-press` 导入；`addPage` 在钩子内注册数据生成的页面，见下文。
 
 返回值会被 JSON 序列化进 `virtual:absolute-press/site-data` 虚拟模块（default export 即返回值），供站点 island 消费，消费方式见[Islands](./islands.md#站点-island-读取全站数据-site-data)。因此返回值必须 JSON 可序列化（`rawFrontmatter` 里的裸日期是 `Date` 对象，需要字符串时先自行 `toISOString`）；返回 Promise 会被 await。
 
@@ -411,6 +411,32 @@ onScan: (ctx: SiteScanContext) => ({
 - `rawFrontmatter: Record<string, unknown>`：yaml 原生解析结果，自定义键在这里；裸日期是 `Date` 对象
 - `createdAt: string | null`：frontmatter `date` 的 ISO 字符串，缺失或不可解析为 `null`
 - `updatedAt: string | null`：git 最后提交时间的 ISO 字符串，不可用（如不在 git 仓库）为 `null`
+
+### 数据生成分页（addPage）
+
+钩子里调 `ctx.addPage` 可以从数据生成页面——朋友链、按数据拆分的专题页、外部源同步的内容，都无需手写 markdown 文件：
+
+```ts
+onScan: ctx => {
+  for (const friend of friends) {
+    ctx.addPage({
+      route: `/friends/${friend.id}`, // locale 相对的 clean 路由
+      // locale: 'en',                // 缺省为默认 locale；路由会自动加该 locale 前缀
+      source: `---\nicon: solid/link\n---\n\n# ${friend.name}\n\n${friend.desc}\n`,
+    });
+  }
+  return { count: friends.length }; // 返回值照常进 site-data
+};
+```
+
+生成的页面在扫描层面与真实文件**完全同权**——框架把它合成为「该路由位置上恰好存在这个 markdown 文件」：路由与落盘、sidebar/navbar（`nav.order` / `tweaks` 照常生效）、归档与 RSS（带 `date` 就是文章）、本地搜索索引、sitemap、加密规则、死链解析、相对链接与图片（相对该虚拟位置解析）全部自动接入。不想要导航收录就照真实页面一样用 `nav.exclude`。
+
+要点：
+
+- `route` 写 locale 相对的明文路径（`/friends`，非 ASCII 不转义）；`/`（站点首页）与真实页面或其他生成页的路由冲突会在扫描时报错；`directoryIndex: 'bare'` 站点下目录索引路由不带尾斜杠
+- `source` 是完整页面源码，frontmatter 块照写（`icon` / `date` / `category` 等语义与真实文件一致，键表见[页面级配置](#页面级配置-frontmatter)；页面标题取正文首个 h1）
+- 每轮扫描按钩子最新结果整体重建生成页集合：dev 下编辑触发钩子重跑，新增/消失/改内容的生成页即时生效，无需重启
+- 钩子的 `ctx.pages` 只含真实文件——生成页不会再喂给下一轮 `onScan`，不会链式膨胀
 
 ## 构建层扩展字段（AbsolutePressConfig）
 

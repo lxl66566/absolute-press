@@ -155,7 +155,8 @@ export interface AbsolutePressConfig extends SiteConfig {
    * frontmatter, creation and git times — before rendering. The return
    * value is JSON-serialized into the `virtual:absolute-press/site-data`
    * module for site islands, so it must be JSON-serializable; a returned
-   * promise is awaited.
+   * promise is awaited. Data-generated pages register through
+   * `ctx.addPage` during the hook (see `VirtualPageInput`).
    */
   onScan?: (ctx: SiteScanContext) => unknown;
   /**
@@ -305,6 +306,40 @@ export interface SiteScanContext {
   config: ResolvedConfig;
   /** Every scanned content page, all locales, in config locale order. */
   pages: SiteScanPage[];
+  /**
+   * Register a data-generated page during the `onScan` hook. The page is
+   * synthesized into the scan before anything derives from it, so it takes
+   * part in the whole pipeline exactly like a markdown file written at the
+   * route's location would: routing, sidebar/navbar, archives, feed,
+   * search, sitemap, encrypt rules, dead-link resolution. Only callable
+   * during the hook (the collector is discarded afterwards).
+   */
+  addPage(page: VirtualPageInput): void;
+}
+
+/** One data-generated page registered via `SiteScanContext.addPage`. */
+export interface VirtualPageInput {
+  /**
+   * Locale-relative clean route of the page: `/friends`, or a
+   * directory-index shape (`/friends/`) in `directoryIndex: 'slash'` mode.
+   * Plain decoded paths — routes are percent-encoded internally the same
+   * way scanned files are. Must not collide with a real content page or
+   * another generated page (fails the build).
+   */
+  route: string;
+  /**
+   * Locale the page belongs to, by `locales` key; the default locale when
+   * omitted. The locale prefix is applied to the route like it is to
+   * scanned files.
+   */
+  locale?: string;
+  /**
+   * Full page markdown source, frontmatter block included — exactly what a
+   * markdown file at the route's location would contain. Relative links
+   * and images resolve against that (virtual) location, so they read real
+   * files next to it.
+   */
+  source: string;
 }
 
 /**

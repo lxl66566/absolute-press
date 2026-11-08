@@ -563,6 +563,8 @@ declare module 'virtual:absolute-press/site-data' {
 
 Register the component through the site config `islands` as usual and use it in markdown. Importing the module without `onScan` configured fails the build with an error pointing at the `onScan` config; the data is injected JSON-serialized, so non-JSON values in the return value (like `Date`) do not reach the island as-is.
 
+The same hook also works the other way — **generating pages**: `ctx.addPage` turns data into full site pages (routing, nav, search, RSS all included), for friends pages, data-split topic pages, and the like. See the [configuration reference](./configuration.md#data-generated-pages-addpage).
+
 ## Constraints and notes
 
 - Islands are block-level only; tags must be PascalCase and on the list (unregistered tags pass through as unknown HTML)

@@ -563,6 +563,8 @@ declare module 'virtual:absolute-press/site-data' {
 
 组件照常经站点配置 `islands` 注册后在 markdown 里使用。未配置 `onScan` 时 import 该模块会在构建期报错，错误信息指向 `onScan` 配置；数据经 JSON 序列化注入，返回值里的 `Date` 等非 JSON 值不会原样到达 island。
 
+同一钩子还能反过来**生成页面**：`ctx.addPage` 把数据变成与真实文件完全同权的站点页面（路由、导航、搜索、RSS 全接入），适合朋友链、数据拆分专题页等场景，见[配置参考](./configuration.md#数据生成分页-addpage)。
+
 ## 约束与注意
 
 - island 仅块级使用，标签必须 PascalCase 且在名单内（未注册的标签按未知 HTML 透传）

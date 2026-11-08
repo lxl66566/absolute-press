@@ -395,7 +395,7 @@ onScan: (ctx: SiteScanContext) => ({
 }),
 ```
 
-The site-data hook: the framework scans the content tree in a single pass and runs the hook once per scan, after the scan and before rendering — dev startup, builds, dev structural resyncs, and content edits all trigger it. The argument `SiteScanContext` is `{ config, pages }`: `config` is the fully resolved site config (`ResolvedConfig`); `pages` is the page inventory of all locales, in config locale order. Both types are importable from `absolute-press`.
+The site-data hook: the framework scans the content tree in a single pass and runs the hook once per scan, after the scan and before rendering — dev startup, builds, dev structural resyncs, and content edits all trigger it. The argument `SiteScanContext` is `{ config, pages, addPage }`: `config` is the fully resolved site config (`ResolvedConfig`); `pages` is the page inventory of all locales, in config locale order. Both types are importable from `absolute-press`; `addPage` registers data-generated pages during the hook (see below).
 
 The return value is JSON-serialized into the `virtual:absolute-press/site-data` virtual module (its default export), consumed by site islands — see [Islands](./islands.md#reading-site-wide-data-site-data). The return value must therefore be JSON-serializable (a bare date in `rawFrontmatter` is a `Date` object; call `toISOString` yourself when you need a string); a returned promise is awaited.
 
@@ -411,6 +411,32 @@ Motivation: locale directory ownership, README/index semantics, frontmatter norm
 - `rawFrontmatter: Record<string, unknown>`: the frontmatter as the yaml parser produced it; custom keys live here, bare dates are `Date` objects
 - `createdAt: string | null`: frontmatter `date` as an ISO string; null when absent or unparsable
 - `updatedAt: string | null`: last git commit time as an ISO string; null when unavailable (e.g. not a git repo)
+
+### Data-generated pages (addPage)
+
+Calling `ctx.addPage` inside the hook generates pages from data — a friends page, topic pages split from data, content synced from an external source — without writing markdown files:
+
+```ts
+onScan: ctx => {
+  for (const friend of friends) {
+    ctx.addPage({
+      route: `/friends/${friend.id}`, // locale-relative clean route
+      // locale: 'en',                // defaults to the default locale; its prefix is applied
+      source: `---\nicon: solid/link\n---\n\n# ${friend.name}\n\n${friend.desc}\n`,
+    });
+  }
+  return { count: friends.length }; // the return value still feeds site-data
+};
+```
+
+A generated page is **fully equivalent** to a real file at the scan level — the framework synthesizes "this markdown file exists at the route's location": routing and output files, sidebar/navbar (`nav.order` / `tweaks` apply as usual), archives and RSS (with a `date` it is an article), the local search index, sitemap, encrypt rules, dead-link resolution, and relative links/images (resolved against that virtual location) all pick it up automatically. To keep one out of the nav, use `nav.exclude` exactly as with a real page.
+
+Notes:
+
+- `route` is a locale-relative plain decoded path (`/friends`; no percent-encoding for non-ASCII); `/` (the site home) and routes colliding with a real page or another generated page fail the scan; under `directoryIndex: 'bare'` directory-index routes carry no trailing slash
+- `source` is the complete page source, frontmatter block included (`icon` / `date` / `category` behave as in real files — see the [frontmatter key list](#per-page-config-frontmatter); the page title comes from the body's first h1)
+- Every scan rebuilds the generated set from the hook's latest output: in dev, edits re-run the hook and added/vanished/edited generated pages take effect immediately, no restart
+- The hook's `ctx.pages` lists real files only — generated pages never feed a later `onScan` round, so they cannot chain
 
 ## Build-layer extension fields (AbsolutePressConfig)
 

@@ -7,7 +7,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveConfig } from '../../config.ts';
 import type { ResolvedConfig } from '../../config.ts';
-import { dateFieldIso, scanFile, scanSite, siteScanContext } from '../scan.ts';
+import type { VirtualPageInput } from '../../config.ts';
+import {
+  dateFieldIso,
+  scanFile,
+  scanSite,
+  siteScanContext,
+  virtualPageEntry,
+} from '../scan.ts';
 
 const tmpDirs: string[] = [];
 afterEach(async () => {
@@ -19,6 +26,7 @@ afterEach(async () => {
 /** Content fixture on disk, resolved through a site config. */
 async function scanFixture(
   files: Record<string, string>,
+  overrides: Partial<Parameters<typeof resolveConfig>[0]> = {},
 ): Promise<{ config: ResolvedConfig; abs: (rel: string) => string }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ap-scan-'));
   tmpDirs.push(root);
@@ -36,6 +44,7 @@ async function scanFixture(
       title: 'Site',
       description: 'desc',
       hostname: 'https://test.example.com',
+      ...overrides,
     },
     root,
   );
@@ -200,5 +209,116 @@ describe('siteScanContext', () => {
 
     const c = ctx.pages.find(p => p.relPath === 'c.md')!;
     expect(c.updatedAt).toBeNull();
+  });
+});
+
+/** Minimal addPage input with an overridable source. */
+const genInput = (route: string, source = '# Gen\n'): VirtualPageInput => ({
+  route,
+  source,
+});
+
+describe('virtualPageEntry', () => {
+  it('synthesizes a leaf page indistinguishable from a scanned file', async () => {
+    const { config, abs } = await scanFixture({ 'index.md': '# Home\n' });
+    const { source, file } = virtualPageEntry(
+      config,
+      genInput('/friends', '---\ntitle: Friends\n---\n```rust\nlet x;\n```\n'),
+      new Set(['/']),
+    );
+    expect(source.filePath).toBe(abs('friends.md'));
+    expect(source.relPath).toBe('friends.md');
+    expect(source.route).toBe('/friends');
+    expect(source.locale.key).toBe('root');
+    // `title` is not a framework key (the page title comes from the first
+    // h1): it rides rawFrontmatter like any custom key.
+    expect(file.rawFrontmatter.title).toBe('Friends');
+    expect(file.fenceLangs).toEqual(['rust']);
+    // The mtime is a source hash: stable per content, different across it.
+    const again = virtualPageEntry(
+      config,
+      genInput('/friends', '---\ntitle: Friends\n---\n```rust\nlet x;\n```\n'),
+      new Set(['/']),
+    );
+    expect(again.file.mtimeMs).toBe(file.mtimeMs);
+    const changed = virtualPageEntry(
+      config,
+      genInput('/friends'),
+      new Set(['/']),
+    );
+    expect(changed.file.mtimeMs).not.toBe(file.mtimeMs);
+  });
+
+  it('maps a trailing-slash route to the directory index page (slash mode)', async () => {
+    const { config, abs } = await scanFixture({ 'index.md': '# Home\n' });
+    const { source } = virtualPageEntry(
+      config,
+      genInput('/friends/'),
+      new Set(),
+    );
+    expect(source.relPath).toBe('friends/index.md');
+    expect(source.route).toBe('/friends/');
+    expect(source.filePath).toBe(abs('friends/index.md'));
+  });
+
+  it('applies the locale prefix and validates the locale key', async () => {
+    const { config } = await scanFixture(
+      { 'index.md': '# Home\n', 'en/index.md': '# En home\n' },
+      { locales: { en: { lang: 'en', label: 'English' } } },
+    );
+    const { source, file } = virtualPageEntry(
+      config,
+      { route: '/friends', locale: 'en', source: '# En\n' },
+      new Set(),
+    );
+    expect(source.route).toBe('/en/friends');
+    expect(source.relPath).toBe('friends.md');
+    expect(file.frontmatter).toEqual({});
+    expect(() =>
+      virtualPageEntry(
+        config,
+        { route: '/friends', locale: 'fr', source: '' },
+        new Set(),
+      ),
+    ).toThrowError(/unknown locale 'fr' \(configured: root, en\)/);
+  });
+
+  it('keeps encoded canonical routes and accepts plain decoded input', async () => {
+    const { config } = await scanFixture({ 'index.md': '# Home\n' });
+    const { source } = virtualPageEntry(config, genInput('/标签'), new Set());
+    expect(source.relPath).toBe('标签.md');
+    expect(source.route).toBe('/%E6%A0%87%E7%AD%BE');
+  });
+
+  it('rejects route collisions, the home route, and non-canonical shapes', async () => {
+    const { config } = await scanFixture(
+      { 'index.md': '# Home\n', 'a.md': '# A\n' },
+      { urls: { directoryIndex: 'bare' } },
+    );
+    expect(() =>
+      virtualPageEntry(config, genInput('/a'), new Set(['/a'])),
+    ).toThrowError(/route \/a already exists/);
+    expect(() =>
+      virtualPageEntry(config, genInput('/'), new Set()),
+    ).toThrowError(/'\/' is the site home/);
+    // Bare mode canonicalizes directory indexes without the slash.
+    expect(() =>
+      virtualPageEntry(config, genInput('/friends/'), new Set()),
+    ).toThrowError(
+      /not canonical for directoryIndex 'bare' \(expected '\/friends'\)/,
+    );
+    expect(() =>
+      virtualPageEntry(config, genInput('friends'), new Set()),
+    ).toThrowError(/must be a locale-relative clean route starting with '\/'/);
+  });
+
+  it('collects addPage entries through the hook context', async () => {
+    const { config } = await scanFixture({ 'index.md': '# Home\n' });
+    const scan = await scanSite(config);
+    const virtual: VirtualPageInput[] = [];
+    const ctx = siteScanContext(config, scan, new Map(), undefined, virtual);
+    ctx.addPage(genInput('/a'));
+    ctx.addPage(genInput('/b'));
+    expect(virtual.map(v => v.route)).toEqual(['/a', '/b']);
   });
 });

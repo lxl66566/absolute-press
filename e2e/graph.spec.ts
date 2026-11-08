@@ -7,8 +7,9 @@ import { expect, test } from 'playwright/test';
  */
 
 const ORIGIN = 'http://127.0.0.1:4173';
-// Graph fixture page: guide/deploy links to five pages (the guide index,
-// configuration, faq, seo, writing), whose own cross-links induce seven
+// Graph fixture page: guide/deploy is linked with five pages (writing, faq
+// and the guide index link in, seo is deploy's own out-link, and the
+// generated /site-map links every page), whose cross-links induce seven
 // member-member edges. Counts below are pinned to the docs' current link
 // structure.
 const TARGET = `${ORIGIN}/guide/deploy`;
@@ -42,14 +43,15 @@ test.describe('related articles graph', () => {
     await mountGraph(page);
     const svg = page.locator('#ap-related .ap-graph-svg');
     await expect(svg).toBeVisible();
-    // deploy + its four neighbors as dots; star edges plus the induced
+    // deploy + its five neighbors as dots; star edges plus the induced
     // member-member edges (payload RelatedLink.links). Counts track the
-    // current docs cross-links (guide index / faq / seo / writing -> deploy).
+    // current docs cross-links (guide index / faq / seo / writing -> deploy,
+    // plus the generated /site-map linking every page).
     await expect(svg.locator('g.ap-graph-node:not(.is-current)')).toHaveCount(
-      4,
+      5,
     );
     await expect(svg.locator('g.ap-graph-node.is-current')).toHaveCount(1);
-    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(7);
+    await expect(svg.locator('line.ap-graph-edge')).toHaveCount(12);
   });
 
   test('wheel zoom changes the canvas transform', async ({ page }) => {
