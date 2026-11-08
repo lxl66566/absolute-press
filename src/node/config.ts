@@ -30,6 +30,7 @@ import {
 } from './icons.ts';
 import {
   resolveCodeOptions,
+  type MarkdownPlugin,
   type ResolvedCodeOptions,
 } from './markdown/options.ts';
 
@@ -222,6 +223,23 @@ export interface AbsolutePressConfig extends SiteConfig {
   };
   /** Estimated reading time in the article meta row. @default true */
   readingTime?: boolean;
+  /**
+   * Markdown pipeline extension: extra markdown-it plugins, applied after
+   * the framework's complete built-in stack (katex, containers, tabs,
+   * code highlighting, link resolution...) in list order — a plugin's
+   * rules land on top of the framework's, so custom syntaxes compose with
+   * the built-ins and a deliberate override of a framework rule is
+   * possible. Entries are a plugin function or a `[plugin, options]`
+   * tuple, exactly what `markdown-it`'s `md.use` accepts. The plugins run
+   * in the page renderer (term-ref articles included); the standalone
+   * inline renderer for data strings stays minimal and untouched. Note:
+   * plugin functions cannot cross the render worker pool's structured
+   * clone, so sites configuring plugins build on the main thread (the
+   * pool only accelerates 1000+ page cold builds).
+   */
+  markdown?: {
+    plugins?: MarkdownPlugin[];
+  };
   /**
    * Related-articles graph options (site-layer extension of
    * `SiteConfig['related']`, which only pins the depth union).
@@ -471,6 +489,8 @@ export interface ResolvedConfig {
   xlist: { externalize: number | false };
   /** Estimated reading time in the article meta row. */
   readingTime: boolean;
+  /** Site-configured markdown-it plugins, empty when unconfigured. */
+  markdown: { plugins: MarkdownPlugin[] };
   /** Home page options (article feed on/off, feed page size). */
   home: Required<NonNullable<SiteConfig['home']>>;
   /** Built-in listing pages (timeline / categories / tags), all on by default. */
@@ -536,6 +556,26 @@ function resolveSeo(seo: SiteConfig['seo']): ResolvedConfig['seo'] | undefined {
 /** A blank value would emit empty text/attribute boxes; treat as unset. */
 function cleanOption(value: string | undefined): string | undefined {
   return value?.trim() ? value : undefined;
+}
+
+/**
+ * Validate markdown plugin entries (JS config files bypass the types): each
+ * must be a function or a [function, options] tuple, anything else would
+ * die deep inside md.use with an opaque error.
+ */
+function resolveMarkdownPlugins(
+  plugins: MarkdownPlugin[] | undefined,
+): MarkdownPlugin[] {
+  const list = plugins ?? [];
+  for (const [i, entry] of list.entries()) {
+    const fn = Array.isArray(entry) ? entry[0] : entry;
+    if (typeof fn !== 'function') {
+      throw new Error(
+        `[absolute-press] markdown.plugins[${i}] must be a plugin function or a [plugin, options] tuple, got ${typeof fn}`,
+      );
+    }
+  }
+  return list;
 }
 
 /**
@@ -735,6 +775,7 @@ export function resolveConfig(
             ),
     },
     readingTime: config.readingTime ?? true,
+    markdown: { plugins: resolveMarkdownPlugins(config.markdown?.plugins) },
     home: {
       feed: config.home?.feed ?? true,
       feedPerPage: resolveIntOption(

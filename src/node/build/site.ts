@@ -365,6 +365,9 @@ export class SiteStore {
       // Site-wide code options flow in explicitly (resolveConfig already
       // merged the defaults), instead of a module-level ambient state.
       code: this.config.code,
+      // Site-configured markdown-it plugins ride the same explicit flow;
+      // empty when the site configures none.
+      plugins: this.config.markdown.plugins,
       // Built-in entry-list islands past the config threshold externalize
       // their bodies into content-hashed assets (drained by emitAll); the
       // hook reads the live mode/config at render time.
@@ -763,6 +766,9 @@ export class SiteStore {
    */
   private async renderMissing(): Promise<void> {
     if (this.trustWatcher) return;
+    // Plugin functions cannot cross the pool's structured clone; sites
+    // configuring markdown plugins render serially on the main thread.
+    if (this.config.markdown.plugins.length > 0) return;
     const stale = this.pages.filter(p => {
       const cached = this.rendered.get(p.filePath);
       return cached === undefined || cached.mtimeMs !== this.scanOf(p).mtimeMs;

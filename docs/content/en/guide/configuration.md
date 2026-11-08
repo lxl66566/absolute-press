@@ -224,6 +224,24 @@ code: {
 
 Site-level defaults for code block rendering (consumed by the markdown pipeline): `collapsedLines` uses `??=` semantics to distinguish "not configured" from "explicit `null`" — only writing `null` turns off collapsing. Each code block can override the site defaults with fence meta: `{1,3-5}` line highlights, `title="..."`, `:collapsed-lines[=N]`, `:no-collapsed-lines`, `:wrap=true|false`. Syntax and demos in [Markdown extensions](./markdown.md#code-highlighting).
 
+## markdown
+
+```ts
+import { italicTagPlugin } from './my-plugins.mjs';
+
+markdown: {
+  plugins: [italicTagPlugin, [customContainer, { marker: '%' }]],
+}
+```
+
+Markdown pipeline extension point: extra markdown-it plugins, applied after the framework's complete built-in stack (katex, containers, tabs, code highlighting, link resolution...) in list order. Anything `md.use` accepts works — a bare plugin function, or a `[plugin, options]` tuple for configured plugins, mirroring `markdown-it`'s `use(plugin, options)` one to one.
+
+Semantics:
+
+- A plugin's rules land on top of the built-ins: custom syntaxes compose with the framework's; deliberately overriding a framework rule (say, replacing the `fence` renderer) is allowed and owns the consequences
+- Plugins apply to the page render pipeline (term-ref articles share the instance and are covered); the minimal inline renderer for data strings stays untouched
+- Plugin functions cannot cross the render worker pool's structured clone: sites configuring plugins build serially on the main thread (the pool only accelerates 1000+ page cold builds; everyday builds never notice)
+
 ## xlist
 
 ```ts

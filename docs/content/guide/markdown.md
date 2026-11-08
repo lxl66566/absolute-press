@@ -609,3 +609,7 @@ buildComponents: {
 ```
 
 被禁用的标签渲染为空并输出构建警告；未知名字在配置解析时报错并列出全部可用组件，详见[配置参考](./configuration.md#buildcomponents)。
+
+## 自定义 markdown-it 插件
+
+内置语法之外的 markdown 扩展不用等框架内置：站点配置 `markdown.plugins` 接受任意 markdown-it 插件，在完整内置栈之后按序应用——生态里的容器、语法插件（emoji、属性列表、自定义高亮……）拿来即用，写法与语义见[配置参考](./configuration.md#markdown)。

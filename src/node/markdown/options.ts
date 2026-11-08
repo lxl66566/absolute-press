@@ -1,9 +1,27 @@
+import type { MarkdownIt as MarkdownItType } from 'markdown-it';
+
 import type {
   MarkdownCodeOptions,
   MarkdownOptions,
 } from '../../shared/types.ts';
 import { DEFAULT_COLLAPSED_LINES } from './code-meta.ts';
 import type { ImageSizeResolver } from './link-rules.ts';
+
+/**
+ * A markdown-it plugin function. The `...params: never[]` rest makes every
+ * ecosystem signature assignable — plugins taking zero to many params, with
+ * their own typed options — so site configs pass third-party plugins without
+ * casts. Tuple entries forward the second element as the plugin's options.
+ */
+export type MarkdownPluginFn = (
+  md: MarkdownItType,
+  ...params: never[]
+) => unknown;
+
+/** One `markdown.plugins` entry: the plugin, or a `[plugin, options]` tuple. */
+export type MarkdownPlugin =
+  | MarkdownPluginFn
+  | readonly [MarkdownPluginFn, options?: unknown];
 
 /**
  * Options for `createMarkdownRenderer`. The code block shape is the shared
@@ -37,6 +55,13 @@ export interface MarkdownRendererOptions extends MarkdownOptions {
    * the default 0 keeps single-process renders as they were.
    */
   refSeqStart?: number;
+  /**
+   * Site-configured markdown-it plugins, applied after the complete
+   * built-in stack in list order. Whatever a plugin registers lands on top
+   * of the framework's rules — the escape hatch for syntaxes the framework
+   * does not ship.
+   */
+  plugins?: readonly MarkdownPlugin[];
 }
 
 /** Default copy-button label, documented on the shared `copyLabel` option. */

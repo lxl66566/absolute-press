@@ -141,6 +141,27 @@ export async function createMarkdownRenderer(
   // Raw-HTML <img> tags bypass the image renderer rule; size them here.
   if (options.imageSize) installRawHtmlImageSizes(md, options.imageSize);
 
+  // Site-configured plugins run last, in config order: whatever they
+  // register (parse rules, renderer overrides, core chains) lands on top of
+  // the full built-in stack. This is the documented escape hatch for
+  // syntaxes the framework does not ship — a plugin replacing a framework
+  // rule (e.g. the fence wrapper) owns the consequences.
+  for (const entry of options.plugins ?? []) {
+    // typeof (not Array.isArray): the tuple member is readonly, which the
+    // array predicate refuses to narrow on. The widened cast re-opens md.use's
+    // options generic — the ...never[] rest that lets any ecosystem plugin
+    // type-check in a site config pins it to never.
+    if (typeof entry === 'function') {
+      md.use(entry);
+    } else {
+      const [plugin, pluginOptions] = entry;
+      md.use(
+        plugin as (md: MarkdownItType, options?: unknown) => void,
+        pluginOptions,
+      );
+    }
+  }
+
   // Build component names are extraction-registered too — they flow
   // through the same tag pipeline, then branch to a transient marker
   // instead of a hydration div.

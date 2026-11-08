@@ -35,3 +35,5 @@ export type {
   SocialEntry,
   StrictLinks,
 } from '../shared/types.ts';
+// Markdown plugin entry for the config `markdown.plugins` list.
+export type { MarkdownPlugin } from './markdown/options.ts';

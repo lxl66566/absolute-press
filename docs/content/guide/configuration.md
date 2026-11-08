@@ -224,6 +224,24 @@ code: {
 
 代码块呈现的站点级默认值（markdown 管线消费）：`collapsedLines` 用 `??=` 语义区分「未配置」与「显式 `null`」，写 `null` 才是关闭折叠。每个代码块可用围栏 meta 覆盖站点默认：`{1,3-5}` 行高亮、`title="..."`、`:collapsed-lines[=N]`、`:no-collapsed-lines`、`:wrap=true|false`，语法与演示见[Markdown 扩展](./markdown.md#代码高亮)。
 
+## markdown
+
+```ts
+import { italicTagPlugin } from './my-plugins.mjs';
+
+markdown: {
+  plugins: [italicTagPlugin, [customContainer, { marker: '%' }]],
+}
+```
+
+markdown 管线扩展点：额外的 markdown-it 插件，在框架完整的内置栈（katex、容器、tabs、代码高亮、链接解析……）之后按列表顺序应用。生态里任何 `md.use` 接受的插件都能用——写法就是函数本身，带配置的插件写 `[plugin, options]` 元组，与 `markdown-it` 的 `use(plugin, options)` 一一对应。
+
+语义要点：
+
+- 插件注册的规则落在内置栈之上：自定义语法与内置语法组合使用；刻意覆写框架规则（例如替换 `fence` 渲染器）是允许的，后果自负
+- 插件作用于页面渲染管线（术语引用文章共用同一实例，同样生效）；数据字符串的行内渲染器保持最小集合，不受影响
+- 插件函数无法跨渲染 worker 池的结构化克隆：配置了插件的站点构建在主线程串行渲染（池只加速千页以上的冷构建，日常构建无感）
+
 ## xlist
 
 ```ts

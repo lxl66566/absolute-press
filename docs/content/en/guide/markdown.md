@@ -609,3 +609,7 @@ buildComponents: {
 ```
 
 A disabled tag renders nothing and warns at build time; an unknown name fails config resolution listing every available component — see the [Configuration reference](./configuration.md#buildcomponents).
+
+## Custom markdown-it plugins
+
+Markdown extensions beyond the built-ins do not wait for the framework: the site config `markdown.plugins` accepts any markdown-it plugin, applied in order after the complete built-in stack — ecosystem containers and syntax plugins (emoji, attribute lists, custom highlighting...) drop in as-is. Form and semantics in the [Configuration reference](./configuration.md#markdown).

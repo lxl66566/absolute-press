@@ -17,6 +17,35 @@ function baseConfig(): Parameters<typeof resolveConfig>[0] {
   };
 }
 
+// Any function satisfies the plugin entry type; resolveConfig keeps it as-is.
+const plugin = (): void => {};
+
+describe('resolveConfig markdown plugins', () => {
+  it('defaults to an empty plugin list', () => {
+    expect(resolveConfig(baseConfig(), '/root').markdown).toEqual({
+      plugins: [],
+    });
+  });
+
+  it('keeps configured entries as-is', () => {
+    const config = resolveConfig(
+      { ...baseConfig(), markdown: { plugins: [plugin, [plugin, { x: 1 }]] } },
+      '/root',
+    );
+    expect(config.markdown.plugins).toEqual([plugin, [plugin, { x: 1 }]]);
+  });
+
+  it('rejects non-function entries (JS configs)', () => {
+    expect(() =>
+      resolveConfig(
+        // @ts-expect-error -- runtime guard under test
+        { ...baseConfig(), markdown: { plugins: ['nope'] } },
+        '/root',
+      ),
+    ).toThrowError(/markdown\.plugins\[0\] must be a plugin function/);
+  });
+});
+
 describe('resolveConfig code options', () => {
   it('applies the documented defaults', () => {
     const config = resolveConfig(
