@@ -96,15 +96,15 @@ function invalidDateMessage(date: string, filePath: string): string {
 }
 
 /**
- * Frontmatter `date` as an ISO string. Null when absent or unparsable —
- * an unparsable date degrades silently here (createdAt: null drops the page
- * to the sort end and out of RSS ordering); the authoritative warning lives
- * in siteScanPages, which re-runs per dev edit and dedupes.
+ * A frontmatter date field as an ISO string; null when absent or
+ * unparsable. Null degrades silently at the consumption sites: a null
+ * `date` drops the page to the sort end and out of RSS ordering, a null
+ * `updated` falls back to the git commit time — siteScanPages owns the
+ * unparsable-value warnings for both.
  */
-export function createdAtOf(frontmatter: PageFrontmatter): string | null {
-  const date = frontmatter.date;
-  if (!date) return null;
-  const parsed = new Date(date);
+export function dateFieldIso(value: string | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
@@ -128,10 +128,19 @@ export function siteScanPages(
         `[absolute-press] scan cache miss for ${source.filePath}`,
       );
     }
-    const createdAt = createdAtOf(file.frontmatter);
+    const createdAt = dateFieldIso(file.frontmatter.date);
     // Null either for an absent or an unparsable date; only the latter warns.
     if (createdAt === null && file.frontmatter.date) {
       warn(invalidDateMessage(file.frontmatter.date, source.filePath));
+    }
+    // An explicit `updated` overrides the git time; an unparsable one warns
+    // here (the meta re-derivation in SiteStore stays silent) and falls
+    // back to the git time.
+    const updated = dateFieldIso(file.frontmatter.updated);
+    if (updated === null && file.frontmatter.updated) {
+      warn(
+        `[absolute-press] invalid frontmatter updated "${file.frontmatter.updated}" in ${source.filePath}; falling back to the git commit time`,
+      );
     }
     return {
       filePath: source.filePath,
@@ -141,7 +150,7 @@ export function siteScanPages(
       frontmatter: file.frontmatter,
       rawFrontmatter: file.rawFrontmatter,
       createdAt,
-      updatedAt: gitTimes.get(source.filePath) ?? null,
+      updatedAt: updated ?? gitTimes.get(source.filePath) ?? null,
     };
   });
 }

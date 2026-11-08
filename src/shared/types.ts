@@ -8,6 +8,12 @@ import type { BuiltinBuildComponentName } from './components.ts';
 export interface PageFrontmatter {
   /** Creation date (ISO string or `yyyy-MM-dd`). */
   date?: string;
+  /**
+   * Explicit last-update date (same accepted formats as `date`); wins
+   * over the git last-commit time, whose rebase/squash history drifts and
+   * collapses on shallow CI clones.
+   */
+  updated?: string;
   category?: string[];
   tag?: string[];
   /** Key into the site config `icons` map. */
@@ -60,7 +66,10 @@ export interface PageMeta {
   frontmatter: PageFrontmatter;
   /** From frontmatter `date`. */
   createdAt: string | null;
-  /** From git last-commit time; null when unavailable. */
+  /**
+   * From frontmatter `updated` (explicit override) or the git last-commit
+   * time; null when neither is available.
+   */
   updatedAt: string | null;
   /** Estimated reading time in whole minutes; absent when the site disables it. */
   readingTime?: number;

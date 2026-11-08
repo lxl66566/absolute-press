@@ -589,7 +589,7 @@ Built-in inventory (single source of truth: `src/shared/components.ts`):
 ```
 
 - `:latest` / `:updated`: per-column entry counts, non-negative integers, both defaulting to 5; `0` hides the column, and zero for both renders nothing at all
-- "Latest" sorts by frontmatter `date`, newest first; "Recently updated" sorts by the git last-commit time, newest first, skipping pages without a git time and pages never committed separately (`updatedAt === createdAt`)
+- "Latest" sorts by frontmatter `date`, newest first; "Recently updated" sorts by the page update time, newest first (frontmatter `updated` when present, else the git commit time), skipping pages without an update time and pages never committed separately (`updatedAt === createdAt`)
 - Entries come from the host locale's article list (locale homes are not articles; pages with frontmatter `feed: false` stay listed, matching the home feed)
 - Links are page-relative (same shape as body markdown links); the leading icon is the frontmatter `icon` registered svg
 - Column headings resolve by the page's `<html lang>` (zh/en); an empty column is omitted entirely, and the component never enters the TOC

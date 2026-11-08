@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveConfig } from '../../config.ts';
 import type { ResolvedConfig } from '../../config.ts';
-import { createdAtOf, scanFile, scanSite, siteScanContext } from '../scan.ts';
+import { dateFieldIso, scanFile, scanSite, siteScanContext } from '../scan.ts';
 
 const tmpDirs: string[] = [];
 afterEach(async () => {
@@ -126,15 +126,15 @@ describe('scanFile', () => {
   });
 });
 
-describe('createdAtOf', () => {
-  it('maps a date to ISO and absent/unparsable to null, silently', () => {
-    expect(createdAtOf({ date: '2024-05-01' })).toBe(
+describe('dateFieldIso', () => {
+  it('maps a frontmatter date field to ISO and absent/unparsable to null, silently', () => {
+    expect(dateFieldIso('2024-05-01')).toBe(
       new Date('2024-05-01').toISOString(),
     );
-    expect(createdAtOf({})).toBeNull();
-    // Unparsable degrades silently; the authoritative warning lives in
+    expect(dateFieldIso(undefined)).toBeNull();
+    // Unparsable degrades silently; the authoritative warnings live in
     // siteScanPages (deduped by the store's sink).
-    expect(createdAtOf({ date: 'not-a-date' })).toBeNull();
+    expect(dateFieldIso('not-a-date')).toBeNull();
   });
 });
 
@@ -172,5 +172,33 @@ describe('siteScanContext', () => {
     expect(warns).toHaveLength(1);
     expect(warns[0]).toContain('not-a-date');
     expect(warns[0]).toContain('a.md');
+  });
+
+  it('frontmatter updated overrides the git time; unparsable updated warns and falls back', async () => {
+    const { config, abs } = await scanFixture({
+      'a.md': '---\ndate: 2024-05-01\nupdated: 2024-06-01\n---\n# A\n',
+      'b.md': '---\nupdated: bogus\n---\n# B\n',
+      'c.md': '# C\n',
+    });
+    const scan = await scanSite(config);
+    const gitTimes = new Map([
+      [abs('a.md'), '2026-01-02T03:04:05.000Z'],
+      [abs('b.md'), '2026-01-03T03:04:05.000Z'],
+    ]);
+    const warns: string[] = [];
+    const ctx = siteScanContext(config, scan, gitTimes, msg => warns.push(msg));
+
+    const a = ctx.pages.find(p => p.relPath === 'a.md')!;
+    expect(a.updatedAt).toBe(new Date('2024-06-01').toISOString());
+
+    // An unparsable updated keeps the git time instead of nulling it.
+    const b = ctx.pages.find(p => p.relPath === 'b.md')!;
+    expect(b.updatedAt).toBe('2026-01-03T03:04:05.000Z');
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain('bogus');
+    expect(warns[0]).toContain('b.md');
+
+    const c = ctx.pages.find(p => p.relPath === 'c.md')!;
+    expect(c.updatedAt).toBeNull();
   });
 });

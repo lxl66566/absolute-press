@@ -19,6 +19,7 @@ describe('frontmatter', () => {
       '---',
       'title: ignored',
       'date: 2024-01-05',
+      'updated: 2024-02-06',
       'category: [coding]',
       'tag: note',
       'icon: book',
@@ -32,6 +33,7 @@ describe('frontmatter', () => {
     const result = md.render(src, ENV);
     expect(result.frontmatter).toEqual({
       date: '2024-01-05',
+      updated: '2024-02-06',
       category: ['coding'],
       tag: ['note'],
       icon: 'book',
@@ -71,6 +73,16 @@ describe('frontmatter', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = md.render('---\ndate: 2024-12-31 00:30\n---\n\nx', ENV);
     expect(result.frontmatter.date).toBe('2024-12-31T00:30:00Z');
+  });
+
+  it('parses updated with the same date shapes as date', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const string = md.render('---\nupdated: 2024-12-31 00:30\n---\n\nx', ENV)
+      .frontmatter.updated;
+    expect(string).toBe('2024-12-31T00:30:00Z');
+    const yamlDate = md.render('---\nupdated: 2024-12-31\n---\n\nx', ENV)
+      .frontmatter.updated;
+    expect(yamlDate).toBe('2024-12-31');
   });
 
   it('stays silent in the renderer; the site scan owns unknown-key warnings', () => {

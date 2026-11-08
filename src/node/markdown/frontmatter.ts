@@ -23,16 +23,12 @@ export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
   const raw: Record<string, unknown> = data;
   const frontmatter: PageFrontmatter = {};
 
-  const date = raw['date'];
-  if (typeof date === 'string') frontmatter.date = normalizeDateString(date);
-  else if (date instanceof Date) {
-    // yaml Date: the UTC calendar date IS the written one (js-yaml builds
-    // timestamps with Date.UTC — see shared/date.ts formatDate). Only stamps
-    // with seconds reach here as Dates; zoneless second-less stamps stay
-    // plain strings and go through normalizeDateString above.
-    const formatted = formatDate(date);
-    if (formatted !== null) frontmatter.date = formatted;
-  }
+  const date = dateFieldValue(raw['date']);
+  if (date !== null) frontmatter.date = date;
+  // `updated` accepts the same date shapes as `date` (a separate key lets
+  // authors override lastmod without touching the creation date).
+  const updated = dateFieldValue(raw['updated']);
+  if (updated !== null) frontmatter.updated = updated;
 
   const category = toStringList(raw['category']);
   if (category) frontmatter.category = category;
@@ -63,6 +59,7 @@ export function parseFrontmatter(src: string, filePath?: string): ParsedSource {
 /** Frontmatter keys the pipeline recognizes. */
 const KNOWN_KEYS: ReadonlySet<string> = new Set([
   'date',
+  'updated',
   'category',
   'tag',
   'icon',
@@ -102,6 +99,21 @@ function normalizeDateString(value: string): string {
   const frac = match[5] ? `.${match[5]}` : '';
   const zone = match[6] ?? 'Z';
   return `${date}T${hh}:${mm}:${ss}${frac}${zone}`;
+}
+
+/**
+ * A date-shaped frontmatter value (`date` / `updated`) as its normalized
+ * string, or null when the value fits neither shape (the key stays unset).
+ * Quoted strings normalize (see normalizeDateString below); yaml Dates
+ * format as the UTC calendar date: js-yaml builds timestamps with Date.UTC
+ * (see shared/date.ts formatDate), so the UTC date IS the written one, and
+ * only stamps with seconds arrive as Dates — zoneless second-less stamps
+ * stay plain strings and take the normalizeDateString path.
+ */
+function dateFieldValue(value: unknown): string | null {
+  if (typeof value === 'string') return normalizeDateString(value);
+  if (value instanceof Date) return formatDate(value);
+  return null;
 }
 
 /** Accept a single string or a string array; drop anything else. */

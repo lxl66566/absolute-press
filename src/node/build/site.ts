@@ -97,7 +97,7 @@ import {
   workerCount,
 } from './render-pool.ts';
 import {
-  createdAtOf,
+  dateFieldIso,
   scanFile,
   scanSite,
   siteScanContext,
@@ -634,7 +634,7 @@ export class SiteStore {
             // Silent re-derivation, same value as buildArticles' meta.
             return {
               route: p.route,
-              createdAt: createdAtOf(fm),
+              createdAt: dateFieldIso(fm.date),
               category: fm.category ?? [],
               tag: fm.tag ?? [],
             };
@@ -931,8 +931,14 @@ export class SiteStore {
       title: result.title ?? '',
       headings: result.headings,
       frontmatter: file.frontmatter,
-      createdAt: createdAtOf(file.frontmatter),
-      updatedAt: this.gitTimes.get(page.filePath) ?? null,
+      createdAt: dateFieldIso(file.frontmatter.date),
+      // An explicit frontmatter `updated` wins over the git commit time
+      // (already warned at the scan pass when unparsable, so this stays
+      // silent — same policy as createdAt above).
+      updatedAt:
+        dateFieldIso(file.frontmatter.updated) ??
+        this.gitTimes.get(page.filePath) ??
+        null,
       // Omitted when the site disables it; the client hides an absent value.
       ...(this.config.readingTime ? { readingTime: result.readingTime } : {}),
       // Omitted when empty: head consumers fall back to site.description.

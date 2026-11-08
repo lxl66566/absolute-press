@@ -589,7 +589,7 @@ KaTeX 的样式表在构建期注入每页 head，公式在构建期渲染成 HT
 ```
 
 - `:latest` / `:updated`：两栏各自条数，须为非负整数，默认各 5；`0` 隐藏该栏，两栏全 0 时整个组件不产出
-- 「最新」按 frontmatter `date` 降序；「最近更新」按 git 最后提交时间降序，排除没有 git 时间与从未单独提交过的页面（`updatedAt === createdAt`）
+- 「最新」按 frontmatter `date` 降序；「最近更新」按页面更新时间降序（frontmatter `updated` 优先，否则 git 提交时间），排除没有更新时间与从未单独提交过的页面（`updatedAt === createdAt`）
 - 条目来自本 locale 的文章列表（locale 首页不算文章；frontmatter `feed: false` 的页面仍在列，与首页文章流口径一致）
 - 链接是页面相对地址（与正文 markdown 链接同构），行首图标取 frontmatter `icon` 注册的 svg
 - 列标题按页面 `<html lang>` 解析文案（中/英），空栏整体省略；组件不进 TOC

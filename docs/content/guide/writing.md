@@ -9,7 +9,7 @@ icon: solid/pen
 
 # 写作指南
 
-框架刻意把写作面收窄：一个 markdown 文件加最多六个 frontmatter 键，其余全部由目录结构与构建期推导。本页是日常写作的速查，语法细节见[Markdown 扩展](./markdown.md)。
+框架刻意把写作面收窄：一个 markdown 文件加最多七个 frontmatter 键，其余全部由目录结构与构建期推导。本页是日常写作的速查，语法细节见[Markdown 扩展](./markdown.md)。
 
 ## 文件即页面
 
@@ -30,13 +30,14 @@ content/
 
 页面标题取正文**第一个 h1**，sidebar、TOC、归档、首页文章流、RSS 都用它；没有 h1 的页面标题为空，导航里回退显示文件路径。中文标题的锚点由 VuePress 2 同款 slugify 生成（移植自 @mdit-vue/shared），与 VuePress 逐字一致（中文原样保留、英文小写、空格转连字符），站内引用形如 `[配置参考](./configuration.md#基础字段)`。
 
-## frontmatter 六个键
+## frontmatter 七个键
 
-frontmatter 只认 `date` / `category` / `tag` / `icon` / `feed` / `overview`，其他键被忽略：
+frontmatter 只认 `date` / `updated` / `category` / `tag` / `icon` / `feed` / `overview`，其他键被忽略：
 
 ```md
 ---
 date: 2026-10-03 # ISO 字符串或 yyyy-MM-dd；文章流排序与 RSS pubDate
+updated: 2026-10-20 # 可选；显式更新时间，优先于 git 提交时间
 category:
   - 指南 # 分类归档页（可多值）
 tag:
@@ -56,9 +57,10 @@ overview: true # 默认 true；仅对目录的 index.md 生效
 ## 时间：手写一个，其余交给 git
 
 - `createdAt` 来自 frontmatter `date`，是文章流的排序依据
-- `updatedAt` 取该文件 **git 最后一次提交时间**（构建时批量查询），不是 git 仓库（或文件未跟踪）时为 `null`，页面不显示更新时间；CI 浅克隆会让所有页面时间塌缩成唯一提交的时间，见[部署](./deploy.md#持续集成建议)
+- `updatedAt` 默认取该文件 **git 最后一次提交时间**（构建时批量查询）；不是 git 仓库（或文件未跟踪）时为 `null`，页面不显示更新时间；CI 浅克隆会让所有页面时间塌缩成唯一提交的时间，见[部署](./deploy.md#持续集成建议)
+- frontmatter `updated` 可显式覆盖 `updatedAt`：git 历史被 rebase/squash 重写后时间会漂移，浅克隆 CI 里全部塌缩，这种时候写一次 `updated` 就能把列表页的「最近更新」与 sitemap 的 `lastmod` 校正回来。无法解析的值会打 warning 并回退到 git 时间
 
-因此日常写作只需要在创建时写一次 `date`，「最后编辑于」由 git 自动维护，无手工同步成本。
+因此日常写作只需要在创建时写一次 `date`，「最后编辑于」默认由 git 自动维护；只有 git 时间不可靠时才需要手工写 `updated`。
 
 ## 站内链接与死链检查
 
