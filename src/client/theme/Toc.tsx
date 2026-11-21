@@ -3,6 +3,7 @@ import type { Element as SolidElement } from 'solid-js';
 
 import type { PagePayload } from '../../shared/types';
 import { flashAnchorTarget } from './anchor-highlight';
+import { scrollToAnchor } from './anchor-scroll';
 import { FOLD_SETTLE_MS, NAV_CLEARANCE_PX } from './constants';
 import { cx } from './cx';
 import { useMessages } from './i18n';
@@ -179,6 +180,9 @@ export function TocOutline(props: {
   let listEl: HTMLUListElement | undefined;
   let revealToken = 0;
   let lastExpandAt = -Infinity;
+  // Landing watch of the last navigation: a superseding click stops the
+  // previous watch instead of both correcting toward their own targets.
+  let stopLandingWatch: (() => void) | undefined;
   const revealActive = (slug: string, grew: boolean): void => {
     const container = listEl?.closest<HTMLElement>('#ap-toc');
     const link = listEl?.querySelector<HTMLAnchorElement>(
@@ -241,6 +245,7 @@ export function TocOutline(props: {
   };
   onCleanup(() => {
     revealToken += 1; // strand timers scheduled by the disposed page's rail
+    stopLandingWatch?.();
   });
   // Scroll spy may highlight an entry inside a folded group (initial hash
   // deep link, plain scrolling). Expansion is monotonic — spy changes never
@@ -325,10 +330,8 @@ export function TocOutline(props: {
     e.preventDefault(); // JS-driven: smooth scroll + history-managed hash
     const el = document.getElementById(slug);
     if (!el) return;
-    el.scrollIntoView({
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-      block: 'start',
-    });
+    stopLandingWatch?.();
+    stopLandingWatch = scrollToAnchor(el, !prefersReducedMotion());
     // Keep the URL hash in sync for deep links (vuepress parity); pushState
     // so back/forward revisits previous positions like native anchor jumps.
     history.pushState(null, '', `#${slug}`);

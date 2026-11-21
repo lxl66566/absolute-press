@@ -13,7 +13,7 @@ description: absolute-press 框架 TOC 右栏的设计档案：scroll-spy 高亮
 | reveal | active 变化时把高亮行最小滚动进 rail 可视区 | theme/Toc.tsx revealActive          |
 | fold  | 目录超过 TOC_FOLD_THRESHOLD 条按顶层组折叠 | theme/toc-tree.ts + Toc.css 折叠过渡 |
 
-配套：toc-tree.ts（纯函数：建树/扁平/计数/归属）、Toc.css（隐藏滚动条、折叠过渡）、anchor-highlight.ts（锚点闪烁，独立）。
+配套：toc-tree.ts（纯函数：建树/扁平/计数/归属）、Toc.css（隐藏滚动条、折叠过渡）、anchor-highlight.ts（锚点闪烁）、anchor-scroll.ts（点击平滑滚动 + 落地修正）。
 
 ## 设计决策与原因（改前必读）
 
@@ -31,6 +31,10 @@ description: absolute-press 框架 TOC 右栏的设计档案：scroll-spy 高亮
 - nearest = 最小修正：行可见时 rail 纹丝不动，手动滚 rail 看目录不会被抢。
 - `behavior:'instant'` 不能省成 'auto'：'auto' 继承 CSS scroll-behavior，将来全局加 smooth 会复发。
 - 页面正文不被牵连，依赖 `#abs-toc` 为 position:fixed 全高（top: nav-h、bottom: 0）：行进 rail 框即进视口，文档层 nearest 调整恒为 0。改布局先重验这一点。
+
+### 平滑滚动的目的地在起跳时固化——navigate 的落地修正走 anchor-scroll.ts
+
+引擎在 scrollIntoView 那一刻就把平滑滚动的目的地算死：动画进行中目标上方长高的内容（图片加载完、懒挂载岛屿渲染、XList 回填）不会让动画重定目标，正文停在旧位置——表现为「快到目标时停下」。scrollToAnchor（anchor-scroll.ts）在文档静止后比对当前落点与目标的 scroll-margin 锚线，偏差超 2px 就再发一次 scrollIntoView 滑翔修正，落在锚线内即停；总预算 2.5s 防目标持续移动时死循环。修正仍交给浏览器几何，不自算 offset（见下节手写滚动的教训）。读者显式滚动意图（watchUserScrollIntent，与锚点闪烁共用同一套 wheel/touchmove/scroll 键/滚动条按下判定）立即取消监听——读者输入永远赢。navigate 覆盖旧 watch（连点两个条目），onCleanup 连带取消；软导航后 el.isConnected 失效也会自行退出。
 
 ### 手写滚动几何是踩过坑的——不要复活
 

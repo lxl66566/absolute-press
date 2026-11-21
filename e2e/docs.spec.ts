@@ -303,6 +303,52 @@ test.describe('docs: chinese anchor toc', () => {
       .toBeLessThan(300);
   });
 
+  test('toc scroll corrects a landing disturbed by mid-flight layout growth', async ({
+    page,
+  }) => {
+    await page.goto(`${DOCS}/guide/configuration`);
+    const link = page
+      .locator('#ap-toc nav a')
+      .filter({ hasText: 'urls' })
+      .first();
+    await expect(link).toBeVisible();
+    // Grow 800px above the target once the scroll is underway: engines fix
+    // the smooth destination at scrollIntoView time and land 800px short
+    // without the corrective pass in anchor-scroll.ts.
+    await page.evaluate(() => {
+      let grown = false;
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (grown || window.scrollY < 100) return;
+          grown = true;
+          const el = document.getElementById('urls');
+          const spacer = document.createElement('div');
+          spacer.style.height = '800px';
+          el?.parentNode?.insertBefore(spacer, el);
+        },
+        { passive: true },
+      );
+    });
+    await link.click();
+    // Landed = the heading rests on its scroll-margin anchor line (± the
+    // landing tolerance); the uncorrected position reads about -800.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const el = document.getElementById('urls');
+            if (!el) return null;
+            const margin = parseFloat(getComputedStyle(el).scrollMarginTop);
+            return Math.abs(
+              Math.round(el.getBoundingClientRect().top - margin),
+            );
+          }),
+        { timeout: 6000 },
+      )
+      .toBeLessThanOrEqual(2);
+  });
+
   test('toc clicks flash the target heading', async ({ page }) => {
     await page.goto(`${DOCS}/guide/markdown`);
     const link = page

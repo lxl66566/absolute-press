@@ -51,51 +51,71 @@ export function isScrollbarPress(
 
 let armed = false;
 
-function onKeyDown(e: KeyboardEvent): void {
-  if (!SCROLL_KEYS.has(e.key)) return;
-  // Space/arrows inside an editable element edit text, not the scroll.
-  if (
-    e.target instanceof HTMLElement &&
-    isEditableTarget(e.target.tagName, e.target.isContentEditable)
-  ) {
-    return;
-  }
-  clearFlash();
+/**
+ * Watch for explicit reader scroll intent — wheel / touchmove / scroll keys
+ * / scrollbar grab — the inputs that mean the reader took over the scroll
+ * position. `scroll` events are excluded: programmatic scrolling fires them
+ * too. Shared by the flash's hold-until-scroll lifecycle and the anchor
+ * landing watch in anchor-scroll.ts. Returns a stop function.
+ */
+export function watchUserScrollIntent(onIntent: () => void): () => void {
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (!SCROLL_KEYS.has(e.key)) return;
+    // Space/arrows inside an editable element edit text, not the scroll.
+    if (
+      e.target instanceof HTMLElement &&
+      isEditableTarget(e.target.tagName, e.target.isContentEditable)
+    ) {
+      return;
+    }
+    onIntent();
+  };
+  // Scrollbar drags emit no wheel/touch/key events. Chromium and Safari
+  // report the press as a mousedown on <html> with coordinates inside the
+  // gutter; Firefox emits no DOM event at all for scrollbar presses, where
+  // the highlight simply persists until the next explicit scroll intent.
+  // Overlay scrollbars never produce gutter coordinates, and RTL left
+  // gutters are not detected either — in every undetected case the flash
+  // outlives the drag, which is the safe direction.
+  const onMouseDown = (e: MouseEvent): void => {
+    const root = document.documentElement;
+    if (
+      isScrollbarPress(
+        e.clientX,
+        e.clientY,
+        root.clientWidth,
+        root.clientHeight,
+      )
+    ) {
+      onIntent();
+    }
+  };
+  window.addEventListener('wheel', onIntent, { passive: true });
+  window.addEventListener('touchmove', onIntent, { passive: true });
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('mousedown', onMouseDown);
+  return () => {
+    window.removeEventListener('wheel', onIntent);
+    window.removeEventListener('touchmove', onIntent);
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('mousedown', onMouseDown);
+  };
 }
 
-// Scrollbar drags emit no wheel/touch/key events. Chromium and Safari report
-// the press as a mousedown on <html> with coordinates inside the gutter;
-// Firefox emits no DOM event at all for scrollbar presses, where the
-// highlight simply persists until the next explicit scroll intent. Overlay
-// scrollbars never produce gutter coordinates, and RTL left gutters are not
-// detected either — in every undetected case the highlight outlives the
-// drag, which is the safe direction.
-function onMouseDown(e: MouseEvent): void {
-  const root = document.documentElement;
-  if (
-    isScrollbarPress(e.clientX, e.clientY, root.clientWidth, root.clientHeight)
-  ) {
-    clearFlash();
-  }
-}
+let stopIntent: (() => void) | undefined;
 
 function clearFlash(): void {
   if (!armed) return;
   armed = false;
+  stopIntent?.();
+  stopIntent = undefined;
   document.querySelector(`.${FLASH_CLASS}`)?.classList.remove(FLASH_CLASS);
-  window.removeEventListener('wheel', clearFlash);
-  window.removeEventListener('touchmove', clearFlash);
-  window.removeEventListener('keydown', onKeyDown);
-  window.removeEventListener('mousedown', onMouseDown);
 }
 
 function armClearListeners(): void {
   if (armed) return;
   armed = true;
-  window.addEventListener('wheel', clearFlash, { passive: true });
-  window.addEventListener('touchmove', clearFlash, { passive: true });
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('mousedown', onMouseDown);
+  stopIntent = watchUserScrollIntent(clearFlash);
 }
 
 /** Element `hash` points at (percent-decoded); null for an empty hash or a
