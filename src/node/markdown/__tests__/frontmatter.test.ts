@@ -44,24 +44,27 @@ describe('frontmatter', () => {
     expect(result.html).not.toContain('unknown');
   });
 
-  it('normalizes yaml Date objects to ISO dates', () => {
+  it('keeps bare date-only stamps as written', () => {
+    // The yaml engine keeps timestamps as strings (no Date coercion), so
+    // an unquoted date takes the same path as a quoted one: date-only
+    // strings stay verbatim on the default UTC zone.
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = md.render('---\ndate: 2024-12-31\n---\n\nx', ENV);
     expect(result.frontmatter.date).toBe('2024-12-31');
   });
 
-  it('keeps the written calendar date for zoneless timestamps', () => {
-    // js-yaml constructs zoneless stamps via Date.UTC, so the written
-    // components survive as UTC ones; slicing the UTC date keeps both an
-    // early and a late moment on the written day on any host timezone
-    // (local-component formatting would push 23:30 into the next day on
-    // UTC+ hosts). Seconds are mandatory in js-yaml's stamp regex.
+  it('normalizes zoneless timestamps to UTC ISO, time preserved', () => {
+    // Unquoted stamps take the same string path as quoted ones (the yaml
+    // engine drops the Date coercion); both normalize to the T/Z form so
+    // downstream `new Date()` cannot parse them in the build host's local
+    // zone. Unlike the old Date branch — which sliced the time off — the
+    // wall time survives into `createdAt`.
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(renderDate('---\ndate: 2024-12-31T00:30:00\n---\n\nx')).toBe(
-      '2024-12-31',
+      '2024-12-31T00:30:00Z',
     );
     expect(renderDate('---\ndate: 2024-12-31T23:30:00\n---\n\nx')).toBe(
-      '2024-12-31',
+      '2024-12-31T23:30:00Z',
     );
   });
 
@@ -80,16 +83,16 @@ describe('frontmatter', () => {
     const string = md.render('---\nupdated: 2024-12-31 00:30\n---\n\nx', ENV)
       .frontmatter.updated;
     expect(string).toBe('2024-12-31T00:30:00Z');
-    const yamlDate = md.render('---\nupdated: 2024-12-31\n---\n\nx', ENV)
+    const bare = md.render('---\nupdated: 2024-12-31\n---\n\nx', ENV)
       .frontmatter.updated;
-    expect(yamlDate).toBe('2024-12-31');
+    expect(bare).toBe('2024-12-31');
   });
 
   it('stays silent in the renderer; the site scan owns unknown-key warnings', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     md.render('---\ntags: typo\nunknown: 1\n---\n\nx', ENV);
     expect(warn).not.toHaveBeenCalled();
-    parseFrontmatter('---\ntags: typo\n---\nx', 'post.md');
+    parseFrontmatter('---\ntags: typo\n---\nx', { filePath: 'post.md' });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toContain('post.md');
     expect(warn.mock.calls[0]?.[0]).toContain('tags');

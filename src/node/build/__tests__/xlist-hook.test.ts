@@ -4,7 +4,13 @@ import type { LocaleInfo, MarkdownEnv } from '../../../shared/types.ts';
 import type { PageSource } from '../pages.ts';
 import { createEntryBodiesHook } from '../xlist-hook.ts';
 
-const LOCALE: LocaleInfo = { key: '', lang: 'zh-CN', label: 'zh', prefix: '' };
+const LOCALE: LocaleInfo = {
+  key: '',
+  lang: 'zh-CN',
+  label: 'zh',
+  prefix: '',
+  timeZone: 'UTC',
+};
 
 function pageOf(filePath: string, route: string): PageSource {
   return { filePath, locale: LOCALE, relPath: route, route };

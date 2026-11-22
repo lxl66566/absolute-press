@@ -42,7 +42,7 @@ describe('messagesForLang', () => {
 function localeSite(lang: string): { locale: string; locales: LocaleInfo[] } {
   return {
     locale: 'root',
-    locales: [{ key: 'root', lang, label: 'x', prefix: '' }],
+    locales: [{ key: 'root', lang, label: 'x', prefix: '', timeZone: 'UTC' }],
   };
 }
 
@@ -67,8 +67,20 @@ describe('messagesForSite', () => {
     const site = {
       locale: 'en',
       locales: [
-        { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
-        { key: 'en', lang: 'en', label: 'English', prefix: '/en' },
+        {
+          key: 'root',
+          lang: 'zh-CN',
+          label: 'zh',
+          prefix: '',
+          timeZone: 'UTC',
+        },
+        {
+          key: 'en',
+          lang: 'en',
+          label: 'English',
+          prefix: '/en',
+          timeZone: 'UTC',
+        },
       ],
     };
     expect(messagesForSite(site)).toBe(en);

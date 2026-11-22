@@ -738,6 +738,23 @@ function resolveRefs(
  * word chars plus dashes keep URLs and file systems sane. */
 const LOCALE_KEY_RE = /^[\w-]+$/;
 
+/**
+ * Runtime guard for the compile-time optional zone (JS config files): an
+ * unknown IANA name would otherwise surface as a raw RangeError from the
+ * first date format call. Validated once per locale at resolution.
+ */
+function validateTimeZone(value: string | undefined, field: string): string {
+  const zone = value ?? 'UTC';
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: zone });
+  } catch {
+    throw new Error(
+      `[absolute-press] ${field}: unknown IANA time zone '${zone}'`,
+    );
+  }
+  return zone;
+}
+
 export function resolveConfig(
   config: AbsolutePressConfig,
   root: string,
@@ -759,18 +776,24 @@ export function resolveConfig(
       );
     }
   }
+  const siteTimeZone = validateTimeZone(config.timeZone, 'timeZone');
   const locales: LocaleInfo[] = [
     {
       key: DEFAULT_LOCALE_KEY,
       lang: config.lang ?? 'zh-CN',
       label: config.label ?? '简体中文',
       prefix: '',
+      timeZone: siteTimeZone,
     },
     ...Object.entries(config.locales ?? {}).map(([key, lc]) => ({
       key,
       lang: lc.lang,
       label: lc.label,
       prefix: `/${key}`,
+      timeZone: validateTimeZone(
+        lc.timeZone ?? siteTimeZone,
+        `locales.${key}.timeZone`,
+      ),
     })),
   ];
   const code: ResolvedCodeOptions = resolveCodeOptions(config.code);

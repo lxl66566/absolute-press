@@ -23,8 +23,14 @@ function payload(
       description: 'site description',
       base: '',
       locales: [
-        { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
-        { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+        {
+          key: 'root',
+          lang: 'zh-CN',
+          label: 'zh',
+          prefix: '',
+          timeZone: 'UTC',
+        },
+        { key: 'en', lang: 'en', label: 'en', prefix: '/en', timeZone: 'UTC' },
       ],
       locale: 'root',
     },

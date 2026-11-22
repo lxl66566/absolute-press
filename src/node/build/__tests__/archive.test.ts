@@ -29,6 +29,7 @@ const LOCALE: LocaleInfo = {
   lang: 'zh-CN',
   label: '',
   prefix: '',
+  timeZone: 'UTC',
 };
 
 function page(route: string, relPath: string): PageSource {

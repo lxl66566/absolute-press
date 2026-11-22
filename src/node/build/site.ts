@@ -668,16 +668,19 @@ export class SiteStore {
    * when the file vanished mid-event. */
   private refreshScanEntry(file: string): ScannedFile | null {
     try {
-      const fresh = scanFile(file);
-      // Watcher paths may differ in separators from the walk keys; replace
-      // under the existing key so renders and the onScan context keep one
+      // Watcher paths may differ in separators from the walk keys; resolve
+      // under the source's own key so renders and the onScan context keep one
       // entry per file instead of forking a second stale one.
       const posix = file.split(path.sep).join('/');
-      const key =
-        [...this.scan.files.keys()].find(
-          k => k.split(path.sep).join('/') === posix,
-        ) ?? file;
-      this.scan.files.set(key, fresh);
+      const source = this.scan.sources.find(
+        s => s.filePath.split(path.sep).join('/') === posix,
+      );
+      // A non-page path has no locale zone to re-read (and no cache entry to
+      // refresh meaningfully); scanFile below needs the zone the frontmatter
+      // was first interpreted in.
+      if (!source) return null;
+      const fresh = scanFile(file, source.locale.timeZone);
+      this.scan.files.set(source.filePath, fresh);
       return fresh;
     } catch {
       return null;
@@ -821,6 +824,9 @@ export class SiteStore {
       filePath: page.filePath,
       // Build-time copy (heimu tooltip) resolves by lang, like the client.
       lang: page.locale.lang,
+      // Same zone the scan pass interpreted the frontmatter dates in; the
+      // re-parse must not read them differently.
+      timeZone: page.locale.timeZone,
     });
     const entry: RenderedEntry = {
       mtimeMs: file.mtimeMs,
@@ -1625,6 +1631,7 @@ export class SiteStore {
       lang: page.locale.lang,
       route: page.route,
       filePath: page.filePath,
+      timeZone: page.locale.timeZone,
     };
     return html.replace(
       BUILD_MARKER_RE,

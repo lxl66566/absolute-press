@@ -49,8 +49,9 @@ function scannedFileOf(
   filePath: string,
   source: string,
   mtimeMs: number,
+  timeZone: string,
 ): ScannedFile {
-  const { frontmatter, raw } = parseFrontmatter(source, filePath);
+  const { frontmatter, raw } = parseFrontmatter(source, { filePath, timeZone });
   return {
     source,
     mtimeMs,
@@ -63,26 +64,37 @@ function scannedFileOf(
 /**
  * Sync single-file form of the scan pass (a single read plus stat, all
  * parsing derived); the dev watcher path uses it to refresh one cache entry,
- * the tree scan batches asynchronously below.
+ * the tree scan batches asynchronously below. `timeZone` is the file's
+ * locale zone (the caller knows it; the path alone does not).
  */
-export function scanFile(filePath: string): ScannedFile {
+export function scanFile(filePath: string, timeZone: string): ScannedFile {
   const source = fs.readFileSync(filePath, 'utf8');
-  return scannedFileOf(filePath, source, fs.statSync(filePath).mtimeMs);
+  return scannedFileOf(
+    filePath,
+    source,
+    fs.statSync(filePath).mtimeMs,
+    timeZone,
+  );
 }
 
 /** Async form of scanFile for the batched tree scan. */
-async function readFileScan(filePath: string): Promise<ScannedFile> {
-  const source = await fs.promises.readFile(filePath, 'utf8');
+async function readFileScan(page: PageSource): Promise<ScannedFile> {
+  const source = await fs.promises.readFile(page.filePath, 'utf8');
   // Stat after the read keeps "mtime at read time" honest.
-  const stat = await fs.promises.stat(filePath);
-  return scannedFileOf(filePath, source, stat.mtimeMs);
+  const stat = await fs.promises.stat(page.filePath);
+  return scannedFileOf(
+    page.filePath,
+    source,
+    stat.mtimeMs,
+    page.locale.timeZone,
+  );
 }
 
 /** Scan the content tree: walk once (scanPages), then read every file once. */
 export async function scanSite(config: ResolvedConfig): Promise<SiteScan> {
   const sources = await scanPages(config);
   const scanned = await mapWithLimit(sources, SCAN_READ_LIMIT, page =>
-    readFileScan(page.filePath),
+    readFileScan(page),
   );
   // Same Map layout as the serial form: keys follow the sources order.
   const files = new Map<string, ScannedFile>();
@@ -180,7 +192,11 @@ export function siteScanContext(
 
 /** Scan pass of a generated page: the mtime is a hash of the source, so a
  * changed generation re-renders in build mode's mtime compare. */
-export function scanVirtualFile(filePath: string, source: string): ScannedFile {
+export function scanVirtualFile(
+  filePath: string,
+  source: string,
+  timeZone: string,
+): ScannedFile {
   let hash = 0x811c9dc5;
   for (let i = 0; i < source.length; i++) {
     hash ^= source.charCodeAt(i);
@@ -188,7 +204,7 @@ export function scanVirtualFile(filePath: string, source: string): ScannedFile {
   }
   // Positive int32 keeps it a plausible mtimeMs everywhere downstream.
   const mtimeMs = Math.abs(hash) + 1;
-  const file = scannedFileOf(filePath, source, mtimeMs);
+  const file = scannedFileOf(filePath, source, mtimeMs, timeZone);
   return file;
 }
 
@@ -270,6 +286,6 @@ export function virtualPageEntry(
   const filePath = path.join(localeContentRoot(config, locale.key), relPath);
   return {
     source: { filePath, locale, relPath, route: canonical },
-    file: scanVirtualFile(filePath, input.source),
+    file: scanVirtualFile(filePath, input.source, locale.timeZone),
   };
 }

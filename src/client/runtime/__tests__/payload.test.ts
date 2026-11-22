@@ -16,7 +16,15 @@ function payloadJson(): string {
       title: 'T',
       description: 'd',
       base: '',
-      locales: [{ key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' }],
+      locales: [
+        {
+          key: 'root',
+          lang: 'zh-CN',
+          label: 'zh',
+          prefix: '',
+          timeZone: 'UTC',
+        },
+      ],
       locale: 'root',
     },
     navbar: [],
@@ -105,7 +113,15 @@ function externalJson(): string {
       title: 'T',
       description: 'd',
       base: '',
-      locales: [{ key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' }],
+      locales: [
+        {
+          key: 'root',
+          lang: 'zh-CN',
+          label: 'zh',
+          prefix: '',
+          timeZone: 'UTC',
+        },
+      ],
       locale: 'root',
     },
     chrome: 'assets/chrome-0123abcd.js',

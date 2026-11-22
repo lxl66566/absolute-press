@@ -230,7 +230,13 @@ describe('resolveConfig locales', () => {
   it('builds a default locale with no route prefix and sane defaults', () => {
     const { locales } = resolveConfig(baseConfig(), '/root');
     expect(locales).toEqual([
-      { key: 'root', lang: 'zh-CN', label: '简体中文', prefix: '' },
+      {
+        key: 'root',
+        lang: 'zh-CN',
+        label: '简体中文',
+        prefix: '',
+        timeZone: 'UTC',
+      },
     ]);
   });
 
@@ -244,6 +250,7 @@ describe('resolveConfig locales', () => {
       lang: 'en-US',
       label: 'English',
       prefix: '',
+      timeZone: 'UTC',
     });
   });
 
@@ -261,6 +268,7 @@ describe('resolveConfig locales', () => {
       lang: 'en-US',
       label: 'English',
       prefix: '/en',
+      timeZone: 'UTC',
     });
   });
 
@@ -274,6 +282,50 @@ describe('resolveConfig locales', () => {
     expect(() => resolveConfig(bad, '/root')).toThrowError(
       /locale key 'root' is reserved for the default locale/,
     );
+  });
+
+  it('defaults every locale to UTC and propagates the site zone', () => {
+    const { locales } = resolveConfig(
+      {
+        ...baseConfig(),
+        timeZone: 'Asia/Shanghai',
+        locales: { en: { lang: 'en-US', label: 'English' } },
+      },
+      '/root',
+    );
+    expect(locales.map(l => l.timeZone)).toEqual([
+      'Asia/Shanghai',
+      'Asia/Shanghai',
+    ]);
+  });
+
+  it('lets an extra locale override the site zone', () => {
+    const { locales } = resolveConfig(
+      {
+        ...baseConfig(),
+        timeZone: 'Asia/Shanghai',
+        locales: {
+          en: { lang: 'en-US', label: 'English', timeZone: 'Europe/Berlin' },
+        },
+      },
+      '/root',
+    );
+    expect(locales[1]!.timeZone).toBe('Europe/Berlin');
+  });
+
+  it('rejects unknown zone names at both levels', () => {
+    expect(() =>
+      resolveConfig({ ...baseConfig(), timeZone: 'Mars/Olympus' }, '/root'),
+    ).toThrowError(/timeZone: unknown IANA time zone 'Mars\/Olympus'/);
+    expect(() =>
+      resolveConfig(
+        {
+          ...baseConfig(),
+          locales: { en: { lang: 'en', label: 'en', timeZone: 'Shanghai' } },
+        },
+        '/root',
+      ),
+    ).toThrowError(/locales\.en\.timeZone: unknown IANA time zone 'Shanghai'/);
   });
 
   it('rejects keys unusable as a route prefix or directory name', () => {

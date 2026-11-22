@@ -12,6 +12,7 @@ const RSS_LOCALE: LocaleInfo = {
   lang: 'zh-CN',
   label: 'zh',
   prefix: '',
+  timeZone: 'UTC',
 };
 const rssConfig = {
   hostname: 'https://example.com',
@@ -115,6 +116,7 @@ describe('renderRss', () => {
       lang: 'en-US',
       label: 'English',
       prefix: '/en',
+      timeZone: 'UTC',
     };
     const xml = renderRss(rssConfig, [article(1)], locale);
     expect(xml).toContain('<language>en-US</language>');

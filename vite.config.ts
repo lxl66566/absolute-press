@@ -28,6 +28,9 @@ const config: UserConfig = defineConfig({
         description:
           'Absolute Press：SolidJS 静态博客框架官方文档。MPA SSG + islands 架构。',
         hostname: 'https://lxl66566.github.io/absolute-press',
+        // Dogfoods the site time zone: the +08 author's git dates render on
+        // the author's wall calendar instead of the UTC one.
+        timeZone: 'Asia/Shanghai',
         locales: {
           en: { lang: 'en', label: 'English' },
         },

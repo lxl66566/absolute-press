@@ -101,10 +101,11 @@ describe('scanSite', () => {
       tag: ['x', 'y'],
       icon: 'solid/code',
     });
-    // rawFrontmatter keeps yaml-native values: a bare date parses to a Date
-    // (the normalized copy above carries the string) and unknown keys survive.
+    // rawFrontmatter keeps yaml-native values: timestamps stay strings (the
+    // engine drops the Date coercion so the zone interpretation is possible)
+    // and unknown keys survive.
     expect(file!.rawFrontmatter.custom).toBe(42);
-    expect(file!.rawFrontmatter.date).toBeInstanceOf(Date);
+    expect(file!.rawFrontmatter.date).toBe('2024-05-01');
     expect(file!.fenceLangs).toEqual(['rust']);
     expect(file!.source).toContain('fn main()');
     expect(typeof file!.mtimeMs).toBe('number');
@@ -128,7 +129,7 @@ describe('scanSite', () => {
 describe('scanFile', () => {
   it('parses a file without frontmatter as empty meta', async () => {
     const { abs } = await scanFixture({ 'plain.md': '# No frontmatter\n' });
-    const file = scanFile(abs('plain.md'));
+    const file = scanFile(abs('plain.md'), 'UTC');
     expect(file.frontmatter).toEqual({});
     expect(file.rawFrontmatter).toEqual({});
     expect(file.fenceLangs).toEqual([]);

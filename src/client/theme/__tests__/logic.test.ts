@@ -19,8 +19,14 @@ const siteWithLocale = (locale: string): PagePayload['site'] => ({
   base: '',
   locale,
   locales: [
-    { key: 'zh', lang: 'zh-CN', label: '简体中文', prefix: '' },
-    { key: 'en', lang: 'en', label: 'English', prefix: '/en' },
+    {
+      key: 'zh',
+      lang: 'zh-CN',
+      label: '简体中文',
+      prefix: '',
+      timeZone: 'UTC',
+    },
+    { key: 'en', lang: 'en', label: 'English', prefix: '/en', timeZone: 'UTC' },
   ],
 });
 

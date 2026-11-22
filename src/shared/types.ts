@@ -213,6 +213,12 @@ export interface LocaleInfo {
   label: string;
   /** Route prefix, '' for default locale, '/en' etc otherwise. */
   prefix: string;
+  /**
+   * Resolved IANA time zone (`SiteConfig.timeZone`, overridable per extra
+   * locale): zoneless frontmatter dates are interpreted in it and every
+   * date renders on its wall calendar.
+   */
+  timeZone: string;
 }
 
 /** Reference edge between two of a page's related articles. */
@@ -415,6 +421,8 @@ export interface LocaleConfig {
   lang: string;
   /** Shown in locale switcher. */
   label: string;
+  /** Overrides the site-level `timeZone` for this locale's content. */
+  timeZone?: string;
 }
 
 /** Default articles per page of the home feed; the payload omits the default. */
@@ -433,6 +441,16 @@ export interface SiteConfig {
   description: string;
   /** Canonical site URL (origin + optional base path) for SEO/sitemap/RSS, e.g. `https://user.github.io/repo`. */
   hostname: string;
+  /**
+   * IANA time zone (e.g. 'Asia/Shanghai') that zoneless frontmatter dates
+   * are interpreted in and every displayed date renders on — the author's
+   * wall calendar instead of UTC, which keeps a build reproducible on any
+   * host while the git-derived `updatedAt` of an off-UTC author no longer
+   * shows on the previous day. Extra locales override it via
+   * `locales.<key>.timeZone`. Unknown names fail config resolution.
+   * @default 'UTC'
+   */
+  timeZone?: string;
   /**
    * Built-in build component options. Build components are markdown tags
    * rendered to final static HTML at build time (no client JS) — the
@@ -706,6 +724,12 @@ export interface MarkdownEnv {
    * default-locale copy (heimu tooltip resolves UI copy by lang prefix).
    */
   lang?: string;
+  /**
+   * Resolved locale time zone; keeps the re-parse of frontmatter dates
+   * identical to the site scan's interpretation. Omitted reads zoneless
+   * stamps as UTC (tests, standalone renders).
+   */
+  timeZone?: string;
 }
 
 /** Island registration for the markdown renderer (tag names must be PascalCase). */

@@ -17,6 +17,7 @@ icon: solid/gear
 - `title`（必填，string）：站点名，进入 `<title>`、RSS、sitemap
 - `description`（必填，string）：站点描述，进入 SEO meta 与 RSS channel
 - `hostname`（必填，string）：规范 origin（不带尾斜杠），用于 SEO og、sitemap 与 RSS 的绝对链接，如 `https://absolute-docs.pages.dev`
+- `timeZone`（可选，string，IANA 名如 `Asia/Shanghai`）：站点时区，默认 `UTC`。无时区的 frontmatter 日期按它解释，git 推导的 `updatedAt` 与全部展示日期也按它的墙钟渲染——`+08` 作者凌晨的提交不再显示成前一天。额外 locale 可用 `locales.<key>.timeZone` 覆盖；未知名称构建期报错。排序、sitemap `lastmod`、RSS `pubDate` 始终是时刻（instant），不受影响
 - `favicon`（可选，string）：站点 favicon，相对站点 public 根解析（语义同 `nav.logo`），如 `/favicon.svg`；构建期输出 `<link rel="icon">`，`type` 按扩展名推导（ico/png/svg/webp，其余扩展名不带 `type`），href 随页面深度加相对前缀，子路径部署不断链
 
 ## locales
@@ -27,8 +28,8 @@ locales: {
 }
 ```
 
-- 默认 locale 固定占 contentDir 根，`<html lang>` 默认 `zh-CN`、切换器文案默认 `简体中文`，可用顶层 `lang` / `label` 覆盖
-- 其余 locale 的内容放 `<contentDir>/<key>/`，路由加 `/en` 前缀
+- 默认 locale 固定占 contentDir 根，`<html lang>` 默认 `zh-CN`、切换器文案默认 `简体中文`，可用顶层 `lang` / `label` 覆盖；时区默认跟随顶层 `timeZone`
+- 其余 locale 的内容放 `<contentDir>/<key>/`，路由加 `/en` 前缀，可用 `timeZone` 字段独立配置时区
 - 详见[多语言](./i18n.md)
 
 ## iconProvider
@@ -397,7 +398,7 @@ onScan: (ctx: SiteScanContext) => ({
 
 站点数据钩子：框架单遍扫描内容树，每轮扫描完成后、渲染前运行一次——dev 启动、构建、dev 结构变更 resync 与内容编辑都会触发。参数 `SiteScanContext` 是 `{ config, pages, addPage }`：`config` 是全量解析后的站点配置（`ResolvedConfig`），`pages` 是全部 locale 的页面清单，按配置 locale 顺序排列，类型可从 `absolute-press` 导入；`addPage` 在钩子内注册数据生成的页面，见下文。
 
-返回值会被 JSON 序列化进 `virtual:absolute-press/site-data` 虚拟模块（default export 即返回值），供站点 island 消费，消费方式见[Islands](./islands.md#站点-island-读取全站数据-site-data)。因此返回值必须 JSON 可序列化（`rawFrontmatter` 里的裸日期是 `Date` 对象，需要字符串时先自行 `toISOString`）；返回 Promise 会被 await。
+返回值会被 JSON 序列化进 `virtual:absolute-press/site-data` 虚拟模块（default export 即返回值），供站点 island 消费，消费方式见[Islands](./islands.md#站点-island-读取全站数据-site-data)。因此返回值必须 JSON 可序列化；返回 Promise 会被 await。
 
 动机：locale 目录归属、README/index 语义、frontmatter 规范化与未知键告警、git 时间都以框架扫描为准。消费方不必再自己 walk 目录、parse frontmatter、查 git 时间——在 `onScan` 里从 `pages` 派生站点数据，语义与框架天然一致；dev 下内容编辑触发新一轮扫描，数据自动刷新，无需重启 dev server（在 vite.config.ts 里自扫内容的老做法需要重启才能拿到新数据）。
 
@@ -406,9 +407,9 @@ onScan: (ctx: SiteScanContext) => ({
 - `filePath: string`：markdown 源文件的绝对路径
 - `route: string`：带 locale 前缀的 clean 路由——叶子页 `/guide/a`、目录索引 `/guide/`（`urls.directoryIndex: 'bare'` 时为 `/guide`）、locale 首页 `/en/`、站点首页 `/`
 - `relPath: string`：相对 locale 内容根的路径，posix 分隔符
-- `locale: LocaleInfo`：页面所属 locale（`key` / `lang` / `label` / `prefix`）
+- `locale: LocaleInfo`：页面所属 locale（`key` / `lang` / `label` / `prefix` / `timeZone`）
 - `frontmatter: PageFrontmatter`：框架识别键的规范化结果（七个键，语义见[页面级配置](#页面级配置-frontmatter)）
-- `rawFrontmatter: Record<string, unknown>`：yaml 原生解析结果，自定义键在这里；裸日期是 `Date` 对象
+- `rawFrontmatter: Record<string, unknown>`：yaml 原生解析结果，自定义键在这里；日期一律是原样字符串（`date` / `updated` 的规范化值在 `frontmatter` 与 `createdAt` 上）
 - `createdAt: string | null`：frontmatter `date` 的 ISO 字符串，缺失或不可解析为 `null`
 - `updatedAt: string | null`：git 最后提交时间的 ISO 字符串，不可用（如不在 git 仓库）为 `null`
 

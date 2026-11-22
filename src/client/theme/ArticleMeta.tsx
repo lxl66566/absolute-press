@@ -3,7 +3,7 @@ import type { Element as SolidElement } from 'solid-js';
 
 import type { PagePayload } from '../../shared/types';
 import { MetaChip } from './ArticleCard';
-import { formatDate } from './date';
+import { formatDate, timeZoneOf } from './date';
 import { FaIcon } from './FaIcon';
 import { useMessages } from './i18n';
 import { ClockIcon } from './icons';
@@ -12,11 +12,12 @@ import { ClockIcon } from './icons';
 export function ArticleMeta(props: { payload: PagePayload }): SolidElement {
   const t = useMessages(() => props.payload.site);
   const page = () => props.payload.page;
-  const created = () => formatDate(page().createdAt);
+  const zone = () => timeZoneOf(props.payload.site);
+  const created = () => formatDate(page().createdAt, zone());
   // Same-day created/updated renders a single date (vuepress-theme-hope
   // parity); compare the formatted values, not the raw ISO strings.
   const updated = () => {
-    const value = formatDate(page().updatedAt);
+    const value = formatDate(page().updatedAt, zone());
     return value !== null && value === created() ? null : value;
   };
   return (

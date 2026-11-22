@@ -59,6 +59,7 @@ overview: true # default true; only meaningful on a directory's index.md
 - `createdAt` comes from frontmatter `date` and drives article feed ordering
 - `updatedAt` defaults to the file's **last git commit time** (queried in batch at build time); outside a git repository (or for untracked files) it is `null`, and the page shows no update time. A shallow CI clone collapses every page's time to the single checked-out commit — see [Deployment](./deploy.md#ci-suggestion)
 - frontmatter `updated` overrides `updatedAt` explicitly: rebase/squash history rewrites drift the git time, and shallow CI clones collapse it, so writing `updated` once corrects the "recently updated" lists and the sitemap `lastmod`. An unparsable value warns and falls back to the git time
+- Displayed dates render on the site time zone (config `timeZone`, default UTC): zoneless `date` values are interpreted in it and the git `updatedAt` converts onto its wall clock. Setting your own zone keeps an early-morning commit off the previous day; without it everything reads UTC
 
 So daily writing only needs one `date` written at creation; "last edited" is maintained by git by default — `updated` is only worth writing when the git time is unreliable.
 

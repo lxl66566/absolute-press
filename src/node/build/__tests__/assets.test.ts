@@ -15,7 +15,13 @@ import type { DeadLink } from '../assets.ts';
 import { routeOf } from '../pages.ts';
 import type { PageSource } from '../pages.ts';
 
-const LOCALE: LocaleInfo = { key: '', lang: 'zh-CN', label: 'zh', prefix: '' };
+const LOCALE: LocaleInfo = {
+  key: '',
+  lang: 'zh-CN',
+  label: 'zh',
+  prefix: '',
+  timeZone: 'UTC',
+};
 
 /** Platform-safe absolute content path (LinkResolver uses path.resolve). */
 function file(rel: string): string {

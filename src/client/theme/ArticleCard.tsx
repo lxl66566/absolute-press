@@ -3,7 +3,7 @@ import type { Element as SolidElement } from 'solid-js';
 
 import type { ArticleInfo, PagePayload } from '../../shared/types';
 import { cx } from './cx';
-import { formatDate } from './date';
+import { formatDate, timeZoneOf } from './date';
 import { FaIcon } from './FaIcon';
 import { FolderIcon, TagIcon } from './icons';
 import { archiveHref, localePrefixOf, withBase } from './links';
@@ -52,7 +52,8 @@ export function ArticleCard(props: {
   /** Site icons map (payload `site.icons`); the icon key resolves here. */
   icons?: Record<string, string>;
 }): SolidElement {
-  const date = () => formatDate(props.article.createdAt);
+  const date = () =>
+    formatDate(props.article.createdAt, timeZoneOf(props.site));
   // Chip renders only when the key maps to a registered icon: a raw key like
   // "solid/box" printed as text is worse than no chip (FaIcon itself also
   // degrades to nothing on unparseable svg markup).

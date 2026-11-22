@@ -59,6 +59,7 @@ overview: true # 默认 true；仅对目录的 index.md 生效
 - `createdAt` 来自 frontmatter `date`，是文章流的排序依据
 - `updatedAt` 默认取该文件 **git 最后一次提交时间**（构建时批量查询）；不是 git 仓库（或文件未跟踪）时为 `null`，页面不显示更新时间；CI 浅克隆会让所有页面时间塌缩成唯一提交的时间，见[部署](./deploy.md#持续集成建议)
 - frontmatter `updated` 可显式覆盖 `updatedAt`：git 历史被 rebase/squash 重写后时间会漂移，浅克隆 CI 里全部塌缩，这种时候写一次 `updated` 就能把列表页的「最近更新」与 sitemap 的 `lastmod` 校正回来。无法解析的值会打 warning 并回退到 git 时间
+- 展示日期按站点时区（config `timeZone`，默认 UTC）渲染：无时区的 `date` 按它解释，git 的 `updatedAt` 也换算到它的墙钟。配上自己所在时区后，凌晨提交不再显示成前一天；不配置则与 UTC 完全一致
 
 因此日常写作只需要在创建时写一次 `date`，「最后编辑于」默认由 git 自动维护；只有 git 时间不可靠时才需要手工写 `updated`。
 

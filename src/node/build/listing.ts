@@ -1,3 +1,4 @@
+import { formatDate } from '../../shared/date.ts';
 /**
  * Built-in listing pages (config `pages`): the timeline, the category
  * overview and the tag overview. Synthetic like the archive pages — one
@@ -88,10 +89,13 @@ interface YearGroup {
 }
 
 /** Fold the date-sorted list into adjacent year groups (null year last). */
-function groupByYear(articles: ArticleInfo[]): YearGroup[] {
+function groupByYear(articles: ArticleInfo[], timeZone: string): YearGroup[] {
   const groups: YearGroup[] = [];
   for (const a of articles) {
-    const year = a.createdAt === null ? null : a.createdAt.slice(0, 4);
+    // Group on the rendered (zone wall) date, not the instant's UTC
+    // components — an off-UTC site groups a new-year-eve post into the
+    // year the author sees.
+    const year = formatDate(a.createdAt, timeZone)?.slice(0, 4) ?? null;
     const last = groups[groups.length - 1];
     if (last && last.year === year) last.articles.push(a);
     else groups.push({ year, articles: [a] });
@@ -104,10 +108,11 @@ function timelineHtml(
   articles: ArticleInfo[],
   base: string,
   lang: string | undefined,
+  timeZone: string,
 ): string {
   if (articles.length === 0) return '';
   const t = messagesForLang(lang).listing;
-  const groups = groupByYear(articles)
+  const groups = groupByYear(articles, timeZone)
     .map(group => {
       const label =
         group.year === null
@@ -115,7 +120,7 @@ function timelineHtml(
           : escapeHtml(group.year, { attr: false });
       const rows = group.articles
         .map(a => {
-          const date = a.createdAt?.slice(0, 10) ?? null;
+          const date = formatDate(a.createdAt, timeZone);
           return (
             '<li><a class="ap-timeline__link" href="' +
             escapeHtml(withBase(base, a.route)) +
@@ -182,7 +187,7 @@ export function renderListingContent(
   const t = messagesForLang(lang);
   const body =
     listing.kind === 'timeline'
-      ? timelineHtml(data.articles, base, lang)
+      ? timelineHtml(data.articles, base, lang, listing.locale.timeZone)
       : termsHtml(
           listing.kind === 'categories' ? data.categoryChips : data.tagChips,
           base,

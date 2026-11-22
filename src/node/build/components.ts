@@ -28,6 +28,8 @@ export interface BuildComponentContext {
   icons: Record<string, string>;
   /** `<html lang>` of the host page; drives UI copy resolution. */
   lang: string | undefined;
+  /** Resolved locale zone the host page's dates render in. */
+  timeZone: string;
   /** Clean route of the host page. */
   route: string;
   /** Source file of the host page, for error messages. */
@@ -73,7 +75,7 @@ function recentColumn(
   const rows = articles
     .map(article => {
       const raw = kind === 'latest' ? article.createdAt : article.updatedAt;
-      const date = formatDate(raw);
+      const date = formatDate(raw, ctx.timeZone);
       const icon = iconSvg(article.icon, ctx.icons);
       const time =
         raw === null || date === null

@@ -14,6 +14,7 @@ const LOCALE = {
   lang: 'zh-CN',
   label: '简体中文',
   prefix: '',
+  timeZone: 'UTC',
 };
 
 function article(route: string, createdAt: string | null): ArticleInfo {
@@ -118,6 +119,30 @@ describe('renderListingContent', () => {
     );
     // Undated rows render a dash, no datetime attribute.
     expect(html).toContain('<span class="ap-timeline__date">—</span>');
+  });
+
+  it('renders timeline rows on the locale zone calendar', () => {
+    // 2024-12-31T18:30Z is already 2025-01-01 on a +08 site: the row date
+    // and the year grouping both follow the zone wall clock.
+    const html = renderListingContent(
+      listingOf('timeline', { ...LOCALE, timeZone: 'Asia/Shanghai' }),
+      {
+        articles: [
+          article('/a', '2024-12-31T18:30:00Z'),
+          article('/b', '2024-05-01T00:00:00Z'),
+        ],
+        categoryChips: [],
+        tagChips: [],
+      },
+      '../',
+    );
+    const years = [...html.matchAll(/ap-timeline__year">([^<]+)</g)].map(
+      m => m[1],
+    );
+    expect(years).toEqual(['2025', '2024']);
+    expect(html).toContain(
+      '<time class="ap-timeline__date" datetime="2025-01-01">2025-01-01</time>',
+    );
   });
 
   it('renders the terms cloud with counts and the base-prefixed archive href', () => {

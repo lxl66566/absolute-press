@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import type { LocaleInfo, PagePayload } from '../../../shared/types.ts';
 import { baseOf, renderShell, serializeInlineJson } from '../shell.ts';
 
-const LOCALE: LocaleInfo = { key: '', lang: 'zh-CN', label: 'zh', prefix: '' };
+const LOCALE: LocaleInfo = {
+  key: '',
+  lang: 'zh-CN',
+  label: 'zh',
+  prefix: '',
+  timeZone: 'UTC',
+};
 
 function payload(route: string): PagePayload {
   return {
@@ -292,7 +298,7 @@ describe('renderShell og:type', () => {
     enHome.site.locale = 'en';
     enHome.site.locales = [
       ...enHome.site.locales,
-      { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+      { key: 'en', lang: 'en', label: 'en', prefix: '/en', timeZone: 'UTC' },
     ];
     expect(shell('/en/', { payload: enHome })).toContain(
       '<meta property="og:type" content="website">',
@@ -544,11 +550,17 @@ describe('renderShell JSON-LD', () => {
     enHome.site.locale = 'en';
     enHome.site.locales = [
       ...enHome.site.locales,
-      { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+      { key: 'en', lang: 'en', label: 'en', prefix: '/en', timeZone: 'UTC' },
     ];
     const html = shell('/en/', {
       payload: enHome,
-      locale: { key: 'en', lang: 'en', label: 'en', prefix: '/en' },
+      locale: {
+        key: 'en',
+        lang: 'en',
+        label: 'en',
+        prefix: '/en',
+        timeZone: 'UTC',
+      },
     });
     expect(jsonLd(html)['@type']).toBe('WebSite');
     expect(jsonLd(html)['inLanguage']).toBe('en');

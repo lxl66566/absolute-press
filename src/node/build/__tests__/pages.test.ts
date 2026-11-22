@@ -20,7 +20,13 @@ import {
 } from '../pages.ts';
 import type { PageSource, RenderedPage } from '../pages.ts';
 
-const LOCALE: LocaleInfo = { key: '', lang: 'zh-CN', label: 'zh', prefix: '' };
+const LOCALE: LocaleInfo = {
+  key: '',
+  lang: 'zh-CN',
+  label: 'zh',
+  prefix: '',
+  timeZone: 'UTC',
+};
 
 function page(rel: string, route: string): PageSource {
   return {

@@ -28,6 +28,7 @@ function ctx(
     base: '',
     icons: {},
     lang: undefined,
+    timeZone: 'UTC',
     route: '/',
     filePath: '/content/index.md',
     ...extra,
@@ -81,6 +82,17 @@ describe('RecentArticles build component', () => {
     const html = render({}, ctx([art('/a', { updatedAt: '2026-01-01' })]));
     expect(html).toContain('最新文章');
     expect(html).not.toContain('最近更新');
+  });
+
+  it('renders dates on the locale zone calendar', () => {
+    // 2024-12-31T18:00Z is a 2025-01-01 moment in Asia/Shanghai.
+    const html = render(
+      { latest: 1 },
+      ctx([art('/a', { createdAt: '2024-12-31T18:00:00Z' })], {
+        timeZone: 'Asia/Shanghai',
+      }),
+    );
+    expect(html).toContain('>2025-01-01</time>');
   });
 
   it('orders the updated column by git time, skipping never-updated pages', () => {

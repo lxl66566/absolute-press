@@ -240,6 +240,7 @@ describe('runRenderShards', () => {
       lang: 'zh-CN',
       label: 'zh',
       prefix: '',
+      timeZone: 'UTC',
     };
     // The same big list twice: externalized past the threshold, inline below.
     const big = 'x'.repeat(48);

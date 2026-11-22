@@ -27,7 +27,13 @@ function page(
   const route = routeOf(relPath, '', 'slash');
   return {
     filePath: `/site/content/${relPath}`,
-    locale: { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
+    locale: {
+      key: 'root',
+      lang: 'zh-CN',
+      label: 'zh',
+      prefix: '',
+      timeZone: 'UTC',
+    },
     relPath,
     route,
     meta: {
@@ -275,7 +281,13 @@ describe('overview opt-out through the real parse pipeline', () => {
     const route = routeOf(relPath, '', 'slash');
     return {
       filePath: `/site/content/${relPath}`,
-      locale: { key: 'root', lang: 'zh-CN', label: 'zh', prefix: '' },
+      locale: {
+        key: 'root',
+        lang: 'zh-CN',
+        label: 'zh',
+        prefix: '',
+        timeZone: 'UTC',
+      },
       relPath,
       route,
       meta: {

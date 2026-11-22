@@ -285,7 +285,9 @@ export async function createMarkdownRenderer(
   function render(src: string, env: MarkdownEnv): RenderResult {
     // The site scan already parsed (and warned about) this file's
     // frontmatter; the renderer re-parse stays silent.
-    const { frontmatter, content } = parseFrontmatter(src);
+    const { frontmatter, content } = parseFrontmatter(src, {
+      timeZone: env.timeZone,
+    });
     const ctx = makeCtx(env, new Slugger(), 0);
     const html = renderFragment(content, ctx, true);
     const scan = ctx.islandScan;
@@ -319,7 +321,7 @@ export async function createMarkdownRenderer(
   const REF_SEQ_OFFSET = 1_000_000;
 
   function renderRef(src: string, env: MarkdownEnv): string {
-    const { content } = parseFrontmatter(src);
+    const { content } = parseFrontmatter(src, { timeZone: env.timeZone });
     refSeq += 1;
     const seed = refSeq * REF_SEQ_OFFSET;
     const ctx = makeCtx(env, new Slugger(`ap-term-${refSeq}-`), seed);

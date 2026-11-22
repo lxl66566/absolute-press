@@ -17,6 +17,7 @@ Site config is passed in via `absolutePress(defineSiteConfig({...}))`. Type defi
 - `title` (required, string): site name; goes into `<title>`, RSS, and the sitemap
 - `description` (required, string): site description; goes into SEO meta and the RSS channel
 - `hostname` (required, string): canonical origin (no trailing slash), used for absolute links in SEO og tags, the sitemap, and RSS, e.g. `https://absolute-docs.pages.dev`
+- `timeZone` (optional, string, an IANA name like `Asia/Shanghai`): site time zone, default `UTC`. Zoneless frontmatter dates are interpreted in it, and the git-derived `updatedAt` plus every displayed date render on its wall calendar — a `+08` author's early-morning commit no longer shows on the previous day. Extra locales override via `locales.<key>.timeZone`; unknown names fail the build. Sorting, sitemap `lastmod` and RSS `pubDate` stay instants and are unaffected
 - `favicon` (optional, string): site favicon, resolved against the site public root (same semantics as `nav.logo`), e.g. `/favicon.svg`; at build time emits `<link rel="icon">` with the `type` derived from the extension (ico/png/svg/webp, other extensions ship without `type`), and the href gets the page-depth relative prefix so subpath deploys never break it
 
 ## locales
@@ -27,8 +28,8 @@ locales: {
 }
 ```
 
-- The default locale always occupies the contentDir root. `<html lang>` defaults to `zh-CN` and the switcher label defaults to `简体中文`; override with the top-level `lang` / `label`
-- Other locales put their content in `<contentDir>/<key>/`, and their routes get an `/en`-style prefix
+- The default locale always occupies the contentDir root. `<html lang>` defaults to `zh-CN` and the switcher label defaults to `简体中文`; override with the top-level `lang` / `label`; the time zone follows the top-level `timeZone`
+- Other locales put their content in `<contentDir>/<key>/` and their routes get an `/en`-style prefix; each carries its own `timeZone` field
 - See [Internationalization](./i18n.md)
 
 ## iconProvider
@@ -397,7 +398,7 @@ onScan: (ctx: SiteScanContext) => ({
 
 The site-data hook: the framework scans the content tree in a single pass and runs the hook once per scan, after the scan and before rendering — dev startup, builds, dev structural resyncs, and content edits all trigger it. The argument `SiteScanContext` is `{ config, pages, addPage }`: `config` is the fully resolved site config (`ResolvedConfig`); `pages` is the page inventory of all locales, in config locale order. Both types are importable from `absolute-press`; `addPage` registers data-generated pages during the hook (see below).
 
-The return value is JSON-serialized into the `virtual:absolute-press/site-data` virtual module (its default export), consumed by site islands — see [Islands](./islands.md#reading-site-wide-data-site-data). The return value must therefore be JSON-serializable (a bare date in `rawFrontmatter` is a `Date` object; call `toISOString` yourself when you need a string); a returned promise is awaited.
+The return value is JSON-serialized into the `virtual:absolute-press/site-data` virtual module (its default export), consumed by site islands — see [Islands](./islands.md#reading-site-wide-data-site-data). The return value must therefore be JSON-serializable; a returned promise is awaited.
 
 Motivation: locale directory ownership, README/index semantics, frontmatter normalization and unknown-key warnings, and git times are all owned by the framework scan. Consumers no longer walk directories, parse frontmatter, or query git themselves — derive site data from `pages` in `onScan` and the semantics match the framework by construction; in dev, content edits trigger a fresh scan so the data refreshes without a dev-server restart (the old approach of scanning inside vite.config.ts needed a restart to pick up changes).
 
@@ -406,9 +407,9 @@ Motivation: locale directory ownership, README/index semantics, frontmatter norm
 - `filePath: string`: absolute path of the markdown source
 - `route: string`: locale-prefixed clean route — leaf `/guide/a`, directory index `/guide/` (`/guide` with `urls.directoryIndex: 'bare'`), locale home `/en/`, site home `/`
 - `relPath: string`: path relative to the locale content root, posix separators
-- `locale: LocaleInfo`: the page's locale (`key` / `lang` / `label` / `prefix`)
+- `locale: LocaleInfo`: the page's locale (`key` / `lang` / `label` / `prefix` / `timeZone`)
 - `frontmatter: PageFrontmatter`: the normalization result over the framework-recognized keys (the seven keys; semantics in [per-page config](#per-page-config-frontmatter))
-- `rawFrontmatter: Record<string, unknown>`: the frontmatter as the yaml parser produced it; custom keys live here, bare dates are `Date` objects
+- `rawFrontmatter: Record<string, unknown>`: the frontmatter as the yaml parser produced it; custom keys live here, and dates are always plain strings (the normalized `date` / `updated` values live on `frontmatter` and `createdAt`)
 - `createdAt: string | null`: frontmatter `date` as an ISO string; null when absent or unparsable
 - `updatedAt: string | null`: last git commit time as an ISO string; null when unavailable (e.g. not a git repo)
 
